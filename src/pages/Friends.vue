@@ -141,30 +141,31 @@ const refreshFriendsList = () => {
 }
 
 // Приглашение друга через Telegram
-const inviteFriend = async () => {
+const inviteFriend = () => {
   if (!user.value) return
 
-  const referralLink = ReferralService.createReferralLink(user.value.id)
+  const referralLink = window.location.origin + '?ref=' + user.value.id
   const message = `Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`
 
   if (tg) {
-    // Используем Telegram WebApp для шаринга
-    tg.sendMessage(message)
+    // Для Telegram Mini App используем ShareButton
+    tg.showPopup({
+      title: 'Пригласить друга',
+      message: 'Хотите поделиться игрой с друзьями?',
+      buttons: [
+        {
+          type: 'default',
+          text: 'Да, пригласить',
+          onClick: () => {
+            tg.shareUrl(referralLink)
+          }
+        }
+      ]
+    })
   } else {
-    // Fallback для браузеров
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Приглашение в игру',
-          text: message,
-          url: referralLink
-        })
-      } catch (err) {
-        navigator.clipboard.writeText(message)
-      }
-    } else {
-      navigator.clipboard.writeText(message)
-    }
+    // Fallback для браузера
+    navigator.clipboard.writeText(message)
+    alert('Ссылка скопирована в буфер обмена')
   }
 }
 

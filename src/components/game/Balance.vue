@@ -64,7 +64,7 @@ onMounted(() => {
 
 
 .balance__amount--increasing {
-  color: #4CAF50;
+  color: #fff;
 }
 
 @keyframes pulse {
