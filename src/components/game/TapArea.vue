@@ -34,7 +34,7 @@ let isAnimating = false
 
 // Следим за изменением уровня
 const backgroundImage = computed(() => {
-  return `url(/src/assets/images/bg-level-${store.level.current}.png)`
+  return `url(../assets/images/bg-level-${store.level.current}.png)`
 })
 
 

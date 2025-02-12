@@ -33,42 +33,42 @@ const products = [
   {
     id: 1,
     title: 'Участие в розыгрыше BMW M5',
-    image: '/src/assets/images/products/1.png',
+    image: '../assets/images/products/1.png',
     income: '1 000 000 000',
     gradient: 'linear-gradient(140.83deg, rgb(111, 95, 242) 0%, rgb(73, 51, 131) 100%)'
   },
   {
     id: 2,
     title: 'Участие в розыгрыше iPhone',
-    image: '/src/assets/images/products/2.png',
+    image: '../assets/images/products/2.png',
     income: '100 000 000',
     gradient: 'linear-gradient(140.83deg, rgb(242, 95, 95) 0%, rgb(131, 51, 51) 100%)'
   },
   {
     id: 3,
     title: 'Финансовая диагностика',
-    image: '/src/assets/images/products/3.png',
+    image: '../assets/images/products/3.png',
     income: '10 000 000',
     gradient: 'linear-gradient(140.83deg, rgb(95, 135, 242) 0%, rgb(51, 71, 131) 100%)'
   },
   {
     id: 4,
     title: 'Денежный марафон',
-    image: '/src/assets/images/products/4.png',
+    image: '../assets/images/products/4.png',
     income: '1 000 000',
     gradient: 'linear-gradient(140.83deg, rgb(95, 242, 169) 0%, rgb(51, 131, 94) 100%)'
   },
   {
     id: 5,
     title: 'Вебинар о пассивном доходе',
-    image: '/src/assets/images/products/5.png',
+    image: '../assets/images/products/5.png',
     income: '500 000',
     gradient: 'linear-gradient(140.83deg, rgb(242, 95, 156) 0%, rgb(131, 51, 87) 100%)'
   },
   {
     id: 6,
     title: 'Инвест клуб по подписке',
-    image: '/src/assets/images/products/6.png',
+    image: '../assets/images/products/6.png',
     income: '200 000',
     gradient: 'linear-gradient(140.83deg, rgb(242, 162, 95) 0%, rgb(131, 90, 51) 100%)'
   }

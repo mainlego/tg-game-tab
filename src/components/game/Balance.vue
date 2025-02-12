@@ -1,7 +1,7 @@
 <!-- src/components/game/Balance.vue -->
 <template>
   <div class="balance">
-    <img src="/src/assets/images/coin.png" class="balance__icon" alt="coin">
+    <img src="../assets/images/coin.png" class="balance__icon" alt="coin">
     <span class="balance__amount" :class="{ 'balance__amount--increasing': isIncreasing }">
       {{ formattedBalance }}
     </span>
