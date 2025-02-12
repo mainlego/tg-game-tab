@@ -221,7 +221,7 @@ const formatMoney = (num) => {
 
 .grid-scroll {
   overflow: auto;
-  height: 100vh;
+  max-height: 55vh;
   padding: 4px;
 }
 
@@ -330,7 +330,7 @@ const formatMoney = (num) => {
   border-top: 4px solid var(--primary-color);
   border-radius: 40px 40px 0 0;
   background: url("../../images/bg.jp");
-  margin-top: 40px;
+  margin-top: 20px;
 }
 
 
