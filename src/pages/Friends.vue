@@ -91,10 +91,10 @@ const store = useGameStore()
 
 // Награды за приглашения
 const rewards = ref([
-  { count: 3, amount: 175, image: '../assets/images/friends/1.png', completed: false },
-  { count: 7, amount: 175, image: '../assets/images/friends/2.png', completed: false },
-  { count: 10, amount: 175, image: '../assets/images/friends/3.png', completed: false },
-  { count: 25, amount: 175, image: '../assets/images/friends/4.png', completed: false }
+  { count: 3, amount: 175, image: '../../images/friends/1.png', completed: false },
+  { count: 7, amount: 175, image: '../../images/friends/2.png', completed: false },
+  { count: 10, amount: 175, image: '../../images/friends/3.png', completed: false },
+  { count: 25, amount: 175, image: '../../images/friends/4.png', completed: false }
 ])
 
 // Моковые данные для друзей

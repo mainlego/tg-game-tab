@@ -126,7 +126,7 @@ const dailyTasks = ref([
   {
     id: 1,
     title: 'Как заработать свой первый миллион',
-    icon: '../assets/images/youtube.png',
+    icon: '../../images/youtube.png',
     reward: 567,
     completed: false
   }
@@ -137,14 +137,14 @@ const regularTasks = ref([
   {
     id: 2,
     title: 'Подписаться в Instagram',
-    icon: '../assets/images/instagram.png',
+    icon: '../../images/instagram.png',
     reward: 567,
     completed: false
   },
   {
     id: 3,
     title: 'Подписаться в Телеграм',
-    icon: '../assets/images/telegram.png',
+    icon: '../../images/telegram.png',
     reward: 567,
     completed: false
   }
@@ -155,21 +155,21 @@ const platformTasks = ref([
   {
     id: 4,
     title: 'Зарегистрируйтесь на платформе CWI',
-    icon: '../assets/images/tasks/1.png',
+    icon: '../../images/tasks/1.png',
     reward: 567,
     completed: false
   },
   {
     id: 5,
     title: 'Пройдите краткий курс обучения',
-    icon: '../assets/images/tasks/2.png',
+    icon: '../../images/tasks/2.png',
     reward: 567,
     completed: false
   },
   {
     id: 6,
     title: 'Сделайте первый минимальный депозит',
-    icon: '../assets/images/tasks/3.png',
+    icon: '../../images/tasks/3.png',
     reward: 567,
     completed: false
   },
