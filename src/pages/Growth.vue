@@ -40,7 +40,7 @@
               <div class="income-info">
                 <div>Пассивный доход в месяц</div>
                 <div class="income-amount">
-                  <img src="../../images/coin.png?t=1739364393394" class="passive__income_cart" alt="coin">
+                  <img src="../assets/images/coin.png" class="passive__income_cart" alt="coin">
                   <span>+{{ formatMoney(calculateIncome(investment)) }}</span>
                 </div>
               </div>
@@ -50,7 +50,7 @@
             <div class="card-footer">
               <div class="level">lvl {{ investment.level }}</div>
               <div class="price">
-                <img src="../../images/coin.png?t=1739364393394" class="price_cart" alt="coin">
+                <img src="../assets/images/coin.png" class="price_cart" alt="coin">
                 <span>{{ formatMoney(investment.cost) }}</span>
               </div>
             </div>
@@ -329,7 +329,7 @@ const formatMoney = (num) => {
   padding: 0 1rem;
   border-top: 4px solid var(--primary-color);
   border-radius: 40px 40px 0 0;
-  background: url("src/assets/images/bg.jpg");
+  background: url("../../images/bg.jp");
   margin-top: 40px;
 }
 
