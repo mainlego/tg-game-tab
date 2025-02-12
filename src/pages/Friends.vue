@@ -144,27 +144,19 @@ const refreshFriendsList = () => {
 const inviteFriend = () => {
   if (!user.value) return
 
+  const botUsername = 'your_bot_username' // Замените на username вашего бота
   const referralLink = window.location.origin + '?ref=' + user.value.id
-  const message = `Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`
+  const message = encodeURIComponent(`Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`)
+
+  // Создаем URL для шаринга через Telegram
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${message}`
 
   if (tg) {
-    // Для Telegram Mini App используем ShareButton
-    tg.showPopup({
-      title: 'Пригласить друга',
-      message: 'Хотите поделиться игрой с друзьями?',
-      buttons: [
-        {
-          type: 'default',
-          text: 'Да, пригласить',
-          onClick: () => {
-            tg.shareUrl(referralLink)
-          }
-        }
-      ]
-    })
+    // Открываем URL в Telegram
+    window.open(shareUrl, '_blank')
   } else {
     // Fallback для браузера
-    navigator.clipboard.writeText(message)
+    navigator.clipboard.writeText(decodeURIComponent(message))
     alert('Ссылка скопирована в буфер обмена')
   }
 }
