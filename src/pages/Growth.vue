@@ -329,7 +329,7 @@ const formatMoney = (num) => {
   padding: 0 1rem;
   border-top: 4px solid var(--primary-color);
   border-radius: 40px 40px 0 0;
-  background: url("../../images/bg.jp");
+  background: url("../../images/bg.jpg");
   margin-top: 20px;
 }
 

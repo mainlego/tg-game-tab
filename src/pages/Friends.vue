@@ -105,22 +105,17 @@ const rewards = ref([
 const friends = ref([])
 
 // Загрузка рефералов
-const loadReferrals = () => {
+const loadReferrals = async () => {
   if (user.value) {
-    const userReferrals = ReferralService.getUserReferrals(user.value.id)
-    friends.value = userReferrals.map(ref => ({
-      id: ref.id,
-      name: ref.first_name + (ref.last_name ? ' ' + ref.last_name : ''),
-      income: ref.income || 0,
-      joinDate: ref.joinedAt,
-      photo_url: ref.photo_url,
-      rewardClaimed: ref.rewardClaimed
-    }))
-
-    // Проверяем и обновляем награды
-    checkRewardsProgress()
+    try {
+      const response = await fetch(`/api/referrals/${user.value.id}`);
+      const referrals = await response.json();
+      friends.value = referrals;
+    } catch (error) {
+      console.error('Failed to load referrals:', error);
+    }
   }
-}
+};
 
 const checkRewardsProgress = () => {
   // Получаем сохраненное состояние наград
