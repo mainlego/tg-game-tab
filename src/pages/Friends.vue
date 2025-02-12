@@ -187,15 +187,17 @@ const handleRewardClaim = async (reward) => {
 const inviteFriend = () => {
   if (!user.value) return
 
-  const botUsername = 'your_bot_username' // Замените на username вашего бота
-  const referralLink = window.location.origin + '?ref=' + user.value.id
+  const botUsername = 'sdsdd12121222w12_bot' // Ваше имя бота
+  // Создаем параметр start с ID пользователя для реферальной системы
+  const startParam = `ref_${user.value.id}`
+  // Формируем ссылку на бота с реферальным параметром
+  const referralLink = `https://t.me/${botUsername}?start=${startParam}`
+
   const message = encodeURIComponent(`Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`)
 
-  // Создаем URL для шаринга через Telegram
-  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${message}`
-
   if (tg) {
-    // Открываем URL в Telegram
+    // Открываем шеринг в Telegram
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${message}`
     window.open(shareUrl, '_blank')
   } else {
     // Fallback для браузера
