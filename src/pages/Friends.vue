@@ -80,28 +80,42 @@
   </div>
 </template>
 
+
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
+import { useTelegram } from '@/composables/useTelegram'
+import { ReferralService } from '@/services/referralService'
 import Header from '@/components/layout/Header.vue'
 import Balance from '@/components/game/Balance.vue'
 import Navigation from '@/components/layout/Navigation.vue'
 
 const store = useGameStore()
+const { tg, user } = useTelegram()
 
 // Награды за приглашения
 const rewards = ref([
-  { count: 3, amount: 175, image: '../../images/friends/1.png', completed: false },
-  { count: 7, amount: 175, image: '../../images/friends/2.png', completed: false },
-  { count: 10, amount: 175, image: '../../images/friends/3.png', completed: false },
-  { count: 25, amount: 175, image: '../../images/friends/4.png', completed: false }
+  { count: 3, amount: 175, image: '/images/friends/1.png', completed: false },
+  { count: 7, amount: 175, image: '/images/friends/2.png', completed: false },
+  { count: 10, amount: 175, image: '/images/friends/3.png', completed: false },
+  { count: 25, amount: 175, image: '/images/friends/4.png', completed: false }
 ])
 
-// Моковые данные для друзей
-const friends = ref([
-  { id: 1, name: 'Leonid Miller', income: 10670 },
-  { id: 2, name: 'Leonid Miller', income: 10670 }
-])
+// Список друзей-рефералов
+const friends = ref([])
+
+// Загрузка рефералов
+const loadReferrals = () => {
+  if (user.value) {
+    const userReferrals = ReferralService.getUserReferrals(user.value.id)
+    friends.value = userReferrals.map(ref => ({
+      id: ref.id,
+      name: ref.first_name + (ref.last_name ? ' ' + ref.last_name : ''),
+      income: ref.income || 0,
+      joinDate: ref.joinedAt
+    }))
+  }
+}
 
 // Форматирование чисел
 const formatMoney = (num) => {
@@ -116,30 +130,70 @@ const handleRewardClaim = (reward) => {
   if (!reward.completed && friends.value.length >= reward.count) {
     store.balance += reward.amount * 1000
     reward.completed = true
+    // Сохраняем состояние наград
+    localStorage.setItem('rewards_state', JSON.stringify(rewards.value))
   }
 }
 
 // Обновление списка друзей
 const refreshFriendsList = () => {
-  // Здесь будет логика обновления списка друзей
+  loadReferrals()
 }
 
-// Приглашение друга
-const inviteFriend = () => {
-  const message = `Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\nПрисоединяйся, будем генерить доход вместе {ссылка}`
+// Приглашение друга через Telegram
+const inviteFriend = async () => {
+  if (!user.value) return
 
-  // В реальном приложении здесь будет логика шаринга
-  if (navigator.share) {
-    navigator.share({
-      title: 'Приглашение в игру',
-      text: message,
-      url: window.location.origin
-    })
+  const referralLink = ReferralService.createReferralLink(user.value.id)
+  const message = `Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`
+
+  if (tg) {
+    // Используем Telegram WebApp для шаринга
+    tg.sendMessage(message)
   } else {
-    // Fallback для браузеров без Web Share API
-    navigator.clipboard.writeText(message)
+    // Fallback для браузеров
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Приглашение в игру',
+          text: message,
+          url: referralLink
+        })
+      } catch (err) {
+        navigator.clipboard.writeText(message)
+      }
+    } else {
+      navigator.clipboard.writeText(message)
+    }
   }
 }
+
+onMounted(() => {
+  // Загружаем сохраненное состояние наград
+  const savedRewards = localStorage.getItem('rewards_state')
+  if (savedRewards) {
+    rewards.value = JSON.parse(savedRewards)
+  }
+
+  loadReferrals()
+
+  // Проверяем наличие реферера в URL
+  const urlParams = new URLSearchParams(window.location.search)
+  const referrerId = urlParams.get('ref')
+
+  if (referrerId && user.value && referrerId !== user.value.id) {
+    ReferralService.saveReferrer(referrerId)
+    if (user.value) {
+      ReferralService.saveReferral(referrerId, user.value.id, {
+        first_name: user.value.first_name,
+        last_name: user.value.last_name,
+        username: user.value.username,
+        photo_url: user.value.photo_url,
+        income: store.passiveIncome
+      })
+    }
+  }
+})
 </script>
 
 <style scoped>
