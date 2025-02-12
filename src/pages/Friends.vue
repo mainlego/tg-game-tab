@@ -112,9 +112,30 @@ const loadReferrals = () => {
       id: ref.id,
       name: ref.first_name + (ref.last_name ? ' ' + ref.last_name : ''),
       income: ref.income || 0,
-      joinDate: ref.joinedAt
+      joinDate: ref.joinedAt,
+      photo_url: ref.photo_url,
+      rewardClaimed: ref.rewardClaimed
     }))
+
+    // Проверяем и обновляем награды
+    checkRewardsProgress()
   }
+}
+
+const checkRewardsProgress = () => {
+  // Получаем сохраненное состояние наград
+  const savedState = ReferralService.getRewardsState(user.value?.id)
+  if (savedState) {
+    rewards.value = savedState
+  }
+
+  // Проверяем доступные награды
+  rewards.value.forEach(reward => {
+    const notClaimedReferrals = friends.value.filter(f => !f.rewardClaimed).length
+    if (notClaimedReferrals >= reward.count && !reward.completed) {
+      reward.available = true
+    }
+  })
 }
 
 // Форматирование чисел
@@ -126,18 +147,40 @@ const formatMoney = (num) => {
 }
 
 // Обработка получения награды
-const handleRewardClaim = (reward) => {
-  if (!reward.completed && friends.value.length >= reward.count) {
+const handleRewardClaim = async (reward) => {
+  if (!reward.completed && !reward.available) {
+    notifications.addNotification({
+      message: `Пригласите ещё ${reward.count - friends.value.filter(f => !f.rewardClaimed).length} друзей`,
+      type: 'warning'
+    })
+    return
+  }
+
+  if (!reward.completed && reward.available) {
+    // Помечаем необходимое количество рефералов как обработанных
+    const unclaimedReferrals = friends.value.filter(f => !f.rewardClaimed)
+    for (let i = 0; i < reward.count; i++) {
+      if (unclaimedReferrals[i]) {
+        await ReferralService.markRewardClaimed(user.value.id, unclaimedReferrals[i].id)
+      }
+    }
+
+    // Начисляем награду
     store.balance += reward.amount * 1000
     reward.completed = true
-    // Сохраняем состояние наград
-    localStorage.setItem('rewards_state', JSON.stringify(rewards.value))
-  }
-}
+    reward.available = false
 
-// Обновление списка друзей
-const refreshFriendsList = () => {
-  loadReferrals()
+    // Сохраняем состояние наград
+    ReferralService.saveRewardsState(user.value.id, rewards.value)
+
+    notifications.addNotification({
+      message: `Получено ${reward.amount}K монет!`,
+      type: 'success'
+    })
+
+    // Обновляем список рефералов
+    loadReferrals()
+  }
 }
 
 // Приглашение друга через Telegram

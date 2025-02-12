@@ -1,52 +1,96 @@
 // src/services/referralService.js
 const REFERRALS_KEY = 'game_referrals'
-const REFERRER_KEY = 'user_referrer'
+const REWARDS_STATE_KEY = 'rewards_state'
 
 export const ReferralService = {
-    // Сохранение реферала
-    saveReferral(referrerId, userId, userData) {
-        const referrals = this.getAllReferrals()
+    // Сохранение нового реферала
+    saveReferral(referrerId, userData) {
+        try {
+            const referrals = this.getAllReferrals()
+            if (!referrals[referrerId]) {
+                referrals[referrerId] = []
+            }
 
-        if (!referrals[referrerId]) {
-            referrals[referrerId] = []
+            // Проверяем, нет ли уже такого реферала
+            const existingReferral = referrals[referrerId].find(ref => ref.id === userData.id)
+            if (!existingReferral) {
+                referrals[referrerId].push({
+                    ...userData,
+                    joinedAt: new Date().toISOString(),
+                    rewardClaimed: false // Флаг для отслеживания выплаты награды
+                })
+                localStorage.setItem(REFERRALS_KEY, JSON.stringify(referrals))
+                return true
+            }
+            return false
+        } catch (error) {
+            console.error('Error saving referral:', error)
+            return false
         }
+    },
 
-        // Проверяем, не добавлен ли уже этот реферал
-        if (!referrals[referrerId].find(ref => ref.id === userId)) {
-            referrals[referrerId].push({
-                id: userId,
-                ...userData,
-                joinedAt: new Date().toISOString()
-            })
-            localStorage.setItem(REFERRALS_KEY, JSON.stringify(referrals))
+    // Получение всех рефералов пользователя
+    getUserReferrals(userId) {
+        try {
+            const referrals = this.getAllReferrals()
+            return referrals[userId] || []
+        } catch (error) {
+            console.error('Error getting user referrals:', error)
+            return []
         }
     },
 
     // Получение всех рефералов
     getAllReferrals() {
-        const referrals = localStorage.getItem(REFERRALS_KEY)
-        return referrals ? JSON.parse(referrals) : {}
+        try {
+            const referrals = localStorage.getItem(REFERRALS_KEY)
+            return referrals ? JSON.parse(referrals) : {}
+        } catch (error) {
+            console.error('Error getting all referrals:', error)
+            return {}
+        }
     },
 
-    // Получение рефералов конкретного пользователя
-    getUserReferrals(userId) {
-        const referrals = this.getAllReferrals()
-        return referrals[userId] || []
+    // Отметка о выплате награды за реферала
+    markRewardClaimed(referrerId, referralId) {
+        try {
+            const referrals = this.getAllReferrals()
+            if (referrals[referrerId]) {
+                const referral = referrals[referrerId].find(ref => ref.id === referralId)
+                if (referral) {
+                    referral.rewardClaimed = true
+                    localStorage.setItem(REFERRALS_KEY, JSON.stringify(referrals))
+                    return true
+                }
+            }
+            return false
+        } catch (error) {
+            console.error('Error marking reward claimed:', error)
+            return false
+        }
     },
 
-    // Сохранение реферера для нового пользователя
-    saveReferrer(referrerId) {
-        localStorage.setItem(REFERRER_KEY, referrerId)
+    // Проверка статуса наград
+    getRewardsState(userId) {
+        try {
+            const key = `${REWARDS_STATE_KEY}_${userId}`
+            const state = localStorage.getItem(key)
+            return state ? JSON.parse(state) : null
+        } catch (error) {
+            console.error('Error getting rewards state:', error)
+            return null
+        }
     },
 
-    // Получение ID реферера
-    getReferrer() {
-        return localStorage.getItem(REFERRER_KEY)
-    },
-
-    // Создание реферальной ссылки
-    createReferralLink(userId) {
-        const baseUrl = window.location.origin
-        return `${baseUrl}?ref=${userId}`
+    // Сохранение статуса наград
+    saveRewardsState(userId, state) {
+        try {
+            const key = `${REWARDS_STATE_KEY}_${userId}`
+            localStorage.setItem(key, JSON.stringify(state))
+            return true
+        } catch (error) {
+            console.error('Error saving rewards state:', error)
+            return false
+        }
     }
 }
