@@ -106,14 +106,23 @@ const friends = ref([])
 
 // Загрузка рефералов
 const loadReferrals = async () => {
-  if (user.value) {
-    try {
-      const response = await fetch(`/api/referrals/${user.value.id}`);
-      const referrals = await response.json();
-      friends.value = referrals;
-    } catch (error) {
-      console.error('Failed to load referrals:', error);
-    }
+  if (!user.value) {
+    console.log('No user to load referrals');
+    return;
+  }
+
+  console.log('Loading referrals for user:', user.value.id);
+
+  try {
+    const response = await fetch(`/api/referrals/${user.value.id}`);
+    console.log('Referrals response:', response);
+
+    const data = await response.json();
+    console.log('Referrals data:', data);
+
+    friends.value = data;
+  } catch (error) {
+    console.error('Failed to load referrals:', error);
   }
 };
 
@@ -180,12 +189,18 @@ const handleRewardClaim = async (reward) => {
 
 // Приглашение друга через Telegram
 const inviteFriend = () => {
-  if (!user.value) return
+  if (!user.value) {
+    console.log('No user found');
+    return;
+  }
 
   // Формируем реферальную ссылку с ID текущего пользователя
+  console.log('Current user:', user.value);
   const startCommand = `ref_${user.value.id}`
   const botUsername = 'sdsdd12121222w12_bot' // Замените на username вашего бота
-  const referralLink = `https://t.me/${botUsername}?start=${startCommand}`
+  const referralLink = `https://t.me/${botUsername}?start=${startCommand}`;
+
+  console.log('Generated referral link:', referralLink);
 
   const message = encodeURIComponent(`Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`)
 
