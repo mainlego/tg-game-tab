@@ -8,13 +8,23 @@ export const useApi = () => {
         'Authorization': `Bearer ${import.meta.env.VITE_API_KEY}`
     };
 
+    // src/composables/useApi.js
     const getReferrals = async (userId) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/referrals/${userId}`, {
-                headers
-            });
-            if (!response.ok) throw new Error('Failed to fetch referrals');
-            return await response.json();
+            const response = await fetch(`${API_BASE_URL}/api/referrals/${userId}`);
+
+            // Добавим логирование для отладки
+            console.log('API Response:', response);
+
+            if (!response.ok) {
+                console.error('Error response:', await response.text());
+                throw new Error('Failed to fetch referrals');
+            }
+
+            const data = await response.json();
+            console.log('Referrals data:', data);
+
+            return data;
         } catch (error) {
             console.error('Error fetching referrals:', error);
             return [];

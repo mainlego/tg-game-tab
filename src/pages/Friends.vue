@@ -109,6 +109,7 @@ const friends = ref([])
 
 // Загрузка рефералов
 // В Friends.vue
+// src/pages/Friends.vue
 const loadReferrals = async () => {
   if (!user.value?.id) {
     log('No user ID available', user.value);
@@ -117,16 +118,21 @@ const loadReferrals = async () => {
 
   try {
     log('Fetching referrals for user:', user.value.id);
-    const response = await fetch(`${API_URL}/api/referrals/${user.value.id}`);
-    log('API Response:', response);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // Используем API из composable
+    const api = useApi();
+    const referralsData = await api.getReferrals(user.value.id);
+
+    log('Received referrals data:', referralsData);
+
+    if (referralsData && Array.isArray(referralsData)) {
+      friends.value = referralsData.map(referral => ({
+        id: referral.userId,
+        name: referral.userData?.first_name || 'Unknown User',
+        income: referral.userData?.income || 0,
+        rewardClaimed: referral.rewardClaimed
+      }));
     }
-
-    const data = await response.json();
-    log('Referrals data:', data);
-    friends.value = data;
 
     // Проверяем доступность наград
     checkRewardsProgress();

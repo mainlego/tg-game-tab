@@ -19,12 +19,21 @@ async function dbConnect() {
     }
 
     if (!cached.promise) {
-        cached.promise = mongoose.connect(MONGODB_URI, {
+        const opts = {
             useNewUrlParser: true,
             useUnifiedTopology: true,
-        });
+        };
+
+        cached.promise = mongoose.connect(MONGODB_URI, opts);
     }
-    cached.conn = await cached.promise;
+
+    try {
+        cached.conn = await cached.promise;
+    } catch (e) {
+        cached.promise = null;
+        throw e;
+    }
+
     return cached.conn;
 }
 
