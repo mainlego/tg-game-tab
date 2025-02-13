@@ -82,7 +82,7 @@
 
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useTelegram } from '@/composables/useTelegram'
 import { ReferralService } from '@/services/referralService'
@@ -105,26 +105,45 @@ const rewards = ref([
 const friends = ref([])
 
 // Загрузка рефералов
+// В Friends.vue
 const loadReferrals = async () => {
-  if (!user.value) {
-    console.log('No user to load referrals');
+  console.log('Loading referrals...');
+  console.log('Current user:', user.value);
+
+  if (!user.value?.id) {
+    console.warn('No user ID available');
     return;
   }
 
-  console.log('Loading referrals for user:', user.value.id);
-
   try {
     const response = await fetch(`/api/referrals/${user.value.id}`);
-    console.log('Referrals response:', response);
+    console.log('API Response:', response);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
     const data = await response.json();
     console.log('Referrals data:', data);
-
     friends.value = data;
+
   } catch (error) {
-    console.error('Failed to load referrals:', error);
+    console.error('Error loading referrals:', error);
   }
 };
+
+// Вызываем при монтировании и при изменении пользователя
+onMounted(() => {
+  if (user.value) {
+    loadReferrals();
+  }
+});
+
+watch(() => user.value, (newUser) => {
+  if (newUser) {
+    loadReferrals();
+  }
+});
 
 const checkRewardsProgress = () => {
   // Получаем сохраненное состояние наград
