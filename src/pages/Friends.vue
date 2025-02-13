@@ -48,12 +48,16 @@
         </div>
 
         <div class="friends-list">
-          <div v-for="friend in friends" :key="friend.id" class="friend-item">
+          <!-- Добавим отладочную информацию -->
+          <div v-if="friends.length === 0" class="no-friends">
+            {{ user?.id ? 'У вас пока нет рефералов' : 'Загрузка...' }}
+          </div>
+
+          <div v-for="friend in friends"
+               :key="friend.id"
+               class="friend-item">
             <div class="friend-avatar">
-              <svg viewBox="0 0 32 33" fill="none">
-                <rect width="32" height="33" rx="8" fill="#423361"/>
-                <path d="M16.5 16.5C15.3312 16.5 14.3307 16.0839 13.4984 15.2516C12.6661 14.4193 12.25 13.4187 12.25 12.25C12.25 11.0812 12.6661 10.0807 13.4984 9.24844C14.3307 8.41615 15.3312 8 16.5 8C17.6687 8 18.6693 8.41615 19.5016 9.24844C20.3339 10.0807 20.75 11.0812 20.75 12.25C20.75 13.4187 20.3339 14.4193 19.5016 15.2516C18.6693 16.0839 17.6687 16.5 16.5 16.5Z" fill="#8776AA"/>
-              </svg>
+              <!-- ... -->
             </div>
             <div class="friend-info">
               <div class="friend-name">{{ friend.name }}</div>
@@ -61,10 +65,6 @@
                 <img src="@/assets/images/coin.png" alt="coin" class="coin-icon">
                 <span>{{ formatMoney(friend.income) }}</span>
               </div>
-            </div>
-            <div class="friend-reward">
-              <img src="@/assets/images/coin.png" alt="coin" class="coin-icon">
-              <span>+175K</span>
             </div>
           </div>
         </div>
