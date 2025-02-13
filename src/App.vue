@@ -34,7 +34,7 @@ import Logger from './components/Logger.vue'
 const logger = ref(null)
 const store = useGameStore()
 const notificationSystem = ref(null)
-const { ready, user } = useTelegram()
+const { tg, ready, user } = useTelegram()
 
 
 provide('logger', {
@@ -59,13 +59,29 @@ const decreaseTapValue = () => {
   }
 }
 
-
 onMounted(() => {
+  if (tg) {
+    // Расширяем на весь экран
+    tg.expand();
+
+    // Настраиваем внешний вид
+    tg.setBackgroundColor('#08070d'); // Цвет фона
+    tg.setHeaderColor('#1a1a1a'); // Цвет заголовка
+
+    // Отключаем свайп назад для iOS
+    tg.BackButton.hide();
+    tg.enableClosingConfirmation();
+
+  }
+
   store.startPassiveIncomeTimer()
   setInterval(() => {
     store.regenerateEnergy()
   }, 1000)
-})
+});
+
+
+
 
 provide('notifications', {
   addNotification: (params) => {
