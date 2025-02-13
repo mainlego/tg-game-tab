@@ -33,6 +33,7 @@ const store = useGameStore()
   font-size: 10px;
   color: white;
   margin-top: 10px;
+  font-weight: 500;
 }
 
 .status__level {

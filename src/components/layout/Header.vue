@@ -67,12 +67,10 @@ const userName = computed(() => {
 </script>
 
 <style scoped>
-.header-wrapper {
-  padding-bottom: 1rem;
-}
+
 
 .header {
-  padding: 0.75rem 1rem;
+  padding: 0 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -117,7 +115,7 @@ const userName = computed(() => {
 .income {
   display: flex;
   align-items: center;
-  text-align: right;
+  text-align: center;
 }
 
 .income__label {

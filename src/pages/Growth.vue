@@ -186,11 +186,13 @@ const formatMoney = (num) => {
 <style scoped>
 .growth-page {
   min-height: 100vh;
+  padding-top: 48px;
   background: url('@/assets/images/bg-2.jpg') center top no-repeat;
 }
 
 .investments-container {
   margin-top: 20px;
+  height: 100vh;
 }
 
 .investment-tabs {
@@ -200,7 +202,7 @@ const formatMoney = (num) => {
   margin-bottom: 16px;
   padding: 4px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .tab {
@@ -222,7 +224,6 @@ const formatMoney = (num) => {
 .grid-scroll {
   overflow: auto;
   max-height: 55vh;
-  padding: 4px;
 }
 
 .investment-grid {
@@ -234,9 +235,9 @@ const formatMoney = (num) => {
 .investment-card {
   display: flex;
   flex-wrap: wrap;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 10px;
+  background: #422263f7;
+  border-radius: 12px;
+  padding: 10px 0 5px 10px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -263,39 +264,57 @@ const formatMoney = (num) => {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: flex-start;
+  justify-content: space-between;
 
 }
 
 .card-info h3 {
   color: white;
-  font-size: 12px;
+  font-size: 9px;
   margin: 0 0 4px 0;
 }
 
 .income-info div {
-  font-size: 9px;
   color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+  font-size: 7px;
+  line-height: 8.8px;
+}
+.income-info span{
+  font-size: 12px;
 }
 
 .income-amount {
   display: flex;
-  margin-top: 5px;
   align-items: center;
+  margin-top: 3px;
   gap: 4px;
-  color: white;
   font-size: 14px;
+}
+.income-amount span{
+  color: white;
 }
 
 .card-footer {
   width: 100%;
+  height: 24px;
+  margin-top: 5px;
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  margin-top: 8px;
-  padding-top: 8px;
   box-sizing: border-box;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.card-footer::after{
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 0;
+  height: 1px;
+  width: 169px;
+  background: rgba(255, 255, 255, 0.1);
+
 }
 
 .level {
@@ -315,15 +334,20 @@ const formatMoney = (num) => {
   align-items: center;
   gap: 4px;
   color: white;
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 15.4px;
+
+
+
 }
 .passive__income_cart{
   width: 12px;
   height: 12px;
 }
 .price_cart{
-  width: 20px;
-  height: 20px;
+  width: 17px;
+  height: 17px;
 }
 .main__container{
   padding: 0 1rem;

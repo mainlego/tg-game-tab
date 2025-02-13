@@ -42,16 +42,16 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 20px auto;
+  margin: 19px auto;
 }
 
 .balance__icon {
-  width: 33px;
-  height: 33px;
+  width: 36px;
+  height: 36px;
 }
 
 .balance__amount {
-  margin-left: 0.75rem;
+  margin-left: 12px;
   font-size: 36px;
   font-weight: 700;
   line-height: 42px;

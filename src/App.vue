@@ -95,6 +95,9 @@ const resetGame = () => {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-family: "Roboto", serif;
+  font-optical-sizing: auto;
+  font-style: normal;
 }
 
 html, body {

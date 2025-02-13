@@ -32,7 +32,6 @@ const store = useGameStore()
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
-  padding: 8px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
