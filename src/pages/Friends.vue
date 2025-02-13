@@ -115,7 +115,7 @@ const friends = ref([]);
 const loadReferrals = async () => {
 
   try {
-    log('DEBUG: Fetching referrals for user:', user.value.id);
+    //log('DEBUG: Fetching referrals for user:', user.value.id);
     const response = await api.getReferrals(user.value.id);
     // log('DEBUG: Referrals response:', response);
 
