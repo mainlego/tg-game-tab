@@ -1,17 +1,20 @@
-// pages/api/referrals/index.js
+// src/pages/api/referrals/index.js
 import { MongoClient } from 'mongodb';
 
 export default async function handler(req, res) {
-    // Разрешаем CORS
+    // Добавляем более подробное логирование
+    console.log('API Request received:', {
+        method: req.method,
+        url: req.url,
+        body: req.body,
+        headers: req.headers
+    });
+
+    // CORS заголовки
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-    console.log('Received request:', {
-        method: req.method,
-        body: req.body
-    });
 
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
@@ -20,12 +23,13 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({
             success: false,
-            message: 'Method not allowed'
+            message: `Method ${req.method} not allowed`
         });
     }
 
     try {
         const { referrerId, userId, userData } = req.body;
+        console.log('Processing referral data:', { referrerId, userId, userData });
 
         if (!referrerId || !userId || !userData) {
             return res.status(400).json({
@@ -34,12 +38,12 @@ export default async function handler(req, res) {
             });
         }
 
-        // Подключение к MongoDB
         const client = await MongoClient.connect(process.env.MONGODB_URI);
+        console.log('MongoDB connected');
+
         const db = client.db('game-db');
         const collection = db.collection('referrals');
 
-        // Проверяем, существует ли уже такой реферал
         const existing = await collection.findOne({ userId });
         if (existing) {
             await client.close();
@@ -49,7 +53,6 @@ export default async function handler(req, res) {
             });
         }
 
-        // Сохраняем нового реферала
         const result = await collection.insertOne({
             referrerId,
             userId,
@@ -59,6 +62,7 @@ export default async function handler(req, res) {
         });
 
         await client.close();
+        console.log('Referral saved successfully:', result);
 
         return res.status(201).json({
             success: true,
@@ -69,7 +73,8 @@ export default async function handler(req, res) {
         console.error('API Error:', error);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 }
