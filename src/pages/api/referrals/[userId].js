@@ -1,6 +1,7 @@
-// pages/api/referrals/[userId].js
-import dbConnect from '../../../lib/dbConnect';
-import Referral from '../../../models/Referral';
+import { MongoClient } from 'mongodb';
+
+const uri = process.env.MONGODB_URI;
+const client = new MongoClient(uri);
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
@@ -8,12 +9,21 @@ export default async function handler(req, res) {
     }
 
     try {
-        await dbConnect();
+        await client.connect();
+        const db = client.db('game-db');
+        const referrals = db.collection('referrals');
+
         const { userId } = req.query;
 
-        const referrals = await Referral.find({ referrerId: userId });
-        res.status(200).json(referrals);
+        const userReferrals = await referrals
+            .find({ referrerId: userId })
+            .toArray();
+
+        res.status(200).json(userReferrals);
     } catch (error) {
-        res.status(500).json({ message: 'Error getting referrals', error: error.message });
+        console.error('Database error:', error);
+        res.status(500).json({ message: 'Error getting referrals' });
+    } finally {
+        await client.close();
     }
 }

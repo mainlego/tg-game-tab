@@ -182,16 +182,15 @@ const handleRewardClaim = async (reward) => {
 const inviteFriend = () => {
   if (!user.value) return
 
-  const botUsername = 'sdsdd12121222w12_bot' // Ваше имя бота
-  // Создаем параметр start с ID пользователя для реферальной системы
-  const startParam = `ref_${user.value.id}`
-  // Формируем ссылку на бота с реферальным параметром
-  const referralLink = `https://t.me/${botUsername}?start=${startParam}`
+  // Формируем реферальную ссылку с ID текущего пользователя
+  const startCommand = `ref_${user.value.id}`
+  const botUsername = 'PassiveTapperBot' // Замените на username вашего бота
+  const referralLink = `https://t.me/${botUsername}?start=${startCommand}`
 
   const message = encodeURIComponent(`Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`)
 
   if (tg) {
-    // Открываем шеринг в Telegram
+    // Используем нативный шаринг Telegram
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${message}`
     window.open(shareUrl, '_blank')
   } else {
