@@ -43,7 +43,7 @@ provide('logger', {
 
 if (user) {
   // Здесь можно инициализировать пользователя в store
-  log('Telegram user:', user)
+  console.log('Telegram user:', user)
 }
 
 // Добавляем управление значением клика
