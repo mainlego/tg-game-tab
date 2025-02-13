@@ -111,15 +111,30 @@ const friends = ref([])
 // В Friends.vue
 const loadReferrals = async () => {
   if (!user.value?.id) {
-    log('No user ID available');
+    log('No user ID available', user.value);
     return;
   }
 
-  log('Loading referrals for user:', user.value.id);
-  const referrals = await api.getReferrals(user.value.id);
-  log('Loaded referrals:', referrals);
-  friends.value = referrals;
+  try {
+    log('Fetching referrals for user:', user.value.id);
+    const response = await fetch(`${API_URL}/api/referrals/${user.value.id}`);
+    log('API Response:', response);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    log('Referrals data:', data);
+    friends.value = data;
+
+    // Проверяем доступность наград
+    checkRewardsProgress();
+  } catch (error) {
+    log('Error loading referrals:', error);
+  }
 };
+
 
 // Вызываем при монтировании и при изменении пользователя
 onMounted(() => {
@@ -145,9 +160,8 @@ const checkRewardsProgress = () => {
 
   // Проверяем доступные награды
   rewards.value.forEach(reward => {
-    const notClaimedReferrals = friends.value.filter(f => !f.rewardClaimed).length
-    if (notClaimedReferrals >= reward.count && !reward.completed) {
-      reward.available = true
+    if (!reward.completed && friends.value.length >= reward.count) {
+      reward.available = true;
     }
   })
 }
@@ -200,15 +214,16 @@ const handleRewardClaim = async (reward) => {
 // Приглашение друга через Telegram
 const inviteFriend = () => {
   if (!user.value) {
-    log('No user available');
+    console.log('No user available for invite');
     return;
   }
 
+  console.log('Creating invite link for user:', user.value.id);
   const startCommand = `ref_${user.value.id}`;
-  const botUsername = 'your_bot_username'; // Замените на ваше имя бота
+  const botUsername = 'sdsdd12121222w12_bot'; // Используем ваше имя бота
   const referralLink = `https://t.me/${botUsername}?start=${startCommand}`;
 
-  log('Generated referral link:', referralLink);
+  console.log('Generated referral link:', referralLink);
 
   const message = `Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`;
 

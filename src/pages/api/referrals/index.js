@@ -1,39 +1,50 @@
 // pages/api/referrals/index.js
 import { MongoClient } from 'mongodb';
 
-// Инициализация MongoDB
 const uri = process.env.MONGODB_URI;
-const client = new MongoClient(uri);
 
 export default async function handler(req, res) {
-    console.log('API request received:', {
-        method: req.method,
-        body: req.body
-    });
+    // Добавляем CORS заголовки
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
 
-    // Проверяем метод
-    if (req.method !== 'POST') {
-        return res.status(405).json({ message: 'Method not allowed' });
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
     }
 
+    if (req.method !== 'POST') {
+        return res.status(405).json({
+            success: false,
+            message: 'Method not allowed'
+        });
+    }
+
+    let mongoClient;
+
     try {
-        // Проверяем подключение к MongoDB
-        console.log('MongoDB URI exists:', !!uri);
+        const { referrerId, userId, userData } = req.body;
 
-        await client.connect();
-        await client.db("admin").command({ ping: 1 });
-        console.log("MongoDB connected successfully");
+        if (!referrerId || !userId || !userData) {
+            throw new Error('Required fields are missing');
+        }
 
-        const db = client.db('game-db'); // Название вашей базы данных
+        mongoClient = await MongoClient.connect(uri);
+        const db = mongoClient.db('game-db');
         const referrals = db.collection('referrals');
 
-        const { referrerId, userId, userData } = req.body;
-        console.log('Processing referral data:', { referrerId, userId, userData });
-
-        // Проверяем существующего реферала
+        // Проверяем, не является ли пользователь уже чьим-то рефералом
         const existingReferral = await referrals.findOne({ userId });
         if (existingReferral) {
-            return res.status(400).json({ message: 'User already has a referrer' });
+            return res.status(400).json({
+                success: false,
+                message: 'User already has a referrer'
+            });
         }
 
         // Сохраняем нового реферала
@@ -45,13 +56,21 @@ export default async function handler(req, res) {
             rewardClaimed: false
         });
 
-        console.log('Referral saved:', result);
-        res.status(201).json(result);
+        return res.status(201).json({
+            success: true,
+            data: result
+        });
 
     } catch (error) {
         console.error('API Error:', error);
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({
+            success: false,
+            message: error.message || 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
     } finally {
-        await client.close();
+        if (mongoClient) {
+            await mongoClient.close();
+        }
     }
 }
