@@ -2,53 +2,28 @@
 import { ref, onMounted } from 'vue'
 
 export function useTelegram() {
-    const tg = window.Telegram.WebApp
+    const tg = window.Telegram?.WebApp
     const user = ref(null)
     const ready = ref(false)
 
     onMounted(() => {
-        // Инициализация
-        tg.ready()
-        ready.value = true
-        user.value = tg.initDataUnsafe?.user
-
-        // Настраиваем внешний вид
-        tg.expand()
-        tg.enableClosingConfirmation()
-
-        // Устанавливаем основной цвет
-        tg.setHeaderColor('#8C60E3')
-        tg.setBackgroundColor('#08070d')
+        if (tg) {
+            tg.ready()
+            ready.value = true
+            // Получаем данные пользователя
+            user.value = tg.initDataUnsafe?.user || null
+            console.log('Telegram initData:', tg.initData)
+            console.log('Telegram user data:', user.value)
+        }
     })
 
-    // Методы для работы с Telegram Mini App
-    const showAlert = (message) => {
-        tg.showAlert(message)
-    }
-
-    const showConfirm = (message) => {
-        return tg.showConfirm(message)
-    }
-
-    const close = () => {
-        tg.close()
-    }
-
-    // Методы для работы с MainButton
-    const showMainButton = (text) => {
-        tg.MainButton.text = text
-        tg.MainButton.show()
-    }
-
-    const hideMainButton = () => {
-        tg.MainButton.hide()
-    }
-
-    const setMainButtonLoader = (loading) => {
-        if (loading) {
-            tg.MainButton.showProgress()
+    const showMessage = (message) => {
+        if (tg) {
+            tg.showPopup({
+                message
+            })
         } else {
-            tg.MainButton.hideProgress()
+            alert(message)
         }
     }
 
@@ -56,11 +31,6 @@ export function useTelegram() {
         tg,
         user,
         ready,
-        showAlert,
-        showConfirm,
-        close,
-        showMainButton,
-        hideMainButton,
-        setMainButtonLoader
+        showMessage
     }
 }

@@ -82,14 +82,14 @@
 
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, inject } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useTelegram } from '@/composables/useTelegram'
 import { ReferralService } from '@/services/referralService'
 import Header from '@/components/layout/Header.vue'
 import Balance from '@/components/game/Balance.vue'
 import Navigation from '@/components/layout/Navigation.vue'
-import { useApi } from '@/composables/useApi';
+import { useApi } from '@/composables/useApi'
 const { log } = inject('logger')
 
 const store = useGameStore()
