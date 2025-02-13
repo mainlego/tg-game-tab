@@ -211,7 +211,7 @@ const inviteFriend = () => {
   }
 
   const startCommand = `ref_${user.value.id}`;
-  const botUsername = 'your_bot_username'; // Замените на имя вашего бота
+  const botUsername = 'sdsdd12121222w12_bot'; // Замените на имя вашего бота
   const referralLink = `https://t.me/${botUsername}?start=${startCommand}`;
 
   const message = `Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`;
