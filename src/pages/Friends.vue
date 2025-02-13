@@ -39,7 +39,7 @@
       <div class="friends-section">
         <div class="friends-header">
           <h3>Список ваших друзей ({{ friends.length }})</h3>
-          <button class="refresh-button" @click="refreshFriendsList">
+          <button class="refresh-button" @click="loadReferrals">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path d="M4 4V9H4.58152M19.9381 11C19.446 7.05369 16.0796 4 12 4C8.64262 4 5.76829 6.06817 4.58152 9M4.58152 9H9M20 20V15H19.4185M19.4185 15C18.2317 17.9318 15.3574 20 12 20C7.92038 20 4.55399 16.9463 4.06189 13M19.4185 15H15"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -48,23 +48,28 @@
         </div>
 
         <div class="friends-list">
-          <!-- Добавим отладочную информацию -->
           <div v-if="friends.length === 0" class="no-friends">
-            {{ user?.id ? 'У вас пока нет рефералов' : 'Загрузка...' }}
+            У вас пока нет рефералов
           </div>
-
-          <div v-for="friend in friends"
-               :key="friend.id"
-               class="friend-item">
+          <div v-for="friend in friends" :key="friend.id" class="friend-item">
             <div class="friend-avatar">
-              <!-- ... -->
+              <svg v-if="!friend.userData?.photo_url" viewBox="0 0 32 33" fill="none">
+                <rect width="32" height="33" rx="8" fill="#423361"/>
+                <path d="M16.5 16.5C15.3312 16.5 14.3307 16.0839 13.4984 15.2516C12.6661 14.4193 12.25 13.4187 12.25 12.25C12.25 11.0812 12.6661 10.0807 13.4984 9.24844C14.3307 8.41615 15.3312 8 16.5 8C17.6687 8 18.6693 8.41615 19.5016 9.24844C20.3339 10.0807 20.75 11.0812 20.75 12.25C20.75 13.4187 20.3339 14.4193 19.5016 15.2516C18.6693 16.0839 17.6687 16.5 16.5 16.5Z"
+                      fill="#8776AA"/>
+              </svg>
+              <img v-else :src="friend.userData.photo_url" :alt="friend.userData.first_name" class="avatar-image">
             </div>
             <div class="friend-info">
-              <div class="friend-name">{{ friend.name }}</div>
+              <div class="friend-name">{{ friend.userData?.first_name || 'Неизвестный пользователь' }}</div>
               <div class="friend-income">
                 <img src="@/assets/images/coin.png" alt="coin" class="coin-icon">
-                <span>{{ formatMoney(friend.income) }}</span>
+                <span>{{ formatMoney(store.passiveIncome) }}</span>
               </div>
+            </div>
+            <div class="friend-reward" v-if="!friend.rewardClaimed">
+              <img src="@/assets/images/coin.png" alt="coin" class="coin-icon">
+              <span>+175K</span>
             </div>
           </div>
         </div>
@@ -80,21 +85,20 @@
   </div>
 </template>
 
-
 <script setup>
-import { ref, onMounted, watch, inject } from 'vue'
-import { useGameStore } from '@/stores/gameStore'
-import { useTelegram } from '@/composables/useTelegram'
-import { ReferralService } from '@/services/referralService'
-import Header from '@/components/layout/Header.vue'
-import Balance from '@/components/game/Balance.vue'
-import Navigation from '@/components/layout/Navigation.vue'
-import { useApi } from '@/composables/useApi'
-const { log } = inject('logger')
+import { ref, onMounted, watch, inject } from 'vue';
+import { useGameStore } from '@/stores/gameStore';
+import { useTelegram } from '@/composables/useTelegram';
+import { useApi } from '@/composables/useApi';
+import Header from '@/components/layout/Header.vue';
+import Balance from '@/components/game/Balance.vue';
+import Navigation from '@/components/layout/Navigation.vue';
 
-const store = useGameStore()
-const { tg, user } = useTelegram()
+const store = useGameStore();
+const { tg, user } = useTelegram();
 const api = useApi();
+const { log } = inject('logger');
+const notifications = inject('notifications');
 
 // Награды за приглашения
 const rewards = ref([
@@ -102,134 +106,113 @@ const rewards = ref([
   { count: 7, amount: 175, image: '/images/friends/2.png', completed: false },
   { count: 10, amount: 175, image: '/images/friends/3.png', completed: false },
   { count: 25, amount: 175, image: '/images/friends/4.png', completed: false }
-])
+]);
 
 // Список друзей-рефералов
-const friends = ref([])
+const friends = ref([]);
 
 // Загрузка рефералов
-// В Friends.vue
-// src/pages/Friends.vue
 const loadReferrals = async () => {
   if (!user.value?.id) {
-    log('No user ID available', user.value);
+    log('DEBUG: No user ID available', user.value);
     return;
   }
 
   try {
-    log('Fetching referrals for user:', user.value.id);
+    log('DEBUG: Fetching referrals for user:', user.value.id);
+    const response = await api.getReferrals(user.value.id);
+    log('DEBUG: Referrals response:', response);
 
-    // Используем API из composable
-    const api = useApi();
-    const referralsData = await api.getReferrals(user.value.id);
-
-    log('Received referrals data:', referralsData);
-
-    if (referralsData && Array.isArray(referralsData)) {
-      friends.value = referralsData.map(referral => ({
-        id: referral.userId,
-        name: referral.userData?.first_name || 'Unknown User',
-        income: referral.userData?.income || 0,
-        rewardClaimed: referral.rewardClaimed
-      }));
+    if (response?.success && Array.isArray(response.data)) {
+      friends.value = response.data;
+      log('DEBUG: Updated friends list:', friends.value);
     }
 
-    // Проверяем доступность наград
     checkRewardsProgress();
   } catch (error) {
-    log('Error loading referrals:', error);
+    log('DEBUG: Error loading referrals:', error);
+    notifications.addNotification({
+      message: 'Ошибка при загрузке рефералов',
+      type: 'error'
+    });
   }
 };
 
-
-// Вызываем при монтировании и при изменении пользователя
-onMounted(() => {
-  log('Component mounted, user:', user.value);
-  if (user.value) {
-    loadReferrals();
-  }
-});
-
-watch(() => user.value, (newUser) => {
-  log('User changed:', newUser);
-  if (newUser) {
-    loadReferrals();
-  }
-});
-
-const checkRewardsProgress = () => {
-  // Получаем сохраненное состояние наград
-  const savedState = ReferralService.getRewardsState(user.value?.id)
-  if (savedState) {
-    rewards.value = savedState
-  }
-
-  // Проверяем доступные награды
-  rewards.value.forEach(reward => {
-    if (!reward.completed && friends.value.length >= reward.count) {
-      reward.available = true;
-    }
-  })
-}
-
 // Форматирование чисел
 const formatMoney = (num) => {
-  if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'k'
+  if (num >= 1000000000) {
+    return (num / 1000000000).toFixed(1) + 'B';
   }
-  return num.toString()
-}
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'M';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'K';
+  }
+  return num.toString();
+};
+
+// Проверка доступности наград
+const checkRewardsProgress = () => {
+  rewards.value.forEach(reward => {
+    const unclaimedReferrals = friends.value.filter(f => !f.rewardClaimed);
+    reward.available = unclaimedReferrals.length >= reward.count && !reward.completed;
+  });
+};
 
 // Обработка получения награды
 const handleRewardClaim = async (reward) => {
-  if (!reward.completed && !reward.available) {
+  if (!reward.available) {
+    const unclaimedCount = friends.value.filter(f => !f.rewardClaimed).length;
     notifications.addNotification({
-      message: `Пригласите ещё ${reward.count - friends.value.filter(f => !f.rewardClaimed).length} друзей`,
+      message: `Пригласите ещё ${reward.count - unclaimedCount} друзей`,
       type: 'warning'
-    })
-    return
+    });
+    return;
   }
 
-  if (!reward.completed && reward.available) {
-    // Помечаем необходимое количество рефералов как обработанных
-    const unclaimedReferrals = friends.value.filter(f => !f.rewardClaimed)
-    for (let i = 0; i < reward.count; i++) {
-      if (unclaimedReferrals[i]) {
-        await ReferralService.markRewardClaimed(user.value.id, unclaimedReferrals[i].id)
-      }
+  try {
+    // Получаем необходимое количество невознагражденных рефералов
+    const unclaimedReferrals = friends.value
+        .filter(f => !f.rewardClaimed)
+        .slice(0, reward.count);
+
+    // Отмечаем рефералов как вознагражденных
+    for (const referral of unclaimedReferrals) {
+      await api.updateReferral(referral.id, { rewardClaimed: true });
     }
 
     // Начисляем награду
-    store.balance += reward.amount * 1000
-    reward.completed = true
-    reward.available = false
-
-    // Сохраняем состояние наград
-    ReferralService.saveRewardsState(user.value.id, rewards.value)
+    store.balance += reward.amount * 1000;
+    reward.completed = true;
+    reward.available = false;
 
     notifications.addNotification({
       message: `Получено ${reward.amount}K монет!`,
       type: 'success'
-    })
+    });
 
     // Обновляем список рефералов
-    loadReferrals()
+    await loadReferrals();
+  } catch (error) {
+    log('Error claiming reward:', error);
+    notifications.addNotification({
+      message: 'Ошибка при получении награды',
+      type: 'error'
+    });
   }
-}
+};
 
-// Приглашение друга через Telegram
+// Приглашение друга
 const inviteFriend = () => {
   if (!user.value) {
-    console.log('No user available for invite');
+    log('No user available for invite');
     return;
   }
 
-  console.log('Creating invite link for user:', user.value.id);
   const startCommand = `ref_${user.value.id}`;
-  const botUsername = 'sdsdd12121222w12_bot'; // Используем ваше имя бота
+  const botUsername = 'your_bot_username'; // Замените на имя вашего бота
   const referralLink = `https://t.me/${botUsername}?start=${startCommand}`;
-
-  console.log('Generated referral link:', referralLink);
 
   const message = `Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`;
 
@@ -238,36 +221,26 @@ const inviteFriend = () => {
     window.open(shareUrl, '_blank');
   } else {
     navigator.clipboard.writeText(message);
-    alert('Ссылка скопирована в буфер обмена');
+    notifications.addNotification({
+      message: 'Ссылка скопирована в буфер обмена',
+      type: 'success'
+    });
   }
 };
 
+// Загрузка данных при монтировании
 onMounted(() => {
-  // Загружаем сохраненное состояние наград
-  const savedRewards = localStorage.getItem('rewards_state')
-  if (savedRewards) {
-    rewards.value = JSON.parse(savedRewards)
+  if (user.value) {
+    loadReferrals();
   }
+});
 
-  loadReferrals()
-
-  // Проверяем наличие реферера в URL
-  const urlParams = new URLSearchParams(window.location.search)
-  const referrerId = urlParams.get('ref')
-
-  if (referrerId && user.value && referrerId !== user.value.id) {
-    ReferralService.saveReferrer(referrerId)
-    if (user.value) {
-      ReferralService.saveReferral(referrerId, user.value.id, {
-        first_name: user.value.first_name,
-        last_name: user.value.last_name,
-        username: user.value.username,
-        photo_url: user.value.photo_url,
-        income: store.passiveIncome
-      })
-    }
+// Следим за изменением пользователя
+watch(() => user.value, (newUser) => {
+  if (newUser) {
+    loadReferrals();
   }
-})
+});
 </script>
 
 <style scoped>
@@ -392,6 +365,12 @@ onMounted(() => {
   color: white;
 }
 
+.no-friends {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 20px;
+}
+
 .friends-list {
   display: flex;
   flex-direction: column;
@@ -411,6 +390,13 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   margin-right: 12px;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
 }
 
 .friend-info {
@@ -457,7 +443,6 @@ onMounted(() => {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-
 }
 
 .invite-button:hover {
@@ -465,11 +450,108 @@ onMounted(() => {
 }
 
 .invite-button:active {
-  transform: scale(0.98);
+  transform: translate(-50%, 1px);
 }
 
 .reward-completed {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Добавляем анимации */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.reward-item.available {
+  animation: pulse 2s infinite;
+}
+
+/* Стили для скроллбара */
+.friends-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.friends-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.friends-container::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: 3px;
+}
+
+/* Адаптивность для маленьких экранов */
+@media (max-width: 360px) {
+  .friends-title {
+    font-size: 20px;
+  }
+
+  .friends-subtitle {
+    font-size: 12px;
+  }
+
+  .reward-item {
+    padding: 8px;
+  }
+
+  .reward-image {
+    width: 48px;
+    height: 48px;
+  }
+
+  .reward-text {
+    font-size: 14px;
+  }
+
+  .invite-button {
+    width: 90%;
+    font-size: 14px;
+    padding: 12px;
+  }
+}
+
+/* Дополнительные стили для состояний и анимаций */
+.friend-item:hover {
+  border-color: rgba(140, 96, 227, 0.5);
+  background: rgba(140, 96, 227, 0.1);
+}
+
+.friend-reward:not(.claimed) {
+  animation: glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px var(--primary-color);
+  }
+  to {
+    text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px var(--primary-color);
+  }
+}
+
+.refresh-button svg {
+  transition: transform 0.3s ease;
+}
+
+.refresh-button:hover svg {
+  transform: rotate(180deg);
+}
+
+.reward-arrow svg {
+  transition: transform 0.2s ease;
+}
+
+.reward-item:hover .reward-arrow svg {
+  transform: translateX(3px);
 }
 </style>

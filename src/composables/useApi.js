@@ -11,25 +11,28 @@ export const useApi = () => {
     // src/composables/useApi.js
     const getReferrals = async (userId) => {
         try {
+            console.log('DEBUG: Making API call to:', `${API_BASE_URL}/api/referrals/${userId}`);
+
             const response = await fetch(`${API_BASE_URL}/api/referrals/${userId}`);
+            console.log('DEBUG: API Response status:', response.status);
 
-            // Добавим логирование для отладки
-            console.log('API Response:', response);
+            const responseText = await response.text();
+            console.log('DEBUG: Raw response:', responseText);
 
-            if (!response.ok) {
-                console.error('Error response:', await response.text());
-                throw new Error('Failed to fetch referrals');
-            }
-
-            const data = await response.json();
-            console.log('Referrals data:', data);
+            // Пробуем распарсить JSON только если есть данные
+            const data = responseText ? JSON.parse(responseText) : [];
+            console.log('DEBUG: Parsed referrals data:', data);
 
             return data;
         } catch (error) {
-            console.error('Error fetching referrals:', error);
+            console.error('DEBUG: Error in getReferrals:', error);
             return [];
         }
     };
+
+
+
+
 
     const saveReferral = async (referralData) => {
         try {
