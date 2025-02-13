@@ -89,9 +89,11 @@ import { ReferralService } from '@/services/referralService'
 import Header from '@/components/layout/Header.vue'
 import Balance from '@/components/game/Balance.vue'
 import Navigation from '@/components/layout/Navigation.vue'
+import { useApi } from '@/composables/useApi';
 
 const store = useGameStore()
 const { tg, user } = useTelegram()
+const api = useApi();
 
 // Награды за приглашения
 const rewards = ref([
@@ -107,39 +109,27 @@ const friends = ref([])
 // Загрузка рефералов
 // В Friends.vue
 const loadReferrals = async () => {
-  console.log('Loading referrals...');
-  console.log('Current user:', user.value);
-
   if (!user.value?.id) {
-    console.warn('No user ID available');
+    console.log('No user ID available');
     return;
   }
 
-  try {
-    const response = await fetch(`/api/referrals/${user.value.id}`);
-    console.log('API Response:', response);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log('Referrals data:', data);
-    friends.value = data;
-
-  } catch (error) {
-    console.error('Error loading referrals:', error);
-  }
+  console.log('Loading referrals for user:', user.value.id);
+  const referrals = await api.getReferrals(user.value.id);
+  console.log('Loaded referrals:', referrals);
+  friends.value = referrals;
 };
 
 // Вызываем при монтировании и при изменении пользователя
 onMounted(() => {
+  console.log('Component mounted, user:', user.value);
   if (user.value) {
     loadReferrals();
   }
 });
 
 watch(() => user.value, (newUser) => {
+  console.log('User changed:', newUser);
   if (newUser) {
     loadReferrals();
   }
@@ -209,30 +199,26 @@ const handleRewardClaim = async (reward) => {
 // Приглашение друга через Telegram
 const inviteFriend = () => {
   if (!user.value) {
-    console.log('No user found');
+    console.log('No user available');
     return;
   }
 
-  // Формируем реферальную ссылку с ID текущего пользователя
-  console.log('Current user:', user.value);
-  const startCommand = `ref_${user.value.id}`
-  const botUsername = 'sdsdd12121222w12_bot' // Замените на username вашего бота
+  const startCommand = `ref_${user.value.id}`;
+  const botUsername = 'your_bot_username'; // Замените на ваше имя бота
   const referralLink = `https://t.me/${botUsername}?start=${startCommand}`;
 
   console.log('Generated referral link:', referralLink);
 
-  const message = encodeURIComponent(`Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`)
+  const message = `Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`;
 
-  if (tg) {
-    // Используем нативный шаринг Telegram
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${message}`
-    window.open(shareUrl, '_blank')
+  if (tg.value) {
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(message)}`;
+    window.open(shareUrl, '_blank');
   } else {
-    // Fallback для браузера
-    navigator.clipboard.writeText(decodeURIComponent(message))
-    alert('Ссылка скопирована в буфер обмена')
+    navigator.clipboard.writeText(message);
+    alert('Ссылка скопирована в буфер обмена');
   }
-}
+};
 
 onMounted(() => {
   // Загружаем сохраненное состояние наград
