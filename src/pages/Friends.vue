@@ -184,7 +184,7 @@ const inviteFriend = () => {
 
   // Формируем реферальную ссылку с ID текущего пользователя
   const startCommand = `ref_${user.value.id}`
-  const botUsername = 'PassiveTapperBot' // Замените на username вашего бота
+  const botUsername = 'sdsdd12121222w12_bot' // Замените на username вашего бота
   const referralLink = `https://t.me/${botUsername}?start=${startCommand}`
 
   const message = encodeURIComponent(`Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`)
