@@ -4,32 +4,26 @@ import { MongoClient } from 'mongodb';
 const uri = process.env.MONGODB_URI;
 
 export default async function handler(req, res) {
-    // Добавляем CORS заголовки
-    res.setHeader('Access-Control-Allow-Credentials', true);
+    // Разрешаем CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-    );
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+    // Обработка OPTIONS запроса для CORS
     if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
+        return res.status(200).end();
     }
 
-    console.log('Received referral request:', req.body);
-
+    // Проверяем метод
     if (req.method !== 'POST') {
         return res.status(405).json({
             success: false,
-            message: 'Method not allowed'
+            message: 'Method not allowed. Only POST is supported.'
         });
     }
 
-    let mongoClient;
-
     try {
+        console.log('Received request body:', req.body);
         const { referrerId, userId, userData } = req.body;
 
         // Проверяем обязательные поля
@@ -41,13 +35,16 @@ export default async function handler(req, res) {
         }
 
         // Подключаемся к MongoDB
-        const client = await MongoClient.connect(process.env.MONGODB_URI);
+        const client = await MongoClient.connect(uri);
+        console.log('Connected to MongoDB');
+
         const db = client.db('game-db');
         const referrals = db.collection('referrals');
 
         // Проверяем, не является ли пользователь уже чьим-то рефералом
         const existingReferral = await referrals.findOne({ userId });
         if (existingReferral) {
+            await client.close();
             return res.status(400).json({
                 success: false,
                 message: 'User already has a referrer'
@@ -59,10 +56,12 @@ export default async function handler(req, res) {
             referrerId,
             userId,
             userData,
-            createdAt: new Date()
+            joinedAt: new Date(),
+            rewardClaimed: false
         });
 
         await client.close();
+        console.log('Referral saved:', result);
 
         return res.status(201).json({
             success: true,
