@@ -4,9 +4,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://v0-new-project-dqi
 export const useApi = () => {
     const getReferrals = async (userId) => {
         try {
-            console.log('Fetching referrals for user:', userId);
+            log('Fetching referrals for user:', userId);
             const response = await fetch(`${API_BASE_URL}/api/referrals/${userId}`);
-            console.log('Referrals response:', response);
+            log('Referrals response:', response);
             if (!response.ok) throw new Error('Failed to fetch referrals');
             return await response.json();
         } catch (error) {
@@ -17,7 +17,7 @@ export const useApi = () => {
 
     const saveReferral = async (referralData) => {
         try {
-            console.log('Saving referral:', referralData);
+            log('Saving referral:', referralData);
             const response = await fetch(`${API_BASE_URL}/api/referrals`, {
                 method: 'POST',
                 headers: {
@@ -25,7 +25,7 @@ export const useApi = () => {
                 },
                 body: JSON.stringify(referralData)
             });
-            console.log('Save referral response:', response);
+            log('Save referral response:', response);
             if (!response.ok) throw new Error('Failed to save referral');
             return await response.json();
         } catch (error) {

@@ -5,7 +5,7 @@ const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
 
 export default async function handler(req, res) {
-    console.log('Get referrals request:', {
+    log('Get referrals request:', {
         method: req.method,
         query: req.query
     });
@@ -15,23 +15,23 @@ export default async function handler(req, res) {
     }
 
     try {
-        console.log('MongoDB URI exists:', !!uri);
+        log('MongoDB URI exists:', !!uri);
 
         await client.connect();
         await client.db("admin").command({ ping: 1 });
-        console.log("MongoDB connected successfully");
+        log("MongoDB connected successfully");
 
         const db = client.db('game-db');
         const referrals = db.collection('referrals');
 
         const { userId } = req.query;
-        console.log('Fetching referrals for user:', userId);
+        log('Fetching referrals for user:', userId);
 
         const userReferrals = await referrals
             .find({ referrerId: userId })
             .toArray();
 
-        console.log('Found referrals:', userReferrals);
+        log('Found referrals:', userReferrals);
         res.status(200).json(userReferrals);
 
     } catch (error) {

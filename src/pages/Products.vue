@@ -132,7 +132,7 @@ const handleProductClick = (product) => {
   } : null
 
   // Здесь будет отправка данных в админку
-  console.log('Активация продукта:', {
+  log('Активация продукта:', {
     productId: product.id,
     productTitle: product.title,
     user: userData,

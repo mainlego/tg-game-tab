@@ -6,7 +6,7 @@ const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
 
 export default async function handler(req, res) {
-    console.log('API request received:', {
+    log('API request received:', {
         method: req.method,
         body: req.body
     });
@@ -18,17 +18,17 @@ export default async function handler(req, res) {
 
     try {
         // Проверяем подключение к MongoDB
-        console.log('MongoDB URI exists:', !!uri);
+        log('MongoDB URI exists:', !!uri);
 
         await client.connect();
         await client.db("admin").command({ ping: 1 });
-        console.log("MongoDB connected successfully");
+        log("MongoDB connected successfully");
 
         const db = client.db('game-db'); // Название вашей базы данных
         const referrals = db.collection('referrals');
 
         const { referrerId, userId, userData } = req.body;
-        console.log('Processing referral data:', { referrerId, userId, userData });
+        log('Processing referral data:', { referrerId, userId, userData });
 
         // Проверяем существующего реферала
         const existingReferral = await referrals.findOne({ userId });
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
             rewardClaimed: false
         });
 
-        console.log('Referral saved:', result);
+        log('Referral saved:', result);
         res.status(201).json(result);
 
     } catch (error) {

@@ -19,6 +19,7 @@
       </transition>
     </router-view>
     <Notification ref="notificationSystem" />
+    <Logger ref="logger" />
   </div>
 </template>
 
@@ -27,15 +28,22 @@ import { ref, provide, onMounted } from 'vue'
 import Notification from '@/components/ui/Notification.vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useTelegram } from '@/composables/useTelegram'
+import Logger from './components/Logger.vue'
 
+
+const logger = ref(null)
 const store = useGameStore()
 const notificationSystem = ref(null)
 const { ready, user } = useTelegram()
 
 
+provide('logger', {
+  log: (message) => logger.value?.addLog(message)
+})
+
 if (user) {
   // Здесь можно инициализировать пользователя в store
-  console.log('Telegram user:', user)
+  log('Telegram user:', user)
 }
 
 // Добавляем управление значением клика

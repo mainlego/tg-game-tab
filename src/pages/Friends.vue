@@ -90,6 +90,7 @@ import Header from '@/components/layout/Header.vue'
 import Balance from '@/components/game/Balance.vue'
 import Navigation from '@/components/layout/Navigation.vue'
 import { useApi } from '@/composables/useApi';
+const { log } = inject('logger')
 
 const store = useGameStore()
 const { tg, user } = useTelegram()
@@ -110,26 +111,26 @@ const friends = ref([])
 // В Friends.vue
 const loadReferrals = async () => {
   if (!user.value?.id) {
-    console.log('No user ID available');
+    log('No user ID available');
     return;
   }
 
-  console.log('Loading referrals for user:', user.value.id);
+  log('Loading referrals for user:', user.value.id);
   const referrals = await api.getReferrals(user.value.id);
-  console.log('Loaded referrals:', referrals);
+  log('Loaded referrals:', referrals);
   friends.value = referrals;
 };
 
 // Вызываем при монтировании и при изменении пользователя
 onMounted(() => {
-  console.log('Component mounted, user:', user.value);
+  log('Component mounted, user:', user.value);
   if (user.value) {
     loadReferrals();
   }
 });
 
 watch(() => user.value, (newUser) => {
-  console.log('User changed:', newUser);
+  log('User changed:', newUser);
   if (newUser) {
     loadReferrals();
   }
@@ -199,7 +200,7 @@ const handleRewardClaim = async (reward) => {
 // Приглашение друга через Telegram
 const inviteFriend = () => {
   if (!user.value) {
-    console.log('No user available');
+    log('No user available');
     return;
   }
 
@@ -207,7 +208,7 @@ const inviteFriend = () => {
   const botUsername = 'your_bot_username'; // Замените на ваше имя бота
   const referralLink = `https://t.me/${botUsername}?start=${startCommand}`;
 
-  console.log('Generated referral link:', referralLink);
+  log('Generated referral link:', referralLink);
 
   const message = `Привет! У меня есть кое-что крутое для тебя - первая игра генерирующая пассивный доход\n\nПрисоединяйся, будем генерить доход вместе: ${referralLink}`;
 
