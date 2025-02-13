@@ -113,24 +113,20 @@ const friends = ref([]);
 
 // Загрузка рефералов
 const loadReferrals = async () => {
-  if (!user.value?.id) {
-    log('DEBUG: No user ID available', user.value);
-    return;
-  }
 
   try {
     log('DEBUG: Fetching referrals for user:', user.value.id);
     const response = await api.getReferrals(user.value.id);
-    log('DEBUG: Referrals response:', response);
+    // log('DEBUG: Referrals response:', response);
 
     if (response?.success && Array.isArray(response.data)) {
       friends.value = response.data;
-      log('DEBUG: Updated friends list:', friends.value);
+      // log('DEBUG: Updated friends list:', friends.value);
     }
 
     checkRewardsProgress();
   } catch (error) {
-    log('DEBUG: Error loading referrals:', error);
+    // log('DEBUG: Error loading referrals:', error);
     notifications.addNotification({
       message: 'Ошибка при загрузке рефералов',
       type: 'error'
@@ -195,7 +191,7 @@ const handleRewardClaim = async (reward) => {
     // Обновляем список рефералов
     await loadReferrals();
   } catch (error) {
-    log('Error claiming reward:', error);
+    // log('Error claiming reward:', error);
     notifications.addNotification({
       message: 'Ошибка при получении награды',
       type: 'error'
@@ -206,7 +202,7 @@ const handleRewardClaim = async (reward) => {
 // Приглашение друга
 const inviteFriend = () => {
   if (!user.value) {
-    log('No user available for invite');
+    //log('No user available for invite');
     return;
   }
 
