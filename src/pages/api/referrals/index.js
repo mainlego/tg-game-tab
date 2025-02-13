@@ -18,6 +18,8 @@ export default async function handler(req, res) {
         return;
     }
 
+    console.log('Received referral request:', req.body);
+
     if (req.method !== 'POST') {
         return res.status(405).json({
             success: false,
@@ -30,12 +32,17 @@ export default async function handler(req, res) {
     try {
         const { referrerId, userId, userData } = req.body;
 
+        // Проверяем обязательные поля
         if (!referrerId || !userId || !userData) {
-            throw new Error('Required fields are missing');
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields'
+            });
         }
 
-        mongoClient = await MongoClient.connect(uri);
-        const db = mongoClient.db('game-db');
+        // Подключаемся к MongoDB
+        const client = await MongoClient.connect(process.env.MONGODB_URI);
+        const db = client.db('game-db');
         const referrals = db.collection('referrals');
 
         // Проверяем, не является ли пользователь уже чьим-то рефералом
@@ -52,9 +59,10 @@ export default async function handler(req, res) {
             referrerId,
             userId,
             userData,
-            joinedAt: new Date(),
-            rewardClaimed: false
+            createdAt: new Date()
         });
+
+        await client.close();
 
         return res.status(201).json({
             success: true,
@@ -65,12 +73,7 @@ export default async function handler(req, res) {
         console.error('API Error:', error);
         return res.status(500).json({
             success: false,
-            message: error.message || 'Internal server error',
-            error: process.env.NODE_ENV === 'development' ? error : undefined
+            message: error.message
         });
-    } finally {
-        if (mongoClient) {
-            await mongoClient.close();
-        }
     }
 }
