@@ -1,6 +1,4 @@
 // models/Referral.js
-import mongoose from 'mongoose';
-
 const ReferralSchema = new mongoose.Schema({
     referrerId: {
         type: String,
@@ -27,5 +25,3 @@ const ReferralSchema = new mongoose.Schema({
         default: false
     }
 });
-
-export default mongoose.models.Referral || mongoose.model('Referral', ReferralSchema);
