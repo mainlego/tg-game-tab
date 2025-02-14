@@ -125,7 +125,7 @@ const userName = computed(() => {
 }
 
 .income__amount {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   line-height: 22px;
 }

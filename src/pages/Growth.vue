@@ -186,7 +186,7 @@ const formatMoney = (num) => {
 <style scoped>
 .growth-page {
   min-height: 100vh;
-  padding-top: 58px;
+  padding-top: 68px;
   background: url('@/assets/images/bg-2.jpg') center top no-repeat;
 }
 
