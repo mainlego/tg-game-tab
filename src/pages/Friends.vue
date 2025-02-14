@@ -242,8 +242,7 @@ watch(() => user.value, (newUser) => {
 <style scoped>
 .friends-page {
   min-height: 100vh;
-  padding: 0 1rem;
-  padding-bottom: 80px;
+  padding: 68px 1rem  80px 1rem;
   background: url('@/assets/images/bg.jpg') center top no-repeat;
 }
 

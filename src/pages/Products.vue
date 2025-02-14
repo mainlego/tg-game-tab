@@ -168,8 +168,7 @@ const formatMoney = (num) => {
 <style scoped>
 .products-page {
   min-height: 100vh;
-  padding: 0 1rem;
-  padding-bottom: 80px;
+  padding: 68px 1rem  80px 1rem;
   background: url('/images/bg-2.jpg') center top no-repeat;
 }
 
