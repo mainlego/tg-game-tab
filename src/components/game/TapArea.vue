@@ -7,6 +7,7 @@
       @mousedown="handleTap"
       @touchstart.prevent="handleTap"
   >
+
     <TransitionGroup name="coin">
       <div v-for="coin in coins"
            :key="coin.id"
@@ -107,12 +108,12 @@ const animateBackground = () => {
     const offset = Math.sin(progress * Math.PI * 2) * maxOffset
     const xPos = 50 + offset
 
-    tapAreaRef.value.style.backgroundPosition = `${xPos}% top`
+    tapAreaRef.value.style.backgroundPosition = `${xPos}% -10px`
 
     if (progress < 1) {
       requestAnimationFrame(animate)
     } else {
-      tapAreaRef.value.style.backgroundPosition = '50% top'
+      tapAreaRef.value.style.backgroundPosition = '50% -10px'
       isAnimating = false
     }
   }
@@ -139,12 +140,13 @@ const getBoostTimeLeft = (boostType) => {
 <style scoped>
 .tap-area {
   position: relative;
-  width: 100%;
+  width: 105%;
+  margin-left: -2.5%;
   height: 100vh;
-  border-top: 4px solid var(--primary-color);
-  border-radius: 40px 40px 0 0;
-  background-size: 130%;
-  background-position: 50% top;
+  border:5px solid #8c60e3;
+  border-radius: 60px;
+  background-size: 110%;
+  background-position: 50% -10px;
   background-repeat: no-repeat;
   touch-action: none;
   user-select: none;
@@ -152,6 +154,7 @@ const getBoostTimeLeft = (boostType) => {
   overflow: hidden;
   transition: background-image 0.3s ease; /* Добавляем плавный переход */
 }
+
 
 .coin-popup {
   position: absolute;
