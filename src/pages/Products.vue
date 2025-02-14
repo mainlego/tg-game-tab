@@ -168,13 +168,14 @@ const formatMoney = (num) => {
 <style scoped>
 .products-page {
   min-height: 100vh;
-  padding: 68px 1rem  80px 1rem;
+  padding: 68px 0  80px 0;
   background: url('/images/bg-2.jpg') center top no-repeat;
 }
 
 .products-grid {
   display: grid;
   overflow: auto;
+  padding: 0 1rem;
   max-height: 60vh;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;

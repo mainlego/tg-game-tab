@@ -198,13 +198,14 @@ const handleTaskClick = (task) => {
 <style scoped>
 .tasks-page {
   min-height: 100vh;
-  padding: 68px 1rem  80px 1rem;
+  padding: 68px 0  80px 0;
 
   background: url('@/assets/images/bg.jpg') center top no-repeat;
 }
 
 .tasks-container {
   margin-top: 20px;
+  padding: 0 1rem;
   overflow: scroll;
   height: 60vh;
 }
