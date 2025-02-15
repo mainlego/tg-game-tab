@@ -1,22 +1,25 @@
 // src/stores/gameStore.js
 import { defineStore } from 'pinia'
+import { ref } from 'vue'
 import { StorageService } from '@/services/storage'
+import { UserService } from '@/services/userService'
 
 export const useGameStore = defineStore('game', {
     state: () => {
-        const savedState = StorageService.loadState()
-        const initialState = {
+        // Состояние пользователя
+        const currentUser = ref(null)
+        const gameData = ref(null)
+
+        return {
             // Основная валюта
             balance: 0,
-
-            // Пассивный доход
             passiveIncome: 0,
 
             // Система энергии
             energy: {
                 current: 1000,
                 max: 1000,
-                regenRate: 1, // энергия в секунду
+                regenRate: 1,
                 lastRegenTime: Date.now()
             },
 
@@ -63,7 +66,7 @@ export const useGameStore = defineStore('game', {
             investments: {
                 purchased: [],
                 activeIncome: 0,
-                lastCalculation: Date.now(),
+                lastCalculation: Date.now()
             },
 
             // Статистика
@@ -73,22 +76,21 @@ export const useGameStore = defineStore('game', {
                 maxPassiveIncome: 0
             },
 
-            lastUpdate: Date.now()
+            // Данные пользователя
+            currentUser,
+            gameData
         }
-
-        // Объединяем сохраненное состояние с начальным, гарантируя наличие всех необходимых полей
-        return savedState ? { ...initialState, ...savedState } : initialState
     },
 
     getters: {
         // Форматированный баланс
         formattedBalance: (state) => {
-            return formatBigNumber(state.balance)
+            return state.formatBigNumber(state.balance)
         },
 
         // Форматированный пассивный доход
         formattedPassiveIncome: (state) => {
-            return '+' + formatBigNumber(state.passiveIncome) + '/мес'
+            return '+' + state.formatBigNumber(state.passiveIncome) + '/мес'
         },
 
         // Форматированная энергия
@@ -104,67 +106,80 @@ export const useGameStore = defineStore('game', {
         // Возможность клика
         canTap: (state) => {
             return state.energy.current >= 1
-        },
-
-        // Активные инвестиции
-        activeInvestments: (state) => {
-            return state.investments.purchased
-        },
-
-        // Общий доход от инвестиций
-        totalInvestmentIncome: (state) => {
-            return state.investments.activeIncome
-        },
-
-        // Проверка покупки инвестиции
-        isInvestmentPurchased: (state) => (investmentId) => {
-            return state.investments.purchased.some(inv => inv.id === investmentId)
         }
     },
 
     actions: {
+        // Инициализация игры для пользователя
+        initializeGame(userId) {
+            const userData = UserService.getUser(userId)
+            if (userData) {
+                this.currentUser = userData
+                const data = userData.gameData
+
+                // Загружаем сохраненные данные
+                this.balance = data.balance || 0
+                this.passiveIncome = data.passiveIncome || 0
+                this.energy = data.energy || this.energy
+                this.level = data.level || this.level
+                this.multipliers = data.multipliers || this.multipliers
+                this.boosts = data.boosts || this.boosts
+                this.investments = data.investments || this.investments
+                this.stats = data.stats || this.stats
+
+                // Обрабатываем офлайн прогресс
+                this.processOfflineProgress()
+            }
+        },
+
         // Сохранение состояния
         saveState() {
-            StorageService.saveState({
-                ...this.$state,
-                lastUpdate: Date.now()
-            })
-        },
-
-        // Добавим новый метод для обработки пассивного дохода
-        processPassiveIncome() {
-            const now = Date.now()
-            const deltaTime = (now - this.lastUpdate) / 1000 // разница в секундах
-
-            // Рассчитываем доход за секунду (конвертируем месячный доход в секундный)
-            const incomePerSecond = this.passiveIncome / (30 * 24 * 60 * 60)
-
-            // Начисляем доход
-            const income = Math.floor(incomePerSecond * deltaTime)
-            if (income > 0) {
-                this.balance += income
+            if (this.currentUser?.id) {
+                const gameData = {
+                    balance: this.balance,
+                    passiveIncome: this.passiveIncome,
+                    energy: this.energy,
+                    level: this.level,
+                    multipliers: this.multipliers,
+                    boosts: this.boosts,
+                    investments: this.investments,
+                    stats: this.stats
+                }
+                UserService.updateGameData(this.currentUser.id, gameData)
             }
-
-            this.lastUpdate = now
-            this.saveState()
         },
 
-        // Добавим метод для запуска таймера
+        // Форматирование больших чисел
+        formatBigNumber(num) {
+            if (num >= 1000000000) {
+                return (num / 1000000000).toFixed(1) + 'B'
+            }
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M'
+            }
+            if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K'
+            }
+            return Math.floor(num).toString()
+        },
+
+        // Обработка пассивного дохода
+        processPassiveIncome() {
+            if (this.passiveIncome > 0) {
+                const monthInSeconds = 30 * 24 * 60 * 60
+                const incomePerSecond = this.passiveIncome / monthInSeconds
+                this.balance += (incomePerSecond / 10)
+                this.updateLevel()
+                this.saveState()
+            }
+        },
+
+        // Запуск таймера пассивного дохода
         startPassiveIncomeTimer() {
             setInterval(() => {
-                if (this.passiveIncome > 0) {
-                    // Конвертируем месячный доход в секундный
-                    const monthInSeconds = 30 * 24 * 60 * 60;
-                    const incomePerSecond = this.passiveIncome / monthInSeconds;
-
-                    // Прибавляем доход за 100мс
-                    this.balance += (incomePerSecond / 10);
-                    this.updateLevel(); // Обновляем уровень при изменении баланса
-                    this.saveState(); // Сохраняем состояние
-                }
-            }, 100); // Обновляем каждые 100мс для более плавной анимации
+                this.processPassiveIncome()
+            }, 100)
         },
-
 
         // Обработка клика
         handleTap() {
@@ -172,16 +187,6 @@ export const useGameStore = defineStore('game', {
                 this.energy.current -= 1
                 const reward = this.effectiveTapValue
                 this.balance += reward
-
-                // Добавляем проверку
-                if (!this.stats) {
-                    this.stats = {
-                        totalClicks: 0,
-                        totalEarned: 0,
-                        maxPassiveIncome: 0
-                    }
-                }
-
                 this.stats.totalClicks++
                 this.stats.totalEarned += reward
                 this.saveState()
@@ -260,19 +265,10 @@ export const useGameStore = defineStore('game', {
         // Покупка инвестиции
         purchaseInvestment(investment, calculatedIncome) {
             if (this.balance < investment.cost) {
-                return false;
+                return false
             }
 
-            // Проверяем и инициализируем структуру, если она отсутствует
-            if (!this.investments) {
-                this.investments = {
-                    purchased: [],
-                    activeIncome: 0,
-                    lastCalculation: Date.now()
-                }
-            }
-
-            this.balance -= investment.cost;
+            this.balance -= investment.cost
 
             this.investments.purchased.push({
                 id: investment.id,
@@ -280,47 +276,30 @@ export const useGameStore = defineStore('game', {
                 income: calculatedIncome,
                 purchaseDate: Date.now(),
                 type: investment.type
-            });
+            })
 
-            this.passiveIncome += calculatedIncome; // Добавляем пассивный доход сразу
-            this.recalculateInvestmentIncome();
-            this.saveState();
-            return true;
+            this.passiveIncome += calculatedIncome
+            this.recalculateInvestmentIncome()
+            this.saveState()
+            return true
         },
 
         // Пересчет дохода от инвестиций
         recalculateInvestmentIncome() {
-            if (!this.investments) {
-                this.investments = {
-                    purchased: [],
-                    activeIncome: 0,
-                    lastCalculation: Date.now()
-                }
-                return;
-            }
-
-            const now = Date.now();
-            const timePassed = (now - this.investments.lastCalculation) / 1000;
-
-            let totalIncome = 0;
+            let totalIncome = 0
             this.investments.purchased.forEach(investment => {
-                totalIncome += investment.income;
-            });
+                totalIncome += investment.income
+            })
 
-            this.passiveIncome = totalIncome;
-
-            if (timePassed > 0) {
-                const earnedIncome = (totalIncome / (30 * 24 * 60 * 60)) * timePassed;
-                this.balance += Math.floor(earnedIncome);
-            }
+            this.passiveIncome = totalIncome
 
             if (totalIncome > this.stats.maxPassiveIncome) {
-                this.stats.maxPassiveIncome = totalIncome;
+                this.stats.maxPassiveIncome = totalIncome
             }
 
-            this.investments.activeIncome = totalIncome;
-            this.investments.lastCalculation = now;
-            this.updateLevel();
+            this.investments.activeIncome = totalIncome
+            this.investments.lastCalculation = Date.now()
+            this.updateLevel()
         },
 
         // Обновление уровня
@@ -351,10 +330,11 @@ export const useGameStore = defineStore('game', {
         // Обработка офлайн прогресса
         processOfflineProgress() {
             const now = Date.now()
-            const offlineTime = (now - this.lastUpdate) / 1000
+            const lastUpdate = this.investments.lastCalculation
+            const offlineTime = (now - lastUpdate) / 1000
 
+            // Начисляем офлайн доход
             const offlineIncome = Math.floor((this.passiveIncome / (30 * 24 * 60 * 60)) * offlineTime)
-
             if (offlineIncome > 0) {
                 this.balance += offlineIncome
             }
@@ -371,7 +351,7 @@ export const useGameStore = defineStore('game', {
                 }
             })
 
-            this.lastUpdate = now
+            this.investments.lastCalculation = now
             this.saveState()
 
             return {
@@ -382,15 +362,10 @@ export const useGameStore = defineStore('game', {
 
         // Сброс игры
         resetGame() {
-            StorageService.clearState()
+            if (this.currentUser?.id) {
+                UserService.resetUserProgress(this.currentUser.id)
+            }
             window.location.reload()
         }
     }
 })
-
-// Форматирование больших чисел
-function formatBigNumber(num) {
-    return Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-}
-
-export default useGameStore

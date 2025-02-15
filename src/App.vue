@@ -23,65 +23,22 @@
   </div>
 </template>
 
+<!-- src/App.vue -->
 <script setup>
-import { ref, provide, onMounted } from 'vue'
+import { ref, provide, onMounted, watch } from 'vue'
 import Notification from '@/components/ui/Notification.vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useTelegram } from '@/composables/useTelegram'
 import Logger from './components/Logger.vue'
 
-
 const logger = ref(null)
 const store = useGameStore()
 const notificationSystem = ref(null)
-const { tg, ready, user } = useTelegram()
-
+const { tg, user, ready } = useTelegram()
 
 provide('logger', {
   log: (message) => logger.value?.addLog(message)
 })
-
-if (user) {
-  // Здесь можно инициализировать пользователя в store
-  console.log('Telegram user:', user)
-}
-
-// Добавляем управление значением клика
-const increaseTapValue = () => {
-  store.multipliers.tapValue += 1000
-  store.saveState()
-}
-
-const decreaseTapValue = () => {
-  if (store.multipliers.tapValue >= 1000) {
-    store.multipliers.tapValue -= 1000
-    store.saveState()
-  }
-}
-
-onMounted(() => {
-  if (tg) {
-    // Расширяем на весь экран
-    tg.expand();
-
-    // Настраиваем внешний вид
-    tg.setBackgroundColor('#08070d'); // Цвет фона
-    tg.setHeaderColor('#1a1a1a'); // Цвет заголовка
-
-    // Отключаем свайп назад для iOS
-    tg.BackButton.hide();
-    tg.enableClosingConfirmation();
-
-  }
-
-  store.startPassiveIncomeTimer()
-  setInterval(() => {
-    store.regenerateEnergy()
-  }, 1000)
-});
-
-
-
 
 provide('notifications', {
   addNotification: (params) => {
@@ -89,13 +46,34 @@ provide('notifications', {
   }
 })
 
-const resetGame = () => {
-  if (confirm('Вы уверены, что хотите сбросить игру?')) {
-    store.resetGame()
+// Следим за инициализацией пользователя
+watch(() => user.value, (newUser) => {
+  if (newUser) {
+    // Инициализируем игру для пользователя
+    store.initializeGame(newUser.id)
   }
-}
+}, { immediate: true })
 
+onMounted(() => {
+  if (tg) {
+    // Расширяем на весь экран
+    tg.expand()
 
+    // Настраиваем внешний вид
+    tg.setBackgroundColor('#08070d')
+    tg.setHeaderColor('#1a1a1a')
+
+    // Отключаем свайп назад для iOS
+    tg.BackButton.hide()
+    tg.enableClosingConfirmation()
+  }
+
+  // Запускаем таймеры
+  store.startPassiveIncomeTimer()
+  setInterval(() => {
+    store.regenerateEnergy()
+  }, 1000)
+})
 </script>
 
 <style>
