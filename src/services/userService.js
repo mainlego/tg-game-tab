@@ -1,93 +1,67 @@
 // src/services/userService.js
-const USERS_KEY = 'game_users'
+import { ApiService } from './apiService'
 
 export const UserService = {
-    // Создание или обновление пользователя
-    saveUser(userData) {
+    async saveUser(userData) {
         try {
-            const users = this.getAllUsers()
-            users[userData.id] = {
-                ...userData,
-                registeredAt: userData.registeredAt || new Date().toISOString(),
-                lastLogin: new Date().toISOString(),
-                gameData: userData.gameData || {
-                    level: 1,
-                    balance: 0,
-                    passiveIncome: 0,
-                    energy: {
-                        current: 1000,
-                        max: 1000
-                    }
-                }
+            const existingUser = await this.getUser(userData.telegramId)
+            if (existingUser) {
+                return await ApiService.updateUser(userData.telegramId, {
+                    ...userData,
+                    lastLogin: new Date()
+                })
+            } else {
+                return await ApiService.createUser({
+                    ...userData,
+                    registeredAt: new Date(),
+                    lastLogin: new Date()
+                })
             }
-            localStorage.setItem(USERS_KEY, JSON.stringify(users))
-            return users[userData.id]
         } catch (error) {
             console.error('Error saving user:', error)
             return null
         }
     },
 
-    // Получение пользователя по ID
-    getUser(userId) {
+    async getUser(telegramId) {
         try {
-            const users = this.getAllUsers()
-            return users[userId] || null
+            return await ApiService.getUser(telegramId)
         } catch (error) {
             console.error('Error getting user:', error)
             return null
         }
     },
 
-    // Получение всех пользователей
-    getAllUsers() {
+    async getAllUsers() {
         try {
-            const users = localStorage.getItem(USERS_KEY)
-            return users ? JSON.parse(users) : {}
+            return await ApiService.getAllUsers()
         } catch (error) {
             console.error('Error getting all users:', error)
-            return {}
+            return []
         }
     },
 
-    // Обновление игровых данных пользователя
-    updateGameData(userId, gameData) {
+    async updateGameData(telegramId, gameData) {
         try {
-            const user = this.getUser(userId)
-            if (user) {
-                user.gameData = {
-                    ...user.gameData,
-                    ...gameData
-                }
-                user.lastLogin = new Date().toISOString()
-                return this.saveUser(user)
-            }
-            return null
+            return await ApiService.updateGameData(telegramId, gameData)
         } catch (error) {
             console.error('Error updating game data:', error)
             return null
         }
     },
 
-    // Получение статистики пользователей
-    getUsersStats() {
+    async getUsersStats() {
         try {
-            const users = this.getAllUsers()
+            const users = await this.getAllUsers()
             const now = new Date()
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
             const weekAgo = new Date(today)
             weekAgo.setDate(weekAgo.getDate() - 7)
 
             return {
-                total: Object.keys(users).length,
-                activeToday: Object.values(users).filter(user => {
-                    const lastLogin = new Date(user.lastLogin)
-                    return lastLogin >= today
-                }).length,
-                newThisWeek: Object.values(users).filter(user => {
-                    const registeredAt = new Date(user.registeredAt)
-                    return registeredAt >= weekAgo
-                }).length
+                total: users.length,
+                activeToday: users.filter(user => new Date(user.lastLogin) >= today).length,
+                newThisWeek: users.filter(user => new Date(user.registeredAt) >= weekAgo).length
             }
         } catch (error) {
             console.error('Error getting users stats:', error)
@@ -99,41 +73,59 @@ export const UserService = {
         }
     },
 
-    // Блокировка/разблокировка пользователя
-    toggleUserBlock(userId) {
+    async blockUser(telegramId) {
         try {
-            const user = this.getUser(userId)
+            const user = await this.getUser(telegramId)
             if (user) {
-                user.blocked = !user.blocked
-                return this.saveUser(user)
+                return await ApiService.blockUser(telegramId, !user.blocked)
             }
             return null
         } catch (error) {
-            console.error('Error toggling user block:', error)
+            console.error('Error blocking user:', error)
             return null
         }
     },
 
-    // Сброс прогресса пользователя
-    resetUserProgress(userId) {
+    async resetUserProgress(telegramId) {
         try {
-            const user = this.getUser(userId)
-            if (user) {
-                user.gameData = {
-                    level: 1,
-                    balance: 0,
-                    passiveIncome: 0,
-                    energy: {
-                        current: 1000,
-                        max: 1000
-                    }
+            return await ApiService.updateGameData(telegramId, {
+                balance: 0,
+                passiveIncome: 0,
+                energy: {
+                    current: 1000,
+                    max: 1000,
+                    regenRate: 1,
+                    lastRegenTime: Date.now()
+                },
+                level: {
+                    current: 1,
+                    max: 10,
+                    progress: 0,
+                    title: 'Пацан'
+                },
+                multipliers: {
+                    tapValue: 1,
+                    tapMultiplier: 1,
+                    incomeBoost: 1
+                },
+                boosts: {
+                    tap3x: { active: false, endTime: null },
+                    tap5x: { active: false, endTime: null }
+                },
+                investments: {
+                    purchased: [],
+                    activeIncome: 0,
+                    lastCalculation: Date.now()
+                },
+                stats: {
+                    totalClicks: 0,
+                    totalEarned: 0,
+                    maxPassiveIncome: 0
                 }
-                return this.saveUser(user)
-            }
-            return null
+            })
         } catch (error) {
             console.error('Error resetting user progress:', error)
             return null
         }
     }
-}
+};
