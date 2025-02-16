@@ -222,8 +222,8 @@ const formatMoney = (num) => {
 }
 
 .grid-scroll {
-  overflow: auto;
-  max-height: 55vh;
+  height: 70vh;
+  overflow: scroll;
 }
 
 .investment-grid {
