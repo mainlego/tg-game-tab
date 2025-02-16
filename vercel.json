@@ -7,34 +7,27 @@
       "config": { "distDir": "dist" }
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
+      "source": "/assets/:path*",
+      "destination": "/assets/:path*"
     },
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
     },
     {
-      "src": "/admin/(.*)",
-      "dest": "/admin.html"
+      "source": "/admin/:path*",
+      "destination": "/admin.html"
     },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/:path*",
+      "destination": "/index.html"
     }
   ],
   "github": {
     "enabled": true,
     "silent": false
-  },
-
-  "rewrites": [
-    { "source": "/admin", "destination": "/src/admin/index.html" },
-    { "source": "/admin/(.*)", "destination": "/src/admin/index.html" },
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  }
 
 }
