@@ -1,4 +1,4 @@
-<!-- src/components/admin/TaskModal.vue -->
+<!-- src/components/admin/modals/TaskModal.vue -->
 <template>
   <div class="modal-overlay" @click="$emit('close')">
     <div class="modal-content" @click.stop>
@@ -24,6 +24,7 @@
           <textarea
               id="description"
               v-model="form.description"
+              required
               rows="3"
               class="form-input"
           ></textarea>
@@ -31,25 +32,65 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label for="reward">Награда</label>
-            <input
-                type="number"
-                id="reward"
-                v-model="form.reward"
+            <label for="type">Тип задания</label>
+            <select
+                id="type"
+                v-model="form.type"
                 required
-                min="0"
                 class="form-input"
             >
-          </div>
-
-          <div class="form-group">
-            <label for="type">Тип задания</label>
-            <select id="type" v-model="form.type" class="form-input">
               <option value="daily">Ежедневное</option>
               <option value="achievement">Достижение</option>
               <option value="special">Специальное</option>
             </select>
           </div>
+
+          <div class="form-group">
+            <label for="reward">Награда</label>
+            <input
+                type="number"
+                id="reward"
+                v-model.number="form.reward"
+                required
+                min="1"
+                class="form-input"
+            >
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="minLevel">Минимальный уровень</label>
+            <input
+                type="number"
+                id="minLevel"
+                v-model.number="form.requirements.level"
+                min="1"
+                class="form-input"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="minIncome">Минимальный доход</label>
+            <input
+                type="number"
+                id="minIncome"
+                v-model.number="form.requirements.income"
+                min="0"
+                class="form-input"
+            >
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="icon">Иконка</label>
+          <input
+              type="text"
+              id="icon"
+              v-model="form.icon"
+              class="form-input"
+              placeholder="URL иконки или название файла"
+          >
         </div>
 
         <div class="form-group">
@@ -63,10 +104,10 @@
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" @click="$emit('close')">
+          <button type="button" class="btn-secondary" @click="$emit('close')">
             Отмена
           </button>
-          <button type="submit" class="btn btn-primary">
+          <button type="submit" class="btn-primary">
             {{ task ? 'Сохранить' : 'Создать' }}
           </button>
         </div>
@@ -90,20 +131,31 @@ const emit = defineEmits(['close', 'save'])
 const form = ref({
   title: '',
   description: '',
-  reward: 0,
   type: 'daily',
+  reward: 100,
+  requirements: {
+    level: 1,
+    income: 0
+  },
+  icon: 'default.png',
   active: true
 })
 
 onMounted(() => {
   if (props.task) {
-    form.value = { ...props.task }
+    // Если редактируем существующее задание
+    form.value = {
+      ...props.task,
+      requirements: {
+        level: props.task.requirements?.level || 1,
+        income: props.task.requirements?.income || 0
+      }
+    }
   }
 })
 
 const handleSubmit = () => {
   emit('save', { ...form.value })
-  emit('close')
 }
 </script>
 
@@ -123,10 +175,10 @@ const handleSubmit = () => {
 
 .modal-content {
   background: white;
-  padding: 20px;
   border-radius: 8px;
+  padding: 20px;
   width: 90%;
-  max-width: 500px;
+  max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -138,12 +190,16 @@ const handleSubmit = () => {
   margin-bottom: 20px;
 }
 
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
 .close-button {
   background: none;
   border: none;
   font-size: 24px;
   cursor: pointer;
-  padding: 0;
   color: #666;
 }
 
@@ -166,10 +222,15 @@ const handleSubmit = () => {
 }
 
 .form-input {
-  padding: 8px;
+  padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+}
+
+textarea.form-input {
+  resize: vertical;
+  min-height: 80px;
 }
 
 .checkbox-label {
@@ -184,9 +245,12 @@ const handleSubmit = () => {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
 }
 
-.btn {
+.btn-primary,
+.btn-secondary {
   padding: 8px 16px;
   border: none;
   border-radius: 4px;
@@ -207,7 +271,7 @@ const handleSubmit = () => {
 @media (max-width: 768px) {
   .modal-content {
     width: 95%;
-    padding: 16px;
+    padding: 15px;
   }
 
   .form-row {

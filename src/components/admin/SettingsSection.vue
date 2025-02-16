@@ -1,79 +1,152 @@
 <!-- src/components/admin/SettingsSection.vue -->
 <template>
   <div class="settings-section">
-    <h2>Настройки игры</h2>
+    <div class="section-header">
+      <h2>Настройки игры</h2>
+    </div>
 
     <form @submit.prevent="saveSettings" class="settings-form">
+      <!-- Базовые настройки -->
       <div class="settings-group">
         <h3>Базовые настройки</h3>
 
         <div class="setting-item">
           <label>Монет за клик</label>
-          <div class="setting-input">
-            <input
-                type="number"
-                v-model="settings.tapValue"
-                class="form-input"
-                min="1"
-            >
-          </div>
+          <input
+              type="number"
+              v-model.number="settings.tapValue"
+              min="1"
+              class="form-input"
+          >
         </div>
 
         <div class="setting-item">
           <label>Базовая энергия</label>
-          <div class="setting-input">
-            <input
-                type="number"
-                v-model="settings.baseEnergy"
-                class="form-input"
-                min="100"
-                step="100"
-            >
-          </div>
+          <input
+              type="number"
+              v-model.number="settings.baseEnergy"
+              min="100"
+              step="100"
+              class="form-input"
+          >
         </div>
 
         <div class="setting-item">
           <label>Восстановление энергии (в секунду)</label>
-          <div class="setting-input">
-            <input
-                type="number"
-                v-model="settings.energyRegenRate"
-                class="form-input"
-                min="0.1"
-                step="0.1"
-            >
-          </div>
+          <input
+              type="number"
+              v-model.number="settings.energyRegenRate"
+              min="0.1"
+              step="0.1"
+              class="form-input"
+          >
         </div>
       </div>
 
+      <!-- Множители -->
       <div class="settings-group">
         <h3>Множители</h3>
 
         <div class="setting-item">
           <label>Множитель дохода</label>
-          <div class="setting-input">
-            <input
-                type="number"
-                v-model="settings.incomeMultiplier"
-                class="form-input"
-                min="1"
-                step="0.1"
-            >
-          </div>
+          <input
+              type="number"
+              v-model.number="settings.incomeMultiplier"
+              min="1"
+              step="0.1"
+              class="form-input"
+          >
         </div>
 
         <div class="setting-item">
           <label>Множитель опыта</label>
-          <div class="setting-input">
+          <input
+              type="number"
+              v-model.number="settings.expMultiplier"
+              min="1"
+              step="0.1"
+              class="form-input"
+          >
+        </div>
+      </div>
+
+      <!-- Настройки бустов -->
+      <div class="settings-group">
+        <h3>Настройки бустов</h3>
+
+        <div class="setting-item">
+          <label>Стоимость буста x3</label>
+          <input
+              type="number"
+              v-model.number="settings.boosts.tap3xCost"
+              min="1000"
+              step="1000"
+              class="form-input"
+          >
+        </div>
+
+        <div class="setting-item">
+          <label>Стоимость буста x5</label>
+          <input
+              type="number"
+              v-model.number="settings.boosts.tap5xCost"
+              min="1000"
+              step="1000"
+              class="form-input"
+          >
+        </div>
+
+        <div class="setting-item">
+          <label>Длительность бустов (часов)</label>
+          <input
+              type="number"
+              v-model.number="settings.boosts.duration"
+              min="1"
+              max="72"
+              step="1"
+              class="form-input"
+          >
+        </div>
+      </div>
+
+      <!-- Настройки уровней -->
+      <div class="settings-group">
+        <h3>Настройки уровней</h3>
+
+        <div v-for="(level, index) in settings.levelRequirements"
+             :key="index"
+             class="level-setting">
+          <div class="level-header">
+            <h4>Уровень {{ index + 1 }}</h4>
+            <button type="button" class="btn-delete" @click="removeLevel(index)" v-if="index > 0">
+              Удалить
+            </button>
+          </div>
+
+          <div class="setting-item">
+            <label>Название</label>
+            <input
+                type="text"
+                v-model="level.title"
+                class="form-input"
+            >
+          </div>
+
+          <div class="setting-item">
+            <label>Требуемый доход</label>
             <input
                 type="number"
-                v-model="settings.expMultiplier"
+                v-model.number="level.income"
+                min="0"
+                step="1000"
                 class="form-input"
-                min="1"
-                step="0.1"
             >
           </div>
         </div>
+
+        <button type="button" class="btn-secondary" @click="addLevel">
+          Добавить уровень
+        </button>
       </div>
 
       <div class="form-actions">
@@ -86,46 +159,67 @@
       </div>
     </form>
 
-    <div class="settings-preview">
-      <h3>Предпросмотр настроек</h3>
-      <div class="preview-content">
-        <div class="preview-item">
-          <span class="preview-label">Клик 1000 раз:</span>
-          <span class="preview-value">{{ formatMoney(previewClickReward) }}</span>
-        </div>
-        <div class="preview-item">
-          <span class="preview-label">Восстановление энергии за час:</span>
-          <span class="preview-value">{{ Math.floor(settings.energyRegenRate * 3600) }}</span>
-        </div>
-      </div>
-    </div>
+    <!-- Модальное окно подтверждения сброса -->
+    <ConfirmModal
+        v-if="showResetModal"
+        title="Сброс настроек"
+        message="Вы уверены, что хотите сбросить все настройки к значениям по умолчанию?"
+        @confirm="confirmReset"
+        @cancel="showResetModal = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useAdminStore } from '@/stores/adminStore'
+import { ref, onMounted } from 'vue'
+import { ApiService } from '@/services/apiService'
+import ConfirmModal from '@/components/admin/modals/ConfirmModal.vue'
 
-const adminStore = useAdminStore()
-
-// Загрузка текущих настроек
 const settings = ref({
   tapValue: 1,
   baseEnergy: 100,
   energyRegenRate: 1,
   incomeMultiplier: 1,
-  expMultiplier: 1
+  expMultiplier: 1,
+  boosts: {
+    tap3xCost: 8000,
+    tap5xCost: 25000,
+    duration: 24 // в часах
+  },
+  levelRequirements: [
+    { title: 'Пацан', income: 0 },
+    { title: 'Курьер', income: 10000 },
+    { title: 'Темщик', income: 70000 },
+    { title: 'Продавец', income: 150000 },
+    { title: 'Сотрудник', income: 300000 },
+    { title: 'Менеджер', income: 800000 },
+    { title: 'Владелец', income: 1800000 },
+    { title: 'Аристократ', income: 20000000 },
+    { title: 'Инвестор', income: 200000000 },
+    { title: 'Миллиардер', income: 2500000000 }
+  ]
 })
 
-// Предварительные расчеты
-const previewClickReward = computed(() => {
-  return settings.value.tapValue * settings.value.incomeMultiplier * 1000
+const showResetModal = ref(false)
+
+onMounted(async () => {
+  await loadSettings()
 })
 
-// Методы
+const loadSettings = async () => {
+  try {
+    const data = await ApiService.getGameSettings()
+    if (data) {
+      settings.value = { ...settings.value, ...data }
+    }
+  } catch (error) {
+    console.error('Error loading settings:', error)
+  }
+}
+
 const saveSettings = async () => {
   try {
-    await adminStore.updateGameSettings(settings.value)
+    await ApiService.updateGameSettings(settings.value)
     alert('Настройки успешно сохранены')
   } catch (error) {
     console.error('Error saving settings:', error)
@@ -134,34 +228,53 @@ const saveSettings = async () => {
 }
 
 const resetSettings = () => {
-  if (confirm('Вы уверены, что хотите сбросить все настройки?')) {
-    settings.value = {
+  showResetModal.value = true
+}
+
+const confirmReset = async () => {
+  try {
+    await ApiService.updateGameSettings({
       tapValue: 1,
       baseEnergy: 100,
       energyRegenRate: 1,
       incomeMultiplier: 1,
-      expMultiplier: 1
-    }
+      expMultiplier: 1,
+      boosts: {
+        tap3xCost: 8000,
+        tap5xCost: 25000,
+        duration: 24
+      },
+      levelRequirements: [
+        { title: 'Пацан', income: 0 },
+        { title: 'Курьер', income: 10000 },
+        { title: 'Темщик', income: 70000 },
+        { title: 'Продавец', income: 150000 },
+        { title: 'Сотрудник', income: 300000 },
+        { title: 'Менеджер', income: 800000 },
+        { title: 'Владелец', income: 1800000 },
+        { title: 'Аристократ', income: 20000000 },
+        { title: 'Инвестор', income: 200000000 },
+        { title: 'Миллиардер', income: 2500000000 }
+      ]
+    })
+    await loadSettings()
+    showResetModal.value = false
+  } catch (error) {
+    console.error('Error resetting settings:', error)
+    alert('Ошибка при сбросе настроек')
   }
 }
 
-const formatMoney = (amount) => {
-  if (amount >= 1000000000) {
-    return (amount / 1000000000).toFixed(1) + 'B'
-  }
-  if (amount >= 1000000) {
-    return (amount / 1000000).toFixed(1) + 'M'
-  }
-  if (amount >= 1000) {
-    return (amount / 1000).toFixed(1) + 'K'
-  }
-  return amount.toString()
+const addLevel = () => {
+  settings.value.levelRequirements.push({
+    title: `Уровень ${settings.value.levelRequirements.length + 1}`,
+    income: 0
+  })
 }
 
-onMounted(() => {
-  // Загружаем текущие настройки при монтировании компонента
-  settings.value = { ...adminStore.gameSettings }
-})
+const removeLevel = (index) => {
+  settings.value.levelRequirements.splice(index, 1)
+}
 </script>
 
 <style scoped>
@@ -170,62 +283,75 @@ onMounted(() => {
 }
 
 .settings-form {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  margin-bottom: 20px;
-  height: 90vh;
-  overflow: scroll;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .settings-group {
-  margin-bottom: 24px;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .settings-group h3 {
-  margin: 0 0 16px;
-  font-size: 16px;
-  font-weight: 600;
+  margin: 0 0 20px;
+  font-size: 18px;
   color: #333;
 }
 
 .setting-item {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
-  gap: 16px;
 }
 
 .setting-item label {
   flex: 1;
-  font-size: 14px;
+  margin-right: 20px;
   color: #666;
 }
 
-.setting-input {
-  width: 200px;
-}
-
 .form-input {
-  width: 100%;
+  width: 200px;
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
 }
 
+.level-setting {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.level-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.level-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #eee;
+  margin-top: 20px;
 }
 
 .btn-primary,
-.btn-secondary {
+.btn-secondary,
+.btn-delete {
   padding: 8px 16px;
   border: none;
   border-radius: 4px;
@@ -243,43 +369,11 @@ onMounted(() => {
   color: #333;
 }
 
-.settings-preview {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.settings-preview h3 {
-  margin: 0 0 16px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-}
-
-.preview-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.preview-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 4px;
-}
-
-.preview-label {
-  color: #666;
-  font-size: 14px;
-}
-
-.preview-value {
-  font-weight: 600;
-  color: var(--primary-color);
+.btn-delete {
+  background: #f44336;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
 }
 
 @media (max-width: 768px) {
@@ -290,10 +384,13 @@ onMounted(() => {
   .setting-item {
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
   }
 
-  .setting-input {
+  .setting-item label {
+    margin-bottom: 8px;
+  }
+
+  .form-input {
     width: 100%;
   }
 
@@ -303,12 +400,6 @@ onMounted(() => {
 
   .form-actions button {
     width: 100%;
-  }
-
-  .preview-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
   }
 }
 </style>

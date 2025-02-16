@@ -58,25 +58,33 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useAdminStore } from '@/stores/adminStore'
-import TaskModal from './TaskModal.vue'
+import { ApiService } from '@/services/apiService'
+import TaskModal from './modals/TaskModal.vue'
+import ConfirmModal from './modals/ConfirmModal.vue'
 
-const adminStore = useAdminStore()
 const tasks = ref([])
 const showTaskModal = ref(false)
+const showDeleteModal = ref(false)
 const editingTask = ref(null)
+const taskToDelete = ref(null)
 
 onMounted(async () => {
   await loadTasks()
 })
 
 const loadTasks = async () => {
-  await adminStore.fetchTasks()
-  tasks.value = adminStore.tasks
+  try {
+    const response = await ApiService.getTasks()
+    if (response) {
+      tasks.value = response
+    }
+  } catch (error) {
+    console.error('Error loading tasks:', error)
+  }
 }
 
 const editTask = (task) => {
-  editingTask.value = task
+  editingTask.value = { ...task }
   showTaskModal.value = true
 }
 
@@ -86,21 +94,44 @@ const closeTaskModal = () => {
 }
 
 const saveTask = async (taskData) => {
-  if (editingTask.value) {
-    await adminStore.updateTask(editingTask.value.id, taskData)
-  } else {
-    await adminStore.createTask(taskData)
+  try {
+    if (editingTask.value) {
+      await ApiService.updateTask(editingTask.value._id, taskData)
+    } else {
+      await ApiService.createTask(taskData)
+    }
+    await loadTasks()
+    closeTaskModal()
+  } catch (error) {
+    console.error('Error saving task:', error)
   }
-  await loadTasks()
 }
 
 const toggleTaskStatus = async (task) => {
-  await adminStore.toggleTaskStatus(task.id)
-  await loadTasks()
+  try {
+    await ApiService.updateTask(task._id, {
+      active: !task.active
+    })
+    await loadTasks()
+  } catch (error) {
+    console.error('Error toggling task status:', error)
+  }
 }
 
-const formatMoney = (amount) => {
-  return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")
+const confirmDelete = (task) => {
+  taskToDelete.value = task
+  showDeleteModal.value = true
+}
+
+const deleteTask = async () => {
+  try {
+    await ApiService.deleteTask(taskToDelete.value._id)
+    await loadTasks()
+    showDeleteModal.value = false
+    taskToDelete.value = null
+  } catch (error) {
+    console.error('Error deleting task:', error)
+  }
 }
 </script>
 

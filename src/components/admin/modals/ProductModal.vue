@@ -1,4 +1,4 @@
-<!-- src/components/admin/ProductModal.vue -->
+<!-- src/components/admin/modals/ProductModal.vue -->
 <template>
   <div class="modal-overlay" @click="$emit('close')">
     <div class="modal-content" @click.stop>
@@ -24,6 +24,7 @@
           <textarea
               id="description"
               v-model="form.description"
+              required
               rows="3"
               class="form-input"
           ></textarea>
@@ -31,26 +32,56 @@
 
         <div class="form-row">
           <div class="form-group">
+            <label for="type">Тип продукта</label>
+            <select
+                id="type"
+                v-model="form.type"
+                required
+                class="form-input"
+            >
+              <option value="physical">Физический</option>
+              <option value="digital">Цифровой</option>
+              <option value="service">Услуга</option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label for="requiredIncome">Требуемый доход</label>
             <input
                 type="number"
                 id="requiredIncome"
-                v-model="form.requiredIncome"
+                v-model.number="form.requiredIncome"
                 required
                 min="0"
                 class="form-input"
             >
           </div>
+        </div>
 
-          <div class="form-group">
-            <label for="image">URL изображения</label>
-            <input
-                type="text"
-                id="image"
-                v-model="form.image"
-                class="form-input"
-            >
+        <div class="form-group">
+          <label for="image">URL изображения</label>
+          <input
+              type="text"
+              id="image"
+              v-model="form.image"
+              required
+              class="form-input"
+              placeholder="https://example.com/image.jpg"
+          >
+          <div class="image-preview" v-if="form.image">
+            <img :src="form.image" alt="Preview">
           </div>
+        </div>
+
+        <div class="form-group">
+          <label for="claimInstructions">Инструкции для получения</label>
+          <textarea
+              id="claimInstructions"
+              v-model="form.claimInstructions"
+              rows="3"
+              class="form-input"
+              placeholder="Опишите, как пользователь может получить продукт..."
+          ></textarea>
         </div>
 
         <div class="form-group">
@@ -64,10 +95,10 @@
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" @click="$emit('close')">
+          <button type="button" class="btn-secondary" @click="$emit('close')">
             Отмена
           </button>
-          <button type="submit" class="btn btn-primary">
+          <button type="submit" class="btn-primary">
             {{ product ? 'Сохранить' : 'Создать' }}
           </button>
         </div>
@@ -91,8 +122,10 @@ const emit = defineEmits(['close', 'save'])
 const form = ref({
   name: '',
   description: '',
+  type: 'digital',
   requiredIncome: 0,
   image: '',
+  claimInstructions: '',
   active: true
 })
 
@@ -104,7 +137,6 @@ onMounted(() => {
 
 const handleSubmit = () => {
   emit('save', { ...form.value })
-  emit('close')
 }
 </script>
 
@@ -124,10 +156,10 @@ const handleSubmit = () => {
 
 .modal-content {
   background: white;
-  padding: 20px;
   border-radius: 8px;
+  padding: 20px;
   width: 90%;
-  max-width: 500px;
+  max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -139,12 +171,16 @@ const handleSubmit = () => {
   margin-bottom: 20px;
 }
 
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
 .close-button {
   background: none;
   border: none;
   font-size: 24px;
   cursor: pointer;
-  padding: 0;
   color: #666;
 }
 
@@ -167,10 +203,29 @@ const handleSubmit = () => {
 }
 
 .form-input {
-  padding: 8px;
+  padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+}
+
+textarea.form-input {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.image-preview {
+  width: 100%;
+  max-height: 200px;
+  overflow: hidden;
+  border-radius: 4px;
+  margin-top: 8px;
+}
+
+.image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .checkbox-label {
@@ -185,9 +240,12 @@ const handleSubmit = () => {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
 }
 
-.btn {
+.btn-primary,
+.btn-secondary {
   padding: 8px 16px;
   border: none;
   border-radius: 4px;
@@ -208,7 +266,7 @@ const handleSubmit = () => {
 @media (max-width: 768px) {
   .modal-content {
     width: 95%;
-    padding: 16px;
+    padding: 15px;
   }
 
   .form-row {

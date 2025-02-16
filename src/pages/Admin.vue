@@ -97,6 +97,11 @@ const toggleSidebar = () => {
   top: 0;
   transition: transform 0.3s ease;
   z-index: 1000;
+  overflow-y: auto;
+}
+
+.admin-sidebar--open {
+  transform: translateX(0);
 }
 
 .mobile-header {
@@ -116,6 +121,7 @@ const toggleSidebar = () => {
 .admin-content {
   margin-left: 250px;
   padding: 20px;
+  min-height: 100vh;
   transition: margin-left 0.3s ease;
 }
 
@@ -152,6 +158,7 @@ const toggleSidebar = () => {
   cursor: pointer;
   border-radius: 6px;
   transition: all 0.3s ease;
+  font-size: 14px;
 }
 
 .nav-button:hover {
@@ -174,10 +181,6 @@ const toggleSidebar = () => {
 @media (max-width: 768px) {
   .admin-sidebar {
     transform: translateX(-100%);
-  }
-
-  .admin-sidebar--open {
-    transform: translateX(0);
   }
 
   .mobile-header {
