@@ -285,6 +285,8 @@ const removeLevel = (index) => {
 .settings-form {
   max-width: 800px;
   margin: 0 auto;
+  overflow: scroll;
+  max-height: 80vh;
 }
 
 .settings-group {

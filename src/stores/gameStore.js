@@ -112,20 +112,27 @@ export const useGameStore = defineStore('game', {
     actions: {
         // Инициализация игры для пользователя
         initializeGame(userId) {
+            if (!userId) {
+                console.warn('No user ID provided for game initialization')
+                return
+            }
+
             const userData = UserService.getUser(userId)
             if (userData) {
                 this.currentUser = userData
                 const data = userData.gameData
 
-                // Загружаем сохраненные данные
-                this.balance = data.balance || 0
-                this.passiveIncome = data.passiveIncome || 0
-                this.energy = data.energy || this.energy
-                this.level = data.level || this.level
-                this.multipliers = data.multipliers || this.multipliers
-                this.boosts = data.boosts || this.boosts
-                this.investments = data.investments || this.investments
-                this.stats = data.stats || this.stats
+                if (data) {
+                    // Загружаем сохраненные данные
+                    this.balance = data.balance || 0
+                    this.passiveIncome = data.passiveIncome || 0
+                    this.energy = data.energy || this.energy
+                    this.level = data.level || this.level
+                    this.multipliers = data.multipliers || this.multipliers
+                    this.boosts = data.boosts || this.boosts
+                    this.investments = data.investments || this.investments
+                    this.stats = data.stats || this.stats
+                }
 
                 // Обрабатываем офлайн прогресс
                 this.processOfflineProgress()
