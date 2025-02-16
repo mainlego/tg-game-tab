@@ -181,6 +181,12 @@ const toggleSidebar = () => {
 @media (max-width: 768px) {
   .admin-sidebar {
     transform: translateX(-100%);
+    z-index: 1000;
+  }
+
+  .admin-sidebar--open {
+    transform: translateX(0);
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
   }
 
   .mobile-header {
