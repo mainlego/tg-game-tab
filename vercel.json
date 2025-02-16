@@ -1,16 +1,38 @@
 {
   "version": 2,
-  "routes": [
+  "builds": [
     {
-      "src": "/api/referrals",
-      "methods": ["POST", "OPTIONS"],
-      "dest": "/api/referrals.js"
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
-  "functions": {
-    "api/*.js": {
-      "memory": 1024,
-      "maxDuration": 10
+  "routes": [
+    {
+      "src": "/admin",
+      "dest": "/admin/index.html"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "/admin/index.html"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
     }
-  }
+  ],
+
+  "rewrites": [
+    { "source": "/admin", "destination": "/src/admin/index.html" },
+    { "source": "/admin/(.*)", "destination": "/src/admin/index.html" },
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+
 }
