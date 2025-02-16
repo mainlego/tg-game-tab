@@ -4,29 +4,31 @@
     {
       "src": "package.json",
       "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+      "config": { "distDir": "dist" }
     }
   ],
   "routes": [
     {
-      "src": "/admin",
-      "dest": "/admin/index.html"
-    },
-    {
-      "src": "/admin/(.*)",
-      "dest": "/admin/index.html"
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
     },
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
     },
     {
+      "src": "/admin/(.*)",
+      "dest": "/admin.html"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/index.html"
     }
   ],
+  "github": {
+    "enabled": true,
+    "silent": false
+  },
 
   "rewrites": [
     { "source": "/admin", "destination": "/src/admin/index.html" },
