@@ -56,25 +56,26 @@ watch(() => user.value, (newUser) => {
 }, { immediate: true })
 
 onMounted(() => {
-  if (tg) {
-    // Расширяем на весь экран
-    tg.expand()
+  // Проверяем, является ли текущий путь админским
+  const isAdminRoute = window.location.pathname.startsWith('/admin');
 
-    // Настраиваем внешний вид
-    tg.setBackgroundColor('#08070d')
-    tg.setHeaderColor('#1a1a1a')
-
-    // Отключаем свайп назад для iOS
-    tg.BackButton.hide()
-    tg.enableClosingConfirmation()
+  if (!isAdminRoute && tg.value) {
+    // Применяем Telegram Web App методы только если это не админка
+    tg.value.expand();
+    tg.value.setBackgroundColor('#08070d');
+    tg.value.setHeaderColor('#1a1a1a');
+    tg.value.BackButton.hide();
+    tg.value.enableClosingConfirmation();
   }
 
-  // Запускаем таймеры
-  store.startPassiveIncomeTimer()
-  setInterval(() => {
-    store.regenerateEnergy()
-  }, 1000)
-})
+  // Запускаем таймеры только для игровой части
+  if (!isAdminRoute) {
+    store.startPassiveIncomeTimer();
+    setInterval(() => {
+      store.regenerateEnergy();
+    }, 1000);
+  }
+});
 </script>
 
 <style>
