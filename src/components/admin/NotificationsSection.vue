@@ -499,6 +499,8 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .notifications-section {
     padding: 10px;
+    height: 80vh;
+    overflow-y: scroll;
   }
 
   .history-header {
