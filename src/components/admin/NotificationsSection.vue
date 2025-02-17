@@ -416,6 +416,8 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+  height: 80vh;
+  overflow: auto;
 }
 
 .preview-section {
@@ -642,6 +644,8 @@ textarea.form-input {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  height: 600px;
+  overflow: auto;
 }
 
 .history-item {
