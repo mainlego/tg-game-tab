@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia'
 import { StorageService } from '@/services/storage'
 import { ReferralService } from '@/services/referralService'
+import { UserService } from '@/services/userService' // Добавляем импорт
 
 export const useAdminStore = defineStore('admin', {
     state: () => {
