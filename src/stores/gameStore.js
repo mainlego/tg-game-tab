@@ -117,32 +117,39 @@ export const useGameStore = defineStore('game', {
                 return
             }
 
-            const userData = UserService.getUser(userId)
-            if (userData) {
-                this.currentUser = userData
-                const data = userData.gameData
+            try {
+                // Пытаемся загрузить сохраненное состояние
+                const savedState = StorageService.loadState()
 
-                if (data) {
+                if (savedState?.userId === userId) {
                     // Загружаем сохраненные данные
-                    this.balance = data.balance || 0
-                    this.passiveIncome = data.passiveIncome || 0
-                    this.energy = data.energy || this.energy
-                    this.level = data.level || this.level
-                    this.multipliers = data.multipliers || this.multipliers
-                    this.boosts = data.boosts || this.boosts
-                    this.investments = data.investments || this.investments
-                    this.stats = data.stats || this.stats
-                }
+                    this.balance = savedState.balance || 0
+                    this.passiveIncome = savedState.passiveIncome || 0
+                    this.energy = savedState.energy || this.energy
+                    this.level = savedState.level || this.level
+                    this.multipliers = savedState.multipliers || this.multipliers
+                    this.boosts = savedState.boosts || this.boosts
+                    this.investments = savedState.investments || this.investments
+                    this.stats = savedState.stats || this.stats
+                    this.currentUser = userId
 
-                // Обрабатываем офлайн прогресс
-                this.processOfflineProgress()
+                    // Обрабатываем офлайн прогресс
+                    this.processOfflineProgress()
+                } else {
+                    // Если нет сохранения или другой пользователь - создаем новое
+                    this.currentUser = userId
+                    this.saveState() // Сохраняем начальное состояние
+                }
+            } catch (error) {
+                console.error('Error initializing game:', error)
             }
         },
 
         // Сохранение состояния
         saveState() {
-            if (this.currentUser?.id) {
-                const gameData = {
+            if (this.currentUser) {
+                const gameState = {
+                    userId: this.currentUser,
                     balance: this.balance,
                     passiveIncome: this.passiveIncome,
                     energy: this.energy,
@@ -150,9 +157,26 @@ export const useGameStore = defineStore('game', {
                     multipliers: this.multipliers,
                     boosts: this.boosts,
                     investments: this.investments,
-                    stats: this.stats
+                    stats: this.stats,
+                    lastSaved: new Date().toISOString()
                 }
-                UserService.updateGameData(this.currentUser.id, gameData)
+                StorageService.saveState(gameState)
+            }
+        },
+
+        // Добавим автоматическое сохранение при изменении важных параметров
+        watch: {
+            balance(newValue) {
+                this.saveState()
+            },
+            passiveIncome(newValue) {
+                this.saveState()
+            },
+            'energy.current'(newValue) {
+                this.saveState()
+            },
+            'investments.purchased'(newValue) {
+                this.saveState()
             }
         },
 
