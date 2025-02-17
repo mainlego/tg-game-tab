@@ -1,7 +1,7 @@
 <!-- src/App.vue -->
 <template>
   <div id="app" class="app">
-    <!-- Панель управления -->
+    <!-- Панель управления
     <div class="dev-menu">
       <button @click="store.resetGame()" class="dev-button">
         Сброс игры
@@ -11,7 +11,7 @@
         <span>Клик: {{ store.multipliers.tapValue }}</span>
         <button @click="increaseTapValue" class="dev-button">+1000</button>
       </div>
-    </div>
+    </div>-->
 
     <router-view v-slot="{ Component }">
       <transition name="fade" mode="out-in">
@@ -20,7 +20,6 @@
     </router-view>
     <Notification ref="notificationSystem" />
     <NotificationPopup ref="notificationPopup" />
-    <Logger ref="logger" />
   </div>
 </template>
 
@@ -30,7 +29,7 @@ import { ref, provide, onMounted, watch } from 'vue'
 import Notification from '@/components/ui/Notification.vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useTelegram } from '@/composables/useTelegram'
-import Logger from './components/Logger.vue'
+
 import NotificationPopup from '@/components/NotificationPopup.vue'
 
 const logger = ref(null)
