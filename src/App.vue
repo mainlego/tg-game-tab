@@ -19,6 +19,7 @@
       </transition>
     </router-view>
     <Notification ref="notificationSystem" />
+    <NotificationPopup ref="notificationPopup" />
     <Logger ref="logger" />
   </div>
 </template>
@@ -30,6 +31,7 @@ import Notification from '@/components/ui/Notification.vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useTelegram } from '@/composables/useTelegram'
 import Logger from './components/Logger.vue'
+import NotificationPopup from '@/components/NotificationPopup.vue'
 
 const logger = ref(null)
 const store = useGameStore()

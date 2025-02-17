@@ -21,58 +21,83 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useTelegram } from '@/composables/useTelegram'
 
 const { user } = useTelegram()
 const notifications = ref([])
+const ws = ref(null)
 
-// Добавление нового уведомления
+const connectWebSocket = () => {
+  if (!user.value?.id) return;
+
+  const wsUrl = `${import.meta.env.VITE_WS_URL}/notifications?userId=${user.value.id}`;
+  console.log('Подключение к WebSocket:', wsUrl);
+
+  ws.value = new WebSocket(wsUrl);
+
+  ws.value.onopen = () => {
+    console.log('WebSocket соединение установлено');
+  };
+
+  ws.value.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      console.log('Получено уведомление:', data);
+
+      if (data.type === 'notification') {
+        addNotification(data);
+      }
+    } catch (error) {
+      console.error('Ошибка обработки уведомления:', error);
+    }
+  };
+
+  ws.value.onerror = (error) => {
+    console.error('Ошибка WebSocket:', error);
+  };
+
+  ws.value.onclose = () => {
+    console.log('WebSocket соединение закрыто');
+    // Попытка переподключения через 5 секунд
+    setTimeout(connectWebSocket, 5000);
+  };
+};
+
 const addNotification = (notification) => {
-  const id = Date.now()
+  const id = Date.now();
   notifications.value.push({
     id,
     ...notification,
     type: notification.important ? 'important' : 'normal'
-  })
+  });
 
   // Автоматическое закрытие через 5 секунд
   setTimeout(() => {
-    closeNotification(id)
-  }, 5000)
-}
+    closeNotification(id);
+  }, 5000);
+};
 
-// Закрытие уведомления
 const closeNotification = (id) => {
-  notifications.value = notifications.value.filter(n => n.id !== id)
-}
+  notifications.value = notifications.value.filter(n => n.id !== id);
+};
 
-// Подключение к WebSocket для получения уведомлений
 onMounted(() => {
-  if (!user.value?.id) return
+  connectWebSocket();
+});
 
-  const ws = new WebSocket(`${process.env.VUE_APP_WS_URL}/notifications`)
-
-  ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data)
-      if (data.type === 'notification') {
-        addNotification(data)
-      }
-    } catch (error) {
-      console.error('Error parsing notification:', error)
-    }
+onUnmounted(() => {
+  if (ws.value) {
+    ws.value.close();
   }
+});
 
-  ws.onerror = (error) => {
-    console.error('WebSocket error:', error)
-  }
-})
-
+// Экспортируем метод для внешнего использования
 defineExpose({
   addNotification
-})
+});
 </script>
+
 
 <style scoped>
 .notifications-container {
