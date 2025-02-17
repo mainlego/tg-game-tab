@@ -1,84 +1,91 @@
-// pages/api/admin/notifications/send.js
+// pages/api/notifications/send.js
 import dbConnect from '@/lib/dbConnect'
-import Notification from '@/models/Notification'
 import User from '@/models/User'
-import { TelegramService } from '@/services/telegramService'
+import Notification from '@/models/Notification'
+import { bot } from '@/services/telegramBot'
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
-        return res.status(405).json({ success: false, message: 'Method not allowed' })
+        return res.status(405).json({
+            success: false,
+            message: 'Method not allowed'
+        })
     }
 
-    await dbConnect()
-
     try {
-        const { type, message, important, conditions, button } = req.body
+        await dbConnect()
+
+        const { type, message, important, conditions } = req.body
 
         // Находим целевых пользователей
-        let targetQuery = {}
+        let query = {}
         if (type === 'level' && conditions?.minLevel) {
-            targetQuery['gameData.level.current'] = { $gte: conditions.minLevel }
+            query['gameData.level.current'] = { $gte: conditions.minLevel }
         }
         if (type === 'income' && conditions?.minIncome) {
-            targetQuery['gameData.passiveIncome'] = { $gte: conditions.minIncome }
+            query['gameData.passiveIncome'] = { $gte: conditions.minIncome }
         }
 
-        const targetUsers = await User.find(targetQuery).select('telegramId')
-        const targetUserIds = targetUsers.map(user => user.telegramId)
+        const users = await User.find(query).select('telegramId')
 
-        // Создаем уведомление в базе
+        // Создаем запись о уведомлении
         const notification = await Notification.create({
             type,
             message,
             important,
             conditions,
-            button,
             stats: {
-                sentCount: targetUserIds.length,
-                readCount: 0,
-                targetUsers: targetUserIds
-            },
-            status: 'sending',
-            sentAt: new Date()
-        })
-
-        // Форматируем сообщение
-        const formattedMessage = TelegramService.formatMessage({
-            message,
-            important,
-            button
+                targetCount: users.length,
+                sentCount: 0,
+                readCount: 0
+            }
         })
 
         // Отправляем уведомления через Telegram
-        const sendResults = await TelegramService.sendBulkNotifications(
-            targetUserIds,
-            formattedMessage,
-            button ? {
-                reply_markup: {
-                    inline_keyboard: [[
-                        { text: button.text, url: button.url }
-                    ]]
-                }
-            } : {}
-        )
+        let successCount = 0
+        let failedCount = 0
+
+        for (const user of users) {
+            try {
+                // Форматируем сообщение
+                let formattedMessage = important ? '🔔 ВАЖНО!\n\n' : ''
+                formattedMessage += message
+
+                // Отправляем сообщение
+                await bot.sendMessage(user.telegramId, formattedMessage, {
+                    parse_mode: 'HTML'
+                })
+                successCount++
+            } catch (error) {
+                console.error(`Failed to send notification to ${user.telegramId}:`, error)
+                failedCount++
+            }
+
+            // Добавляем небольшую задержку между отправками
+            await new Promise(resolve => setTimeout(resolve, 50))
+        }
 
         // Обновляем статистику
         await Notification.findByIdAndUpdate(notification._id, {
-            status: 'sent',
-            'stats.sentCount': sendResults.success,
-            'stats.failedCount': sendResults.failed,
-            'stats.failures': sendResults.failures
+            'stats.sentCount': successCount,
+            'stats.failedCount': failedCount,
+            status: 'sent'
         })
 
         res.status(200).json({
             success: true,
             data: {
-                notification,
-                sendResults
+                notificationId: notification._id,
+                targetCount: users.length,
+                successCount,
+                failedCount
             }
         })
     } catch (error) {
-        console.error('Error sending notification:', error)
-        res.status(400).json({ success: false, error: error.message })
+        console.error('Error sending notifications:', error)
+        res.status(500).json({
+            success: false,
+            error: error.message
+        })
     }
 }

@@ -320,21 +320,51 @@ export const ApiService = {
 
     async sendNotification(notificationData) {
         try {
-            const response = await fetch(`${API_URL}/admin/notifications`, {
+            const response = await fetch(`${API_URL}/notifications/send`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(notificationData)
             })
+
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.message || 'Failed to send notification')
+            }
+
             const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return data
         } catch (error) {
             console.error('Error sending notification:', error)
             throw error
         }
     },
+
+    // Тестовая отправка уведомления
+    async sendTestNotification(notificationData) {
+        try {
+            const response = await fetch(`${API_URL}/notifications/test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(notificationData)
+            })
+
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.message || 'Failed to send test notification')
+            }
+
+            const data = await response.json()
+            return data
+        } catch (error) {
+            console.error('Error sending test notification:', error)
+            throw error
+        }
+    },
+
 
     async updateNotification(notificationId, notificationData) {
         try {
