@@ -1,25 +1,26 @@
 <!-- src/components/NotificationPopup.vue -->
 <template>
   <Teleport to="body">
-    <div v-if="isDebug" class="debug-panel">
-      <p>WebSocket status: {{ wsStatus }}</p>
-      <p>User ID: {{ user?.id }}</p>
-    </div>
-
     <TransitionGroup name="notification" tag="div" class="notifications-container">
       <div v-for="notification in notifications"
            :key="notification.id"
-           :class="['notification', notification.type]">
+           :class="['notification', { 'important': notification.important }]">
         <div class="notification-content">
-          <span v-html="notification.message"></span>
+          <div class="notification-message" v-html="notification.message"></div>
+
+          <!-- Кнопка из админки -->
           <a v-if="notification.button"
              :href="notification.button.url"
              target="_blank"
-             class="notification-button">
+             class="action-button">
             {{ notification.button.text }}
           </a>
+
+          <!-- Кнопка закрытия -->
+          <button class="close-button" @click="closeNotification(notification.id)">
+            Закрыть
+          </button>
         </div>
-        <button class="close-button" @click="closeNotification(notification.id)">×</button>
       </div>
     </TransitionGroup>
   </Teleport>
@@ -32,28 +33,18 @@ import { useTelegram } from '@/composables/useTelegram'
 const { user } = useTelegram()
 const notifications = ref([])
 const ws = ref(null)
-const wsStatus = ref('disconnected')
-const isDebug = ref(true) // Включаем дебаг-панель для отладки
 
 const connectWebSocket = () => {
-  if (!user.value?.id) {
-    console.log('Нет ID пользователя для WebSocket подключения');
-    return;
-  }
+  if (!user.value?.id) return;
 
-  // Используем WSS для безопасного соединения
   const wsUrl = `wss://tg-game-tab-server.onrender.com?userId=${user.value.id}`;
   console.log('Подключение к WebSocket:', wsUrl);
 
   try {
     ws.value = new WebSocket(wsUrl);
-    wsStatus.value = 'connecting';
 
     ws.value.onopen = () => {
       console.log('WebSocket соединение установлено');
-      wsStatus.value = 'connected';
-      // Отправляем тестовое сообщение для проверки
-      ws.value.send(JSON.stringify({ type: 'ping', userId: user.value.id }));
     };
 
     ws.value.onmessage = (event) => {
@@ -64,8 +55,8 @@ const connectWebSocket = () => {
           addNotification({
             id: Date.now(),
             message: data.message,
-            type: data.important ? 'important' : 'normal',
-            button: data.button
+            important: data.important,
+            button: data.button // Сохраняем данные кнопки из админки
           });
         }
       } catch (error) {
@@ -75,27 +66,19 @@ const connectWebSocket = () => {
 
     ws.value.onerror = (error) => {
       console.error('WebSocket ошибка:', error);
-      wsStatus.value = 'error';
     };
 
     ws.value.onclose = () => {
       console.log('WebSocket соединение закрыто');
-      wsStatus.value = 'disconnected';
-      // Переподключение через 5 секунд
       setTimeout(connectWebSocket, 5000);
     };
   } catch (error) {
     console.error('Ошибка создания WebSocket:', error);
-    wsStatus.value = 'error';
   }
 };
 
 const addNotification = (notification) => {
   notifications.value.push(notification);
-  // Автоматическое закрытие через 5 секунд
-  setTimeout(() => {
-    closeNotification(notification.id);
-  }, 5000);
 };
 
 const closeNotification = (id) => {
@@ -103,7 +86,6 @@ const closeNotification = (id) => {
 };
 
 onMounted(() => {
-  console.log('NotificationPopup mounted, user:', user.value);
   connectWebSocket();
 });
 
@@ -117,71 +99,77 @@ onUnmounted(() => {
 <style scoped>
 .notifications-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 9999;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-width: 350px;
-}
-
-.debug-panel {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 10px;
-  border-radius: 4px;
-  font-size: 12px;
+  align-items: center;
+  justify-content: center;
   z-index: 9999;
+  pointer-events: none;
 }
 
 .notification {
-  background: rgba(0, 0, 0, 0.8);
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.9);
   color: white;
-  padding: 12px;
-  border-radius: 8px;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  backdrop-filter: blur(4px);
+  padding: 20px;
+  border-radius: 12px;
+  max-width: 90%;
+  width: 400px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  margin: 10px;
 }
 
 .notification.important {
-  background: rgba(244, 67, 54, 0.9);
+  background: rgba(220, 38, 38, 0.9);
 }
 
 .notification-content {
-  flex: 1;
-  font-size: 14px;
-  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  text-align: center;
 }
 
-.notification-button {
+.notification-message {
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.action-button {
   display: inline-block;
-  margin-top: 8px;
-  padding: 4px 12px;
-  background: white;
-  color: black;
+  padding: 10px 20px;
+  background: #4CAF50;
+  color: white;
   text-decoration: none;
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.action-button:hover {
+  background: #45a049;
 }
 
 .close-button {
-  background: none;
+  padding: 8px 20px;
+  background: rgba(255, 255, 255, 0.2);
   border: none;
   color: white;
-  font-size: 20px;
-  padding: 0 4px;
+  border-radius: 6px;
   cursor: pointer;
-  opacity: 0.7;
+  font-size: 14px;
+  transition: background-color 0.2s;
 }
 
 .close-button:hover {
-  opacity: 1;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .notification-enter-active,
@@ -189,13 +177,9 @@ onUnmounted(() => {
   transition: all 0.3s ease;
 }
 
-.notification-enter-from {
-  opacity: 0;
-  transform: translateX(30px);
-}
-
+.notification-enter-from,
 .notification-leave-to {
   opacity: 0;
-  transform: translateX(30px);
+  transform: scale(0.9);
 }
 </style>
