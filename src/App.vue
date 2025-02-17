@@ -26,16 +26,52 @@
 <!-- src/App.vue -->
 <script setup>
 import { ref, provide, onMounted, watch } from 'vue'
-import Notification from '@/components/ui/Notification.vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useTelegram } from '@/composables/useTelegram'
 
+import Notification from '@/components/ui/Notification.vue'
 import NotificationPopup from '@/components/NotificationPopup.vue'
 
 const logger = ref(null)
 const store = useGameStore()
 const notificationSystem = ref(null)
 const { tg, user, ready } = useTelegram()
+
+onMounted(async () => {
+  // Проверяем, является ли текущий путь админским
+  const isAdminRoute = window.location.pathname.startsWith('/admin')
+
+  if (!isAdminRoute) {
+    if (user.value) {
+      await store.initializeGame(user.value.id)
+    }
+
+    // Настройка Telegram Web App
+    if (tg.value) {
+      tg.value.expand()
+      tg.value.setBackgroundColor('#08070d')
+      tg.value.setHeaderColor('#1a1a1a')
+      tg.value.BackButton.hide()
+      tg.value.enableClosingConfirmation()
+    }
+
+    // Запуск таймеров
+    store.startPassiveIncomeTimer()
+    setInterval(() => {
+      store.regenerateEnergy()
+      // Сохраняем состояние каждую минуту
+      store.saveState()
+    }, 60000) // каждую минуту
+  }
+})
+
+// Дополнительно следим за изменением пользователя
+watch(() => user.value, async (newUser) => {
+  if (newUser && !window.location.pathname.startsWith('/admin')) {
+    await store.initializeGame(newUser.id)
+  }
+}, { immediate: true })
+
 
 provide('logger', {
   log: (message) => logger.value?.addLog(message)
@@ -47,35 +83,6 @@ provide('notifications', {
   }
 })
 
-// Следим за инициализацией пользователя
-watch(() => user.value, (newUser) => {
-  if (newUser) {
-    // Инициализируем игру для пользователя
-    store.initializeGame(newUser.id)
-  }
-}, { immediate: true })
-
-onMounted(() => {
-  // Проверяем, является ли текущий путь админским
-  const isAdminRoute = window.location.pathname.startsWith('/admin');
-
-  if (!isAdminRoute && tg.value) {
-    // Применяем Telegram Web App методы только если это не админка
-    tg.value.expand();
-    tg.value.setBackgroundColor('#08070d');
-    tg.value.setHeaderColor('#1a1a1a');
-    tg.value.BackButton.hide();
-    tg.value.enableClosingConfirmation();
-  }
-
-  // Запускаем таймеры только для игровой части
-  if (!isAdminRoute) {
-    store.startPassiveIncomeTimer();
-    setInterval(() => {
-      store.regenerateEnergy();
-    }, 1000);
-  }
-});
 </script>
 
 <style>

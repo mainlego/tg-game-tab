@@ -6,10 +6,22 @@ import { ApiService } from '@/services/apiService'
 
 export const useGameStore = defineStore('game', {
     state: () => {
-        // Состояние пользователя
+
+
         const currentUser = ref(null)
         const gameData = ref(null)
 
+        // Пытаемся загрузить состояние из localStorage сразу
+        const savedState = StorageService.loadState()
+        if (savedState) {
+            return {
+                ...savedState,
+                // Обновляем время для корректного расчета офлайн прогресса
+                lastSaved: new Date().toISOString()
+            }
+        }
+
+        // Состояние пользователя
         return {
             // Основная валюта
             balance: 0,
@@ -108,26 +120,21 @@ export const useGameStore = defineStore('game', {
             }
 
             try {
-                // Загружаем данные из localStorage
-                const savedState = StorageService.loadState()
+                console.log('Initializing game for user:', userId)
 
                 // Загружаем данные из базы
                 const userData = await ApiService.getUser(userId)
+                console.log('Loaded user data:', userData)
 
                 if (userData?.gameData) {
-                    // Используем более свежие данные
-                    const localLastSaved = new Date(savedState?.lastSaved || 0)
-                    const dbLastUpdate = new Date(userData.lastUpdate)
-
-                    if (localLastSaved > dbLastUpdate) {
-                        this.loadFromState(savedState)
-                    } else {
-                        this.loadFromState(userData.gameData)
-                    }
-                } else if (savedState?.userId === userId) {
-                    this.loadFromState(savedState)
-                } else {
-                    this.resetToDefault()
+                    // Всегда используем данные из базы как источник правды
+                    this.loadFromState(userData.gameData)
+                    // Сохраняем в localStorage для офлайн доступа
+                    StorageService.saveState({
+                        ...userData.gameData,
+                        userId,
+                        lastSaved: new Date().toISOString()
+                    })
                 }
 
                 this.currentUser = userId
@@ -136,8 +143,48 @@ export const useGameStore = defineStore('game', {
 
             } catch (error) {
                 console.error('Error initializing game:', error)
+                // Попробуем использовать данные из localStorage если есть
+                const savedState = StorageService.loadState()
+                if (savedState?.userId === userId) {
+                    this.loadFromState(savedState)
+                }
             }
         },
+
+
+        async saveState() {
+            if (this.currentUser) {
+                const gameData = {
+                    balance: this.balance,
+                    passiveIncome: this.passiveIncome,
+                    energy: this.energy,
+                    level: this.level,
+                    multipliers: this.multipliers,
+                    boosts: this.boosts,
+                    investments: this.investments,
+                    stats: this.stats
+                }
+
+                try {
+                    // Сохраняем в localStorage
+                    StorageService.saveState({
+                        ...gameData,
+                        userId: this.currentUser,
+                        lastSaved: new Date().toISOString()
+                    })
+
+                    // Сохраняем в базу данных
+                    await ApiService.updateUser(this.currentUser, {
+                        gameData: gameData,
+                        lastUpdate: new Date()
+                    })
+
+                } catch (error) {
+                    console.error('Error saving game state:', error)
+                }
+            }
+        },
+
 
         loadFromState(state) {
             this.balance = state.balance || 0
@@ -186,38 +233,9 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        async saveState() {
-            if (this.currentUser) {
-                const gameData = {
-                    balance: this.balance,
-                    passiveIncome: this.passiveIncome,
-                    energy: this.energy,
-                    level: this.level,
-                    multipliers: this.multipliers,
-                    boosts: this.boosts,
-                    investments: this.investments,
-                    stats: this.stats
-                }
 
-                try {
-                    // Сохраняем в localStorage
-                    StorageService.saveState({
-                        userId: this.currentUser,
-                        ...gameData,
-                        lastSaved: new Date().toISOString()
-                    })
 
-                    // Сохраняем в базу данных
-                    await ApiService.updateUser(this.currentUser, {
-                        gameData: gameData,
-                        lastUpdate: new Date()
-                    })
 
-                } catch (error) {
-                    console.error('Error saving game state:', error)
-                }
-            }
-        },
 
         formatBigNumber(num) {
             if (num >= 1000000000) {
