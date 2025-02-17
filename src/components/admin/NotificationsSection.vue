@@ -277,27 +277,30 @@ const loadHistory = async () => {
 // Отправка уведомления
 const sendNotification = async () => {
   try {
-    const notificationData = { ...newNotification.value }
+    const notificationData = {
+      type: newNotification.value.type,
+      message: newNotification.value.message,
+      important: newNotification.value.important,
+      conditions: {
+        minLevel: newNotification.value.minLevel,
+        minIncome: newNotification.value.minIncome
+      },
+      button: hasButton.value ? newNotification.value.button : undefined
+    };
 
-    // Добавляем время отправки если оно задано
-    if (scheduledDate.value) {
-      notificationData.scheduledFor = new Date(scheduledDate.value).toISOString()
+    console.log('Sending notification:', notificationData);
+    const response = await ApiService.sendNotification(notificationData);
+    console.log('Response:', response);
+
+    if (response.success) {
+      await loadHistory();
+      resetForm();
     }
-
-    // Добавляем кнопку только если заполнены оба поля
-    if (!hasButton.value) {
-      delete notificationData.button
-    }
-
-    await ApiService.sendNotification(notificationData)
-    await loadHistory()
-
-    // Сброс формы
-    resetForm()
   } catch (error) {
-    console.error('Error sending notification:', error)
+    console.error('Error sending notification:', error);
+    // Добавьте уведомление пользователю об ошибке
   }
-}
+};
 
 // Тестовая отправка
 const sendTestNotification = async () => {

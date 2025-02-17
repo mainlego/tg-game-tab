@@ -1,5 +1,5 @@
 // src/services/apiService.js
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+const API_URL = import.meta.env.VITE_API_URL || 'https://tg-game-tab-server.onrender.com/api'
 
 export const ApiService = {
     // Пользователи
@@ -323,21 +323,21 @@ export const ApiService = {
             const response = await fetch(`${API_URL}/notifications/send`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify(notificationData)
-            })
+            });
 
             if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.message || 'Failed to send notification')
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const data = await response.json()
-            return data
+            const data = await response.json();
+            return data;
         } catch (error) {
-            console.error('Error sending notification:', error)
-            throw error
+            console.error('Error sending notification:', error);
+            throw error;
         }
     },
 
