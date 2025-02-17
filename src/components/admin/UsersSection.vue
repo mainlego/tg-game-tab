@@ -1,9 +1,67 @@
-<!-- src/components/admin/UsersSection.vue -->
+<script setup>
+import { ref, onMounted } from 'vue'
+import { ApiService } from '@/services/apiService'
+
+const users = ref([])
+const usersStats = ref({
+  total: 0,
+  activeToday: 0,
+  newThisWeek: 0
+})
+const loading = ref(true)
+const error = ref(null)
+
+const loadUsers = async () => {
+  try {
+    loading.value = true;
+    const response = await ApiService.getAllUsers();
+    users.value = response.users;
+    usersStats.value = response.stats;
+  } catch (err) {
+    error.value = 'Ошибка загрузки пользователей';
+    console.error('Error loading users:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleBlock = async (user) => {
+  if (confirm(`Вы уверены, что хотите ${user.blocked ? 'разблокировать' : 'заблокировать'} пользователя?`)) {
+    try {
+      await ApiService.blockUser(user.id);
+      await loadUsers();
+    } catch (error) {
+      console.error('Error blocking user:', error);
+    }
+  }
+};
+
+const handleReset = async (user) => {
+  if (confirm('Вы уверены, что хотите сбросить прогресс пользователя?')) {
+    try {
+      await ApiService.resetUserProgress(user.id);
+      await loadUsers();
+    } catch (error) {
+      console.error('Error resetting user progress:', error);
+    }
+  }
+};
+
+onMounted(() => {
+  loadUsers();
+});
+</script>
+
 <template>
   <div class="users-section">
-    <h2>Пользователи</h2>
+    <div class="section-header">
+      <h2>Пользователи</h2>
+      <button @click="loadUsers" class="refresh-button" :disabled="loading">
+        Обновить
+      </button>
+    </div>
 
-    <!-- Карточки статистики -->
+    <!-- Статистика -->
     <div class="stats-grid">
       <div class="stat-card">
         <h3>Всего пользователей</h3>
@@ -19,8 +77,18 @@
       </div>
     </div>
 
+    <!-- Ошибка -->
+    <div v-if="error" class="error-message">
+      {{ error }}
+    </div>
+
+    <!-- Загрузка -->
+    <div v-if="loading" class="loading">
+      Загрузка пользователей...
+    </div>
+
     <!-- Таблица пользователей -->
-    <div class="table-wrapper">
+    <div v-else class="table-wrapper">
       <table class="users-table">
         <thead>
         <tr>
@@ -34,19 +102,23 @@
         </tr>
         </thead>
         <tbody>
-        <tr v-for="user in users" :key="user.id">
+        <tr v-for="user in users" :key="user.id" :class="{ 'blocked': user.blocked }">
           <td>{{ user.id }}</td>
-          <td>{{ user.name }}</td>
+          <td>{{ user.name }} {{ user.username ? `(@${user.username})` : '' }}</td>
           <td>{{ user.level }}</td>
-          <td>{{ formatMoney(user.passiveIncome) }}</td>
+          <td>{{ formatMoney(user.passiveIncome) }}/мес</td>
           <td>{{ formatMoney(user.balance) }}</td>
           <td>{{ formatDate(user.lastLogin) }}</td>
           <td>
             <div class="action-buttons">
-              <button class="btn-action" @click="handleBlock(user)">
+              <button
+                  class="btn-action"
+                  :class="{ 'btn-block': !user.blocked, 'btn-unblock': user.blocked }"
+                  @click="handleBlock(user)"
+              >
                 {{ user.blocked ? 'Разблокировать' : 'Блокировать' }}
               </button>
-              <button class="btn-action" @click="handleReset(user)">
+              <button class="btn-action btn-reset" @click="handleReset(user)">
                 Сброс
               </button>
             </div>
@@ -58,174 +130,59 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
-import { useAdminStore } from '@/stores/adminStore'
-
-const adminStore = useAdminStore()
-const users = ref([])
-const usersStats = ref({
-  total: 0,
-  activeToday: 0,
-  newThisWeek: 0
-})
-
-onMounted(async () => {
-  await loadUsers()
-})
-
-const loadUsers = async () => {
-  await adminStore.fetchUsers()
-  users.value = adminStore.users
-  usersStats.value = adminStore.userStats
-}
-
-const handleBlock = async (user) => {
-  await adminStore.blockUser(user.id)
-  await loadUsers()
-}
-
-const handleReset = async (user) => {
-  if (confirm('Вы уверены, что хотите сбросить прогресс пользователя?')) {
-    await adminStore.resetUserProgress(user.id)
-    await loadUsers()
-  }
-}
-
-const formatMoney = (amount) => {
-  if (amount >= 1000000000) {
-    return (amount / 1000000000).toFixed(1) + 'B'
-  }
-  if (amount >= 1000000) {
-    return (amount / 1000000).toFixed(1) + 'M'
-  }
-  if (amount >= 1000) {
-    return (amount / 1000).toFixed(1) + 'K'
-  }
-  return amount.toString()
-}
-
-const formatDate = (date) => {
-  return new Date(date).toLocaleString()
-}
-</script>
-
 <style scoped>
-.users-section {
-  padding: 20px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.stat-card {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  text-align: center;
-}
-
-.stat-card h3 {
-  margin: 0 0 10px;
-  font-size: 14px;
-  color: #666;
-}
-
-.stat-card p {
-  margin: 0;
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--primary-color);
-}
-
-.table-wrapper {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  overflow-x: auto;
-}
-
-.users-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 800px;
-}
-
-.users-table th,
-.users-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #eee;
-}
-
-.users-table th {
-  background: #f8f9fa;
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.users-table td {
-  font-size: 14px;
-}
-
-.action-buttons {
+/* Добавим новые стили */
+.section-header {
   display: flex;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
-.btn-action {
-  padding: 6px 12px;
+.refresh-button {
+  padding: 8px 16px;
+  background: var(--primary-color);
+  color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
-  transition: all 0.2s ease;
 }
 
-.btn-action:first-child {
-  background: #ff4444;
-  color: white;
+.refresh-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
-.btn-action:last-child {
-  background: #666;
-  color: white;
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #666;
 }
 
-.btn-action:hover {
-  opacity: 0.9;
+.error-message {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 20px;
 }
 
-@media (max-width: 768px) {
-  .users-section {
-    padding: 10px;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .table-wrapper {
-    margin: 0 -10px;
-    border-radius: 0;
-  }
-
-  .stat-card {
-    padding: 15px;
-  }
-
-  .stat-card h3 {
-    font-size: 12px;
-  }
-
-  .stat-card p {
-    font-size: 20px;
-  }
+.blocked {
+  opacity: 0.7;
+  background: #f9fafb;
 }
+
+.btn-block {
+  background: #dc2626 !important;
+}
+
+.btn-unblock {
+  background: #059669 !important;
+}
+
+.btn-reset {
+  background: #4b5563 !important;
+}
+
+/* Остальные стили остаются без изменений */
 </style>

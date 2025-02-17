@@ -35,13 +35,13 @@ export const ApiService = {
 
     async getAllUsers() {
         try {
-            const response = await fetch(`${API_URL}/users`)
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            const response = await fetch(`${API_URL}/admin/users`);
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error);
+            return data.data;
         } catch (error) {
-            console.error('Error getting all users:', error)
-            throw error
+            console.error('Error getting users:', error);
+            throw error;
         }
     },
 
@@ -63,7 +63,7 @@ export const ApiService = {
         }
     },
 
-    async blockUser(telegramId) {
+    async blockUser(userId) {
         try {
             const response = await fetch(`${API_URL}/admin/users/actions`, {
                 method: 'POST',
@@ -72,19 +72,19 @@ export const ApiService = {
                 },
                 body: JSON.stringify({
                     action: 'block',
-                    userId: telegramId
+                    userId
                 })
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error);
+            return data.data;
         } catch (error) {
-            console.error('Error blocking user:', error)
-            throw error
+            console.error('Error blocking user:', error);
+            throw error;
         }
     },
 
-    async resetUserProgress(telegramId) {
+    async resetUserProgress(userId) {
         try {
             const response = await fetch(`${API_URL}/admin/users/actions`, {
                 method: 'POST',
@@ -93,15 +93,15 @@ export const ApiService = {
                 },
                 body: JSON.stringify({
                     action: 'reset',
-                    userId: telegramId
+                    userId
                 })
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error);
+            return data.data;
         } catch (error) {
-            console.error('Error resetting user progress:', error)
-            throw error
+            console.error('Error resetting user progress:', error);
+            throw error;
         }
     },
 
