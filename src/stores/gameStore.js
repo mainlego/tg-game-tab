@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { StorageService } from '@/services/storage'
-import { UserService } from '@/services/userService'
+import { ApiService } from '@/services/apiService'
 
 export const useGameStore = defineStore('game', {
     state: () => {
@@ -83,73 +83,112 @@ export const useGameStore = defineStore('game', {
     },
 
     getters: {
-        // Форматированный баланс
         formattedBalance: (state) => {
             return state.formatBigNumber(state.balance)
         },
-
-        // Форматированный пассивный доход
         formattedPassiveIncome: (state) => {
             return '+' + state.formatBigNumber(state.passiveIncome) + '/мес'
         },
-
-        // Форматированная энергия
         formattedEnergy: (state) => {
             return `${Math.floor(state.energy.current)} / ${state.energy.max}`
         },
-
-        // Эффективность клика
         effectiveTapValue: (state) => {
             return state.multipliers.tapValue * state.multipliers.tapMultiplier
         },
-
-        // Возможность клика
         canTap: (state) => {
             return state.energy.current >= 1
         }
     },
 
     actions: {
-        // Инициализация игры для пользователя
-        initializeGame(userId) {
+        async initializeGame(userId) {
             if (!userId) {
                 console.warn('No user ID provided for game initialization')
                 return
             }
 
             try {
-                // Пытаемся загрузить сохраненное состояние
+                // Загружаем данные из localStorage
                 const savedState = StorageService.loadState()
 
-                if (savedState?.userId === userId) {
-                    // Загружаем сохраненные данные
-                    this.balance = savedState.balance || 0
-                    this.passiveIncome = savedState.passiveIncome || 0
-                    this.energy = savedState.energy || this.energy
-                    this.level = savedState.level || this.level
-                    this.multipliers = savedState.multipliers || this.multipliers
-                    this.boosts = savedState.boosts || this.boosts
-                    this.investments = savedState.investments || this.investments
-                    this.stats = savedState.stats || this.stats
-                    this.currentUser = userId
+                // Загружаем данные из базы
+                const userData = await ApiService.getUser(userId)
 
-                    // Обрабатываем офлайн прогресс
-                    this.processOfflineProgress()
+                if (userData?.gameData) {
+                    // Используем более свежие данные
+                    const localLastSaved = new Date(savedState?.lastSaved || 0)
+                    const dbLastUpdate = new Date(userData.lastUpdate)
+
+                    if (localLastSaved > dbLastUpdate) {
+                        this.loadFromState(savedState)
+                    } else {
+                        this.loadFromState(userData.gameData)
+                    }
+                } else if (savedState?.userId === userId) {
+                    this.loadFromState(savedState)
                 } else {
-                    // Если нет сохранения или другой пользователь - создаем новое
-                    this.currentUser = userId
-                    this.saveState() // Сохраняем начальное состояние
+                    this.resetToDefault()
                 }
+
+                this.currentUser = userId
+                this.processOfflineProgress()
+                await this.saveState()
+
             } catch (error) {
                 console.error('Error initializing game:', error)
             }
         },
 
-        // Сохранение состояния
-        saveState() {
+        loadFromState(state) {
+            this.balance = state.balance || 0
+            this.passiveIncome = state.passiveIncome || 0
+            this.energy = state.energy || this.energy
+            this.level = state.level || this.level
+            this.multipliers = state.multipliers || this.multipliers
+            this.boosts = state.boosts || this.boosts
+            this.investments = state.investments || this.investments
+            this.stats = state.stats || this.stats
+        },
+
+        resetToDefault() {
+            this.balance = 0
+            this.passiveIncome = 0
+            this.energy = {
+                current: 1000,
+                max: 1000,
+                regenRate: 1,
+                lastRegenTime: Date.now()
+            }
+            this.level = {
+                current: 1,
+                max: 10,
+                progress: 0,
+                title: 'Пацан'
+            }
+            this.multipliers = {
+                tapValue: 1,
+                tapMultiplier: 1,
+                incomeBoost: 1
+            }
+            this.boosts = {
+                tap3x: { active: false, endTime: null },
+                tap5x: { active: false, endTime: null }
+            }
+            this.investments = {
+                purchased: [],
+                activeIncome: 0,
+                lastCalculation: Date.now()
+            }
+            this.stats = {
+                totalClicks: 0,
+                totalEarned: 0,
+                maxPassiveIncome: 0
+            }
+        },
+
+        async saveState() {
             if (this.currentUser) {
-                const gameState = {
-                    userId: this.currentUser,
+                const gameData = {
                     balance: this.balance,
                     passiveIncome: this.passiveIncome,
                     energy: this.energy,
@@ -157,30 +196,29 @@ export const useGameStore = defineStore('game', {
                     multipliers: this.multipliers,
                     boosts: this.boosts,
                     investments: this.investments,
-                    stats: this.stats,
-                    lastSaved: new Date().toISOString()
+                    stats: this.stats
                 }
-                StorageService.saveState(gameState)
+
+                try {
+                    // Сохраняем в localStorage
+                    StorageService.saveState({
+                        userId: this.currentUser,
+                        ...gameData,
+                        lastSaved: new Date().toISOString()
+                    })
+
+                    // Сохраняем в базу данных
+                    await ApiService.updateUser(this.currentUser, {
+                        gameData: gameData,
+                        lastUpdate: new Date()
+                    })
+
+                } catch (error) {
+                    console.error('Error saving game state:', error)
+                }
             }
         },
 
-        // Добавим автоматическое сохранение при изменении важных параметров
-        watch: {
-            balance(newValue) {
-                this.saveState()
-            },
-            passiveIncome(newValue) {
-                this.saveState()
-            },
-            'energy.current'(newValue) {
-                this.saveState()
-            },
-            'investments.purchased'(newValue) {
-                this.saveState()
-            }
-        },
-
-        // Форматирование больших чисел
         formatBigNumber(num) {
             if (num >= 1000000000) {
                 return (num / 1000000000).toFixed(1) + 'B'
@@ -194,7 +232,6 @@ export const useGameStore = defineStore('game', {
             return Math.floor(num).toString()
         },
 
-        // Обработка пассивного дохода
         processPassiveIncome() {
             if (this.passiveIncome > 0) {
                 const monthInSeconds = 30 * 24 * 60 * 60
@@ -205,14 +242,12 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        // Запуск таймера пассивного дохода
         startPassiveIncomeTimer() {
             setInterval(() => {
                 this.processPassiveIncome()
             }, 100)
         },
 
-        // Обработка клика
         handleTap() {
             if (this.canTap) {
                 this.energy.current -= 1
@@ -226,7 +261,6 @@ export const useGameStore = defineStore('game', {
             return 0
         },
 
-        // Регенерация энергии
         regenerateEnergy() {
             const now = Date.now()
             const deltaTime = (now - this.energy.lastRegenTime) / 1000
@@ -241,7 +275,6 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        // Применение буста
         applyBoost(type, duration) {
             const now = Date.now()
             const endTime = now + duration
@@ -266,7 +299,6 @@ export const useGameStore = defineStore('game', {
             this.saveState()
         },
 
-        // Удаление буста
         removeBoost(type) {
             switch(type) {
                 case 'tap3x':
@@ -286,14 +318,12 @@ export const useGameStore = defineStore('game', {
             this.saveState()
         },
 
-        // Апгрейд энергии
         upgradeEnergy(newMax) {
             this.energy.max = newMax
             this.energy.current = newMax
             this.saveState()
         },
 
-        // Покупка инвестиции
         purchaseInvestment(investment, calculatedIncome) {
             if (this.balance < investment.cost) {
                 return false
@@ -315,7 +345,6 @@ export const useGameStore = defineStore('game', {
             return true
         },
 
-        // Пересчет дохода от инвестиций
         recalculateInvestmentIncome() {
             let totalIncome = 0
             this.investments.purchased.forEach(investment => {
@@ -333,7 +362,6 @@ export const useGameStore = defineStore('game', {
             this.updateLevel()
         },
 
-        // Обновление уровня
         updateLevel() {
             let newLevel = 1
             for (let i = 0; i < this.level.levels.length; i++) {
@@ -358,7 +386,6 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        // Обработка офлайн прогресса
         processOfflineProgress() {
             const now = Date.now()
             const lastUpdate = this.investments.lastCalculation
@@ -391,10 +418,11 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        // Сброс игры
         resetGame() {
-            if (this.currentUser?.id) {
-                UserService.resetUserProgress(this.currentUser.id)
+            if (this.currentUser) {
+                ApiService.resetUserProgress(this.currentUser)
+                StorageService.clearState()
+                this.resetToDefault()
             }
             window.location.reload()
         }
