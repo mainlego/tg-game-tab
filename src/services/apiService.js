@@ -36,8 +36,10 @@ export const ApiService = {
     async getAllUsers() {
         try {
             const response = await fetch(`${API_URL}/admin/users`);
+            if (!response.ok) {
+                throw new Error('Ошибка получения пользователей');
+            }
             const data = await response.json();
-            if (!data.success) throw new Error(data.error);
             return data.data;
         } catch (error) {
             console.error('Error getting users:', error);
