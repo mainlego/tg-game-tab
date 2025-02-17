@@ -291,5 +291,86 @@ export const ApiService = {
             console.error('Error getting stats:', error)
             throw error
         }
+    },
+
+    // Добавляем методы для работы с уведомлениями в ApiService
+    async getNotificationsHistory() {
+        try {
+            const response = await fetch(`${API_URL}/admin/notifications`)
+            const data = await response.json()
+            if (!data.success) throw new Error(data.error)
+            return data.data
+        } catch (error) {
+            console.error('Error getting notifications history:', error)
+            throw error
+        }
+    },
+
+    async getNotificationStats() {
+        try {
+            const response = await fetch(`${API_URL}/admin/notifications/stats`)
+            const data = await response.json()
+            if (!data.success) throw new Error(data.error)
+            return data.data
+        } catch (error) {
+            console.error('Error getting notification stats:', error)
+            throw error
+        }
+    },
+
+    async sendNotification(notificationData) {
+        try {
+            const response = await fetch(`${API_URL}/admin/notifications`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(notificationData)
+            })
+            const data = await response.json()
+            if (!data.success) throw new Error(data.error)
+            return data.data
+        } catch (error) {
+            console.error('Error sending notification:', error)
+            throw error
+        }
+    },
+
+    async updateNotification(notificationId, notificationData) {
+        try {
+            const response = await fetch(`${API_URL}/admin/notifications/${notificationId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(notificationData)
+            })
+            const data = await response.json()
+            if (!data.success) throw new Error(data.error)
+            return data.data
+        } catch (error) {
+            console.error('Error updating notification:', error)
+            throw error
+        }
+    },
+
+    async deleteNotification(notificationId) {
+        try {
+            const response = await fetch(`${API_URL}/admin/notifications/${notificationId}`, {
+                method: 'DELETE'
+            })
+            const data = await response.json()
+            if (!data.success) throw new Error(data.error)
+            return data.data
+        } catch (error) {
+            console.error('Error deleting notification:', error)
+            throw error
+        }
     }
+
+
+
+
+
+
 };
