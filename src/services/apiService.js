@@ -35,8 +35,11 @@ export const ApiService = {
 
     async getAllUsers() {
         try {
-            const response = await fetch(`${API_URL}/users`);
+            const response = await fetch(`${API_URL}/api/admin/users`);
             const data = await response.json();
+
+            console.log('Get all users response:', data); // Добавим лог
+
             if (!data.success) throw new Error(data.error);
             return data.data;
         } catch (error) {
@@ -47,19 +50,22 @@ export const ApiService = {
 
     async updateUser(telegramId, userData) {
         try {
-            const response = await fetch(`${API_URL}/users/${telegramId}`, {
+            const response = await fetch(`${API_URL}/api/admin/users/${telegramId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(userData)
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            });
+
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error);
+
+            console.log('User update response:', data); // Добавим лог
+            return data.data;
         } catch (error) {
-            console.error('Error updating user:', error)
-            throw error
+            console.error('Error updating user:', error);
+            throw error;
         }
     },
 

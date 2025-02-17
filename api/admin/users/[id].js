@@ -55,41 +55,40 @@ export default async function handler(req, res) {
 
 // pages/api/admin/users/index.js
 export default async function handler(req, res) {
-    await dbConnect()
+    const { id } = req.query;
+    await dbConnect();
 
-    switch (req.method) {
-        case 'GET':
-            try {
-                const { sort = 'passiveIncome', order = 'desc', page = 1, limit = 10 } = req.query
-                const skip = (page - 1) * limit
+    try {
+        if (req.method === 'PUT') {
+            console.log('Updating user:', id); // Добавим лог
+            console.log('Update data:', req.body); // Добавим лог
 
-                const users = await User.find({})
-                    .sort({ [`gameData.${sort}`]: order === 'desc' ? -1 : 1 })
-                    .skip(skip)
-                    .limit(parseInt(limit))
+            const user = await User.findOneAndUpdate(
+                { telegramId: id },
+                req.body,
+                { new: true, runValidators: true }
+            );
 
-                const total = await User.countDocuments()
-
-                res.status(200).json({
-                    success: true,
-                    data: {
-                        users,
-                        pagination: {
-                            total,
-                            pages: Math.ceil(total / limit),
-                            currentPage: page,
-                            perPage: limit
-                        }
-                    }
-                })
-            } catch (error) {
-                res.status(400).json({ success: false, error: error.message })
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
             }
-            break
 
-        default:
-            res.status(405).json({ success: false, message: 'Method not allowed' })
-            break
+            console.log('Updated user:', user); // Добавим лог
+
+            return res.status(200).json({
+                success: true,
+                data: user
+            });
+        }
+    } catch (error) {
+        console.error('Error in user update:', error);
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
     }
 }
 
