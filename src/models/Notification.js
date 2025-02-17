@@ -4,7 +4,7 @@ import mongoose from 'mongoose'
 const NotificationSchema = new mongoose.Schema({
     type: {
         type: String,
-        enum: ['all', 'level', 'income'],
+        enum: ['all', 'level', 'income', 'test'],
         required: true
     },
     message: {
@@ -14,6 +14,10 @@ const NotificationSchema = new mongoose.Schema({
     important: {
         type: Boolean,
         default: false
+    },
+    button: {
+        text: String,
+        url: String
     },
     conditions: {
         minLevel: {
@@ -46,8 +50,11 @@ const NotificationSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['draft', 'scheduled', 'sent', 'cancelled'],
+        enum: ['draft', 'scheduled', 'sending', 'sent', 'cancelled'],
         default: 'draft'
+    },
+    testUserId: {
+        type: String
     }
 }, {
     timestamps: true
