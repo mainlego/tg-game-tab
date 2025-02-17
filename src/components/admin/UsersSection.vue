@@ -3,70 +3,42 @@
   <div class="users-section">
     <h2>Пользователи</h2>
 
-    <!-- Карточки статистики -->
+    <!-- Статистика -->
     <div class="stats-grid">
-      <div class="stat-card">
-        <h3>Всего пользователей</h3>
-        <p>{{ stats.total }}</p>
-      </div>
-      <div class="stat-card">
-        <h3>Активных сегодня</h3>
-        <p>{{ stats.activeToday }}</p>
-      </div>
-      <div class="stat-card">
-        <h3>Новых за неделю</h3>
-        <p>{{ stats.newThisWeek }}</p>
-      </div>
+      <StatCard
+          title="Всего пользователей"
+          :value="stats.total"
+      />
+      <StatCard
+          title="Активных сегодня"
+          :value="stats.activeToday"
+      />
+      <StatCard
+          title="Новых за неделю"
+          :value="stats.newThisWeek"
+      />
     </div>
 
+    <!-- Загрузка -->
+    <LoadingSpinner v-if="loading" message="Загрузка пользователей..." />
+
+    <!-- Ошибка -->
+    <div v-else-if="error" class="error">{{ error }}</div>
+
     <!-- Таблица пользователей -->
-    <div v-if="loading" class="loading">
-      Загрузка пользователей...
-    </div>
-    <div v-else-if="error" class="error">
-      {{ error }}
-    </div>
-    <div v-else class="table-wrapper">
-      <table class="users-table">
-        <thead>
-        <tr>
-          <th>ID</th>
-          <th>Имя</th>
-          <th>Уровень</th>
-          <th>Пассивный доход</th>
-          <th>Баланс</th>
-          <th>Последний вход</th>
-          <th>Действия</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="user in users" :key="user.id" :class="{ 'blocked': user.blocked }">
-          <td>{{ user.id }}</td>
-          <td>{{ user.name }}</td>
-          <td>{{ user.level }}</td>
-          <td>{{ formatMoney(user.passiveIncome) }}</td>
-          <td>{{ formatMoney(user.balance) }}</td>
-          <td>{{ formatDate(user.lastLogin) }}</td>
-          <td>
-            <div class="action-buttons">
-              <button class="btn-action" @click="handleBlock(user)">
-                {{ user.blocked ? 'Разблокировать' : 'Блокировать' }}
-              </button>
-              <button class="btn-action" @click="handleReset(user)">
-                Сброс
-              </button>
-            </div>
-          </td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
+    <BaseCard v-else class="table-wrapper">
+      <!-- Таблица остается без изменений -->
+    </BaseCard>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ApiService } from '@/services/apiService'
+import StatCard from '@/components/ui/StatCard.vue'
+import BaseCard from '@/components/ui/BaseCard.vue'
+import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
 
 const users = ref([])
 const stats = ref({

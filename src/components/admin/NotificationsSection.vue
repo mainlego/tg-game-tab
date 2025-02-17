@@ -7,31 +7,33 @@
 
     <div class="notifications-layout">
       <!-- Форма отправки уведомления -->
-      <div class="notification-composer">
-        <div class="composer-card">
-          <h3>Отправить уведомление</h3>
-
-          <div class="form-group">
-            <label>Тип уведомления</label>
+      <BaseCard class="notification-composer">
+        <h3>Отправить уведомление</h3>
+        <BaseForm @submit="sendNotification">
+          <FormGroup label="Тип уведомления">
             <select v-model="newNotification.type" class="form-input">
               <option value="all">Всем пользователям</option>
               <option value="level">По уровню</option>
               <option value="income">По доходу</option>
             </select>
-          </div>
+          </FormGroup>
 
-          <div class="form-group" v-if="newNotification.type === 'level'">
-            <label>Минимальный уровень</label>
+          <FormGroup
+              v-if="newNotification.type === 'level'"
+              label="Минимальный уровень"
+          >
             <input
                 type="number"
                 v-model.number="newNotification.minLevel"
                 class="form-input"
                 min="1"
             >
-          </div>
+          </FormGroup>
 
-          <div class="form-group" v-if="newNotification.type === 'income'">
-            <label>Минимальный доход</label>
+          <FormGroup
+              v-if="newNotification.type === 'income'"
+              label="Минимальный доход"
+          >
             <input
                 type="number"
                 v-model.number="newNotification.minIncome"
@@ -39,20 +41,18 @@
                 min="0"
                 step="1000"
             >
-          </div>
+          </FormGroup>
 
-          <div class="form-group">
-            <label>Сообщение</label>
+          <FormGroup label="Сообщение">
             <textarea
                 v-model="newNotification.message"
                 class="form-input"
                 rows="4"
                 placeholder="Введите текст сообщения..."
             ></textarea>
-          </div>
+          </FormGroup>
 
-          <div class="form-group">
-            <label>Кнопка в сообщении (опционально)</label>
+          <FormGroup label="Кнопка в сообщении (опционально)">
             <div class="button-inputs">
               <input
                   v-model="newNotification.button.text"
@@ -65,9 +65,9 @@
                   placeholder="URL кнопки"
               >
             </div>
-          </div>
+          </FormGroup>
 
-          <div class="form-group">
+          <FormGroup>
             <label class="checkbox-label">
               <input
                   type="checkbox"
@@ -75,76 +75,66 @@
               >
               Важное уведомление
             </label>
-          </div>
-
-          <div class="form-group">
-            <label>Запланировать отправку</label>
-            <input
-                type="datetime-local"
-                v-model="scheduledDate"
-                class="form-input"
-                :min="minScheduledDate"
-            >
-          </div>
+          </FormGroup>
 
           <div class="preview-section">
             <h4>Предпросмотр сообщения</h4>
             <div class="preview-message">
               <div v-html="previewMessage"></div>
-              <button
+              <BaseButton
                   v-if="hasButton"
-                  class="preview-button"
+                  type="secondary"
                   @click.prevent
               >
                 {{ newNotification.button.text }}
-              </button>
+              </BaseButton>
             </div>
           </div>
 
           <div class="action-buttons">
-            <button
-                class="btn-secondary"
+            <BaseButton
+                type="secondary"
                 @click="sendTestNotification"
                 :disabled="!newNotification.message"
             >
               Тестовая отправка
-            </button>
-            <button
-                class="btn-primary"
+            </BaseButton>
+            <BaseButton
+                type="primary"
                 @click="sendNotification"
                 :disabled="!newNotification.message"
             >
               {{ scheduledDate ? 'Запланировать' : 'Отправить' }}
-            </button>
+            </BaseButton>
           </div>
-        </div>
-      </div>
+        </BaseForm>
+      </BaseCard>
 
       <!-- История уведомлений -->
-      <div class="notifications-history">
+      <BaseCard class="notifications-history">
         <div class="history-header">
           <h3>История уведомлений</h3>
-          <div class="history-filters">
-            <select v-model="historyFilter" class="form-input">
-              <option value="all">Все уведомления</option>
-              <option value="scheduled">Запланированные</option>
-              <option value="sent">Отправленные</option>
-              <option value="important">Важные</option>
-            </select>
-          </div>
+          <select v-model="historyFilter" class="form-input">
+            <option value="all">Все уведомления</option>
+            <option value="scheduled">Запланированные</option>
+            <option value="sent">Отправленные</option>
+            <option value="important">Важные</option>
+          </select>
         </div>
 
-        <div class="history-list">
+        <LoadingSpinner v-if="loading" />
+
+        <div v-else class="history-list">
           <div
               v-for="notification in filteredHistory"
               :key="notification.id"
-              class="history-item"
+              class="notification-item"
               :class="{
               'important': notification.important,
               'scheduled': notification.status === 'scheduled'
             }"
           >
-            <div class="history-item-header">
+            <div class="notification-header">
               <div class="header-info">
                 <span class="notification-type">
                   {{ getNotificationType(notification.type) }}
@@ -160,53 +150,54 @@
 
             <p class="notification-message">{{ notification.message }}</p>
 
-            <div class="notification-conditions" v-if="hasConditions(notification)">
-              <span v-if="notification.type === 'level'">
-                Мин. уровень: {{ notification.conditions.minLevel }}
-              </span>
-              <span v-if="notification.type === 'income'">
-                Мин. доход: {{ formatMoney(notification.conditions.minIncome) }}
-              </span>
-            </div>
+            <NotificationStats
+                v-if="notification.status === 'sent'"
+                :stats="notification.stats"
+            />
 
-            <div class="notification-stats" v-if="notification.status === 'sent'">
-              <div class="stat-item">
-                <span class="stat-label">Отправлено:</span>
-                <span class="stat-value">{{ notification.stats.sentCount }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Прочитано:</span>
-                <span class="stat-value">{{ notification.stats.readCount }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">% прочтения:</span>
-                <span class="stat-value">
-                  {{ calculateReadPercentage(notification) }}%
-                </span>
-              </div>
-            </div>
-
-            <div class="notification-actions" v-if="notification.status === 'scheduled'">
-              <button class="btn-secondary" @click="editNotification(notification)">
+            <div
+                v-if="notification.status === 'scheduled'"
+                class="notification-actions"
+            >
+              <BaseButton
+                  type="secondary"
+                  @click="editNotification(notification)"
+              >
                 Редактировать
-              </button>
-              <button class="btn-delete" @click="cancelNotification(notification)">
+              </BaseButton>
+              <BaseButton
+                  type="danger"
+                  @click="cancelNotification(notification)"
+              >
                 Отменить
-              </button>
+              </BaseButton>
             </div>
           </div>
         </div>
-      </div>
+      </BaseCard>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { ApiService } from '@/services/apiService'
 import { useTelegram } from '@/composables/useTelegram'
 
+// Импортируем новые базовые компоненты
+import BaseCard from '@/components/ui/BaseCard.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseForm from '@/components/ui/BaseForm.vue'
+import FormGroup from '@/components/ui/FormGroup.vue'
+import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
+import NotificationStats from '@/components/admin/NotificationStats.vue'
+
 const { user } = useTelegram()
+const notifications = inject('notifications')
+
+// Добавляем состояние загрузки
+const loading = ref(false)
+const error = ref(null)
 
 const newNotification = ref({
   type: 'all',
@@ -267,16 +258,22 @@ const filteredHistory = computed(() => {
 // Загрузка истории уведомлений
 const loadHistory = async () => {
   try {
+    loading.value = true
+    error.value = null
     const data = await ApiService.getNotificationsHistory()
     notificationsHistory.value = data
-  } catch (error) {
-    console.error('Error loading notifications history:', error)
+  } catch (err) {
+    console.error('Error loading notifications history:', err)
+    error.value = 'Ошибка загрузки истории уведомлений'
+  } finally {
+    loading.value = false
   }
 }
 
 // Отправка уведомления
 const sendNotification = async () => {
   try {
+    loading.value = true
     const notificationData = {
       type: newNotification.value.type,
       message: newNotification.value.message,
@@ -285,28 +282,37 @@ const sendNotification = async () => {
         minLevel: newNotification.value.minLevel,
         minIncome: newNotification.value.minIncome
       },
-      button: hasButton.value ? newNotification.value.button : undefined
-    };
+      button: hasButton.value ? newNotification.value.button : undefined,
+      scheduledFor: scheduledDate.value || undefined
+    }
 
-    console.log('Sending notification:', notificationData);
-    const response = await ApiService.sendNotification(notificationData);
-    console.log('Response:', response);
+    const response = await ApiService.sendNotification(notificationData)
 
     if (response.success) {
-      await loadHistory();
-      resetForm();
+      notifications.addNotification({
+        message: 'Уведомление успешно отправлено',
+        type: 'success'
+      })
+      await loadHistory()
+      resetForm()
     }
   } catch (error) {
-    console.error('Error sending notification:', error);
-    // Добавьте уведомление пользователю об ошибке
+    console.error('Error sending notification:', error)
+    notifications.addNotification({
+      message: 'Ошибка при отправке уведомления',
+      type: 'error'
+    })
+  } finally {
+    loading.value = false
   }
-};
+}
 
 // Тестовая отправка
 const sendTestNotification = async () => {
   if (!user.value?.id) return
 
   try {
+    loading.value = true
     const testData = {
       ...newNotification.value,
       type: 'test',
@@ -314,9 +320,18 @@ const sendTestNotification = async () => {
     }
 
     await ApiService.sendTestNotification(testData)
-    alert('Тестовое уведомление отправлено')
+    notifications.addNotification({
+      message: 'Тестовое уведомление отправлено',
+      type: 'success'
+    })
   } catch (error) {
     console.error('Error sending test notification:', error)
+    notifications.addNotification({
+      message: 'Ошибка отправки тестового уведомления',
+      type: 'error'
+    })
+  } finally {
+    loading.value = false
   }
 }
 
@@ -332,10 +347,21 @@ const editNotification = (notification) => {
 const cancelNotification = async (notification) => {
   if (confirm('Вы уверены, что хотите отменить отправку уведомления?')) {
     try {
+      loading.value = true
       await ApiService.deleteNotification(notification.id)
       await loadHistory()
+      notifications.addNotification({
+        message: 'Уведомление отменено',
+        type: 'success'
+      })
     } catch (error) {
       console.error('Error canceling notification:', error)
+      notifications.addNotification({
+        message: 'Ошибка при отмене уведомления',
+        type: 'error'
+      })
+    } finally {
+      loading.value = false
     }
   }
 }
@@ -382,28 +408,6 @@ const formatDate = (date) => {
   return new Date(date).toLocaleString()
 }
 
-const formatMoney = (amount) => {
-  if (amount >= 1000000000) {
-    return (amount / 1000000000).toFixed(1) + 'B'
-  }
-  if (amount >= 1000000) {
-    return (amount / 1000000).toFixed(1) + 'M'
-  }
-  if (amount >= 1000) {
-    return (amount / 1000).toFixed(1) + 'K'
-  }
-  return amount.toString()
-}
-
-const hasConditions = (notification) => {
-  return notification.type === 'level' || notification.type === 'income'
-}
-
-const calculateReadPercentage = (notification) => {
-  if (!notification.stats?.sentCount) return 0
-  return Math.round((notification.stats.readCount / notification.stats.sentCount) * 100)
-}
-
 // Загрузка данных при монтировании
 onMounted(async () => {
   await loadHistory()
@@ -411,7 +415,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Добавляем новые стили */
+.notifications-section {
+  padding: 20px;
+}
+
 .notifications-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -420,6 +427,15 @@ onMounted(async () => {
   overflow: auto;
 }
 
+/* Кнопки действий */
+.action-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* Предпросмотр сообщения */
 .preview-section {
   background: #f8f9fa;
   padding: 16px;
@@ -434,16 +450,34 @@ onMounted(async () => {
   margin-top: 8px;
 }
 
+/* Поля для кнопки */
 .button-inputs {
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 8px;
 }
 
-.action-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+/* История уведомлений */
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.notification-item {
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 8px;
+  background: white;
+  border: 1px solid #eee;
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 .status-badge {
@@ -453,48 +487,18 @@ onMounted(async () => {
   margin-left: 8px;
 }
 
-.status-badge.scheduled {
-  background: #ffd700;
-  color: #000;
+.status-badge.scheduled { background: #ffd700; color: #000; }
+.status-badge.sending { background: #2196f3; color: white; }
+.status-badge.sent { background: #4caf50; color: white; }
+.status-badge.cancelled { background: #f44336; color: white; }
+
+.notification-message {
+  margin: 12px 0;
+  line-height: 1.5;
+  word-break: break-word;
 }
 
-.status-badge.sending {
-  background: #2196f3;
-  color: white;
-}
-
-.status-badge.sent {
-  background: #4caf50;
-  color: white;
-}
-
-.status-badge.cancelled {
-  background: #f44336;
-  color: white;
-}
-
-.notification-conditions {
-  margin: 8px 0;
-  font-size: 14px;
-  color: #666;
-}
-
-.notification-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.preview-button {
-  margin-top: 8px;
-  padding: 8px 16px;
-  background: #2196f3;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
+/* Адаптивность */
 @media (max-width: 1024px) {
   .notifications-layout {
     grid-template-columns: 1fr;
@@ -504,21 +508,6 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .notifications-section {
     padding: 10px;
-    height: 80vh;
-    overflow-y: scroll;
-  }
-
-  .history-header {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .history-filters .form-input {
-    width: 100%;
-  }
-
-  .notification-stats {
-    grid-template-columns: 1fr;
   }
 
   .button-inputs {
@@ -528,194 +517,5 @@ onMounted(async () => {
   .action-buttons {
     grid-template-columns: 1fr;
   }
-}
-
-/* Базовые стили */
-.notifications-section {
-  padding: 20px;
-}
-
-.section-header {
-  margin-bottom: 20px;
-}
-
-.notification-composer {
-  margin-bottom: 30px;
-}
-
-.composer-card {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  color: #666;
-}
-
-.form-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-textarea.form-input {
-  resize: vertical;
-  min-height: 100px;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.btn-primary {
-  width: 100%;
-  padding: 12px;
-  background: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: opacity 0.2s;
-}
-
-.btn-secondary {
-  width: 100%;
-  padding: 12px;
-  background: #f5f5f5;
-  color: #333;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.2s;
-}
-
-.btn-delete {
-  padding: 8px 16px;
-  background: #f44336;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: opacity 0.2s;
-}
-
-.btn-primary:disabled,
-.btn-secondary:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.btn-secondary:hover {
-  background: #ebebeb;
-}
-
-.btn-delete:hover {
-  opacity: 0.9;
-}
-
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.history-filters .form-input {
-  width: 200px;
-}
-
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  height: 600px;
-  overflow: auto;
-}
-
-.history-item {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  transition: transform 0.2s;
-}
-
-.history-item:hover {
-  transform: translateY(-2px);
-}
-
-.history-item.important {
-  border-left: 4px solid var(--primary-color);
-}
-
-.history-item.scheduled {
-  border-left: 4px solid #ffd700;
-}
-
-.history-item-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.header-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.notification-type {
-  font-weight: 500;
-}
-
-.notification-date {
-  color: #666;
-  font-size: 14px;
-}
-
-.notification-message {
-  margin: 0 0 16px;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.notification-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  background: #f8f9fa;
-  padding: 12px;
-  border-radius: 4px;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #666;
-}
-
-.stat-value {
-  font-weight: 500;
 }
 </style>
