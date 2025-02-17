@@ -26,6 +26,7 @@ export const useGameStore = defineStore('game', {
             // Основная валюта
             balance: 0,
             passiveIncome: 0,
+            tutorialCompleted: false,
 
             // Система энергии
             energy: {
@@ -113,6 +114,13 @@ export const useGameStore = defineStore('game', {
     },
 
     actions: {
+
+
+        completeTutorial() {
+            this.tutorialCompleted = true
+            this.saveState()
+        },
+
         async initializeGame(userId) {
             if (!userId) {
                 console.warn('No user ID provided for game initialization')

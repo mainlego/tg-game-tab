@@ -18,6 +18,7 @@
         <component :is="Component" />
       </transition>
     </router-view>
+    <Tutorial />
     <Notification ref="notificationSystem" />
     <NotificationPopup ref="notificationPopup" />
   </div>
@@ -28,6 +29,8 @@
 import { ref, provide, onMounted, watch } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useTelegram } from '@/composables/useTelegram'
+
+import Tutorial from '@/components/Tutorial.vue'
 
 import Notification from '@/components/ui/Notification.vue'
 import NotificationPopup from '@/components/NotificationPopup.vue'
