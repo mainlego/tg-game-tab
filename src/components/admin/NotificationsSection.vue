@@ -1,79 +1,86 @@
 <!-- src/components/admin/NotificationsSection.vue -->
 <template>
   <div class="notifications-section">
-    <h2>Управление уведомлениями</h2>
+    <div class="section-header">
+      <h2>Управление уведомлениями</h2>
+    </div>
 
     <!-- Форма отправки уведомления -->
     <div class="notification-composer">
-      <div class="form-group">
-        <label>Тип уведомления</label>
-        <select v-model="newNotification.type" class="form-input">
-          <option value="all">Всем пользователям</option>
-          <option value="level">По уровню</option>
-          <option value="income">По доходу</option>
-        </select>
-      </div>
+      <div class="composer-card">
+        <h3>Отправить уведомление</h3>
 
-      <div class="form-group" v-if="newNotification.type === 'level'">
-        <label>Минимальный уровень</label>
-        <input
-            type="number"
-            v-model="newNotification.minLevel"
-            class="form-input"
-            min="1"
-        >
-      </div>
+        <div class="form-group">
+          <label>Тип уведомления</label>
+          <select v-model="newNotification.type" class="form-input">
+            <option value="all">Всем пользователям</option>
+            <option value="level">По уровню</option>
+            <option value="income">По доходу</option>
+          </select>
+        </div>
 
-      <div class="form-group" v-if="newNotification.type === 'income'">
-        <label>Минимальный доход</label>
-        <input
-            type="number"
-            v-model="newNotification.minIncome"
-            class="form-input"
-            min="0"
-            step="1000"
-        >
-      </div>
-
-      <div class="form-group">
-        <label>Сообщение</label>
-        <textarea
-            v-model="newNotification.message"
-            class="form-input"
-            rows="4"
-            placeholder="Введите текст сообщения..."
-        ></textarea>
-      </div>
-
-      <div class="form-group">
-        <label class="checkbox-label">
+        <div class="form-group" v-if="newNotification.type === 'level'">
+          <label>Минимальный уровень</label>
           <input
-              type="checkbox"
-              v-model="newNotification.important"
+              type="number"
+              v-model.number="newNotification.minLevel"
+              class="form-input"
+              min="1"
           >
-          Важное уведомление
-        </label>
-      </div>
+        </div>
 
-      <button
-          class="btn-primary"
-          @click="sendNotification"
-          :disabled="!newNotification.message"
-      >
-        Отправить уведомление
-      </button>
+        <div class="form-group" v-if="newNotification.type === 'income'">
+          <label>Минимальный доход</label>
+          <input
+              type="number"
+              v-model.number="newNotification.minIncome"
+              class="form-input"
+              min="0"
+              step="1000"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Сообщение</label>
+          <textarea
+              v-model="newNotification.message"
+              class="form-input"
+              rows="4"
+              placeholder="Введите текст сообщения..."
+          ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input
+                type="checkbox"
+                v-model="newNotification.important"
+            >
+            Важное уведомление
+          </label>
+        </div>
+
+        <button
+            class="btn-primary"
+            @click="sendNotification"
+            :disabled="!newNotification.message"
+        >
+          Отправить уведомление
+        </button>
+      </div>
     </div>
 
     <!-- История уведомлений -->
     <div class="notifications-history">
-      <h3>История уведомлений</h3>
-
-      <div class="history-filters">
-        <select v-model="historyFilter" class="form-input">
-          <option value="all">Все уведомления</option>
-          <option value="important">Важные</option>
-          <option value="regular">Обычные</option>
-        </select>
+      <div class="history-header">
+        <h3>История уведомлений</h3>
+        <div class="history-filters">
+          <select v-model="historyFilter" class="form-input">
+            <option value="all">Все уведомления</option>
+            <option value="important">Важные</option>
+            <option value="regular">Обычные</option>
+          </select>
+        </div>
       </div>
 
       <div class="history-list">
@@ -95,8 +102,20 @@
           <p class="notification-message">{{ notification.message }}</p>
 
           <div class="notification-stats">
-            <span>Отправлено: {{ notification.sentCount }}</span>
-            <span>Прочитано: {{ notification.readCount }}</span>
+            <div class="stat-item">
+              <span class="stat-label">Отправлено:</span>
+              <span class="stat-value">{{ notification.sentCount }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Прочитано:</span>
+              <span class="stat-value">{{ notification.readCount }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">% прочтения:</span>
+              <span class="stat-value">
+                {{ calculateReadPercentage(notification) }}%
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -106,9 +125,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useAdminStore } from '@/stores/adminStore'
-
-const adminStore = useAdminStore()
+import { ApiService } from '@/services/apiService'
 
 const newNotification = ref({
   type: 'all',
@@ -119,19 +136,19 @@ const newNotification = ref({
 })
 
 const historyFilter = ref('all')
-const notificationsHistory = ref([
-  {
-    id: 1,
-    type: 'all',
-    message: 'Тестовое уведомление',
-    sentAt: new Date(),
-    important: true,
-    sentCount: 1000,
-    readCount: 750
-  }
-  // Другие уведомления...
-])
+const notificationsHistory = ref([])
 
+// Загрузка истории уведомлений
+const loadHistory = async () => {
+  try {
+    const data = await ApiService.getNotificationsHistory()
+    notificationsHistory.value = data
+  } catch (error) {
+    console.error('Error loading notifications history:', error)
+  }
+}
+
+// Фильтрация истории
 const filteredHistory = computed(() => {
   if (historyFilter.value === 'all') return notificationsHistory.value
   return notificationsHistory.value.filter(notification =>
@@ -139,16 +156,11 @@ const filteredHistory = computed(() => {
   )
 })
 
+// Отправка уведомления
 const sendNotification = async () => {
   try {
-    await adminStore.sendNotification(newNotification.value)
-    notificationsHistory.value.unshift({
-      id: Date.now(),
-      ...newNotification.value,
-      sentAt: new Date(),
-      sentCount: 0,
-      readCount: 0
-    })
+    await ApiService.sendNotification(newNotification.value)
+    await loadHistory()
 
     // Сброс формы
     newNotification.value = {
@@ -163,6 +175,7 @@ const sendNotification = async () => {
   }
 }
 
+// Вспомогательные функции
 const getNotificationType = (type) => {
   const types = {
     all: 'Всем пользователям',
@@ -175,6 +188,16 @@ const getNotificationType = (type) => {
 const formatDate = (date) => {
   return new Date(date).toLocaleString()
 }
+
+const calculateReadPercentage = (notification) => {
+  if (!notification.sentCount) return 0
+  return Math.round((notification.readCount / notification.sentCount) * 100)
+}
+
+// Загрузка данных при монтировании
+onMounted(async () => {
+  await loadHistory()
+})
 </script>
 
 <style scoped>
@@ -182,12 +205,19 @@ const formatDate = (date) => {
   padding: 20px;
 }
 
+.section-header {
+  margin-bottom: 20px;
+}
+
 .notification-composer {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   margin-bottom: 30px;
+}
+
+.composer-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .form-group {
@@ -197,12 +227,12 @@ const formatDate = (date) => {
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  font-weight: 500;
+  color: #666;
 }
 
 .form-input {
   width: 100%;
-  padding: 8px;
+  padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
@@ -221,14 +251,14 @@ textarea.form-input {
 }
 
 .btn-primary {
+  width: 100%;
+  padding: 12px;
   background: var(--primary-color);
   color: white;
   border: none;
-  padding: 12px 24px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
-  width: 100%;
 }
 
 .btn-primary:disabled {
@@ -236,15 +266,15 @@ textarea.form-input {
   cursor: not-allowed;
 }
 
-.notifications-history {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
-.history-filters {
-  margin-bottom: 20px;
+.history-filters .form-input {
+  width: 200px;
 }
 
 .history-list {
@@ -254,20 +284,20 @@ textarea.form-input {
 }
 
 .history-item {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .history-item.important {
-  border-color: var(--primary-color);
-  background: rgba(140, 96, 227, 0.05);
+  border-left: 4px solid var(--primary-color);
 }
 
 .history-item-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .notification-type {
@@ -276,19 +306,36 @@ textarea.form-input {
 
 .notification-date {
   color: #666;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .notification-message {
-  margin: 8px 0;
-  line-height: 1.4;
+  margin: 0 0 16px;
+  line-height: 1.5;
 }
 
 .notification-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.stat-item {
   display: flex;
-  gap: 16px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
   font-size: 12px;
   color: #666;
+}
+
+.stat-value {
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {
@@ -296,18 +343,17 @@ textarea.form-input {
     padding: 10px;
   }
 
-  .notification-composer,
-  .notifications-history {
-    padding: 15px;
+  .history-header {
+    flex-direction: column;
+    gap: 12px;
   }
 
-  .history-item {
-    padding: 12px;
+  .history-filters .form-input {
+    width: 100%;
   }
 
   .notification-stats {
-    flex-direction: column;
-    gap: 4px;
+    grid-template-columns: 1fr;
   }
 }
 </style>
