@@ -69,9 +69,8 @@ export const ApiService = {
         try {
             const response = await request(`${API_URL}/users`);
 
-            // Обработка различных форматов ответа
+            // Успешное получение данных с сервера
             if (response && response.success && response.data) {
-                // Формат {success: true, data: {users: [...], stats: {...}}}
                 return response.data;
             } else if (response && Array.isArray(response)) {
                 // Если API возвращает массив напрямую
@@ -84,16 +83,13 @@ export const ApiService = {
                         totalIncome: 0
                     }
                 };
-            } else if (response && response.users) {
-                // Если API возвращает объект с полем users
-                return response;
             }
 
             throw new Error('Invalid response format from server');
         } catch (error) {
             console.warn('Using mock data due to API error:', error);
 
-            // Возвращаем фиктивные данные в случае ошибки
+            // Мок-данные, используемые при ошибке запроса
             return {
                 users: [
                     {
