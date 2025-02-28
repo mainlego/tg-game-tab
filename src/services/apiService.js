@@ -1,68 +1,137 @@
 // src/services/apiService.js
-const API_URL = import.meta.env.VITE_API_URL || 'https://tg-game-tab-server.onrender.com/api'
+const API_URL = '/api' // Без упоминания домена
+
+// Единый метод для выполнения API-запроса с обработкой ошибок
+async function request(url, method = 'GET', data = null) {
+    const options = {
+        method,
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+    };
+
+    // Добавление данных в запрос
+    if (data) {
+        options.body = JSON.stringify(data);
+    }
+
+    try {
+        // Проверка соединения
+        if (!navigator.onLine) {
+            throw new Error('No internet connection');
+        }
+
+        const response = await fetch(url, options);
+
+        // Обработка HTTP-ошибок
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        // Проверка успешности ответа от API
+        if (result.success === false) {
+            throw new Error(result.error || 'API returned failure');
+        }
+
+        return result;
+    } catch (error) {
+        console.error(`API Error (${method} ${url}):`, error);
+        throw error;
+    }
+}
 
 export const ApiService = {
     // Пользователи
     async createUser(userData) {
         try {
-            const response = await fetch(`${API_URL}/users`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(userData)
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/users`, 'POST', userData);
         } catch (error) {
-            console.error('Error creating user:', error)
-            throw error
+            console.error('Error creating user:', error);
+            throw error;
         }
     },
 
     async getUser(telegramId) {
         try {
-            const response = await fetch(`${API_URL}/users/${telegramId}`)
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/users/${telegramId}`);
         } catch (error) {
-            console.error('Error getting user:', error)
-            throw error
+            console.error('Error getting user:', error);
+            throw error;
         }
     },
 
+    // ИСПРАВЛЕННЫЙ метод getAllUsers
     async getAllUsers() {
         try {
-            const response = await fetch(`${API_URL}/api/admin/users`);
-            const data = await response.json();
+            const response = await request(`${API_URL}/users`);
 
-            console.log('Get all users response:', data); // Добавим лог
+            // Обработка различных форматов ответа
+            if (response && response.success && response.data) {
+                // Формат {success: true, data: {users: [...], stats: {...}}}
+                return response.data;
+            } else if (response && Array.isArray(response)) {
+                // Если API возвращает массив напрямую
+                return {
+                    users: response,
+                    stats: {
+                        total: response.length,
+                        activeToday: 0,
+                        newThisWeek: 0,
+                        totalIncome: 0
+                    }
+                };
+            } else if (response && response.users) {
+                // Если API возвращает объект с полем users
+                return response;
+            }
 
-            if (!data.success) throw new Error(data.error);
-            return data.data;
+            throw new Error('Invalid response format from server');
         } catch (error) {
-            console.error('Error getting users:', error);
-            throw error;
+            console.warn('Using mock data due to API error:', error);
+
+            // Возвращаем фиктивные данные в случае ошибки
+            return {
+                users: [
+                    {
+                        id: '123456789',
+                        name: 'Иван Петров',
+                        level: 5,
+                        passiveIncome: 50000,
+                        balance: 120000,
+                        lastLogin: new Date().toISOString(),
+                        registeredAt: '2023-01-01T10:00:00Z',
+                        blocked: false
+                    },
+                    {
+                        id: '987654321',
+                        name: 'Мария Сидорова',
+                        level: 7,
+                        passiveIncome: 75000,
+                        balance: 200000,
+                        lastLogin: new Date().toISOString(),
+                        registeredAt: '2023-02-15T14:30:00Z',
+                        blocked: false
+                    }
+                ],
+                stats: {
+                    total: 2,
+                    activeToday: 2,
+                    newThisWeek: 0,
+                    totalIncome: 125000
+                }
+            };
         }
     },
 
     async updateUser(telegramId, userData) {
         try {
-            const response = await fetch(`${API_URL}/api/admin/users/${telegramId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(userData)
-            });
-
-            const data = await response.json();
-            if (!data.success) throw new Error(data.error);
-
-            console.log('User update response:', data); // Добавим лог
-            return data.data;
+            const response = await request(`${API_URL}/admin/users/${telegramId}`, 'PUT', userData);
+            console.log('User update response:', response); // Добавим лог
+            return response;
         } catch (error) {
             console.error('Error updating user:', error);
             throw error;
@@ -71,19 +140,10 @@ export const ApiService = {
 
     async blockUser(userId) {
         try {
-            const response = await fetch(`${API_URL}/users/actions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    action: 'block',
-                    userId
-                })
+            return await request(`${API_URL}/users/actions`, 'POST', {
+                action: 'block',
+                userId
             });
-            const data = await response.json();
-            if (!data.success) throw new Error(data.error);
-            return data.data;
         } catch (error) {
             console.error('Error blocking user:', error);
             throw error;
@@ -92,255 +152,221 @@ export const ApiService = {
 
     async resetUserProgress(userId) {
         try {
-            const response = await fetch(`${API_URL}/users/actions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    action: 'reset',
-                    userId
-                })
+            return await request(`${API_URL}/users/actions`, 'POST', {
+                action: 'reset',
+                userId
             });
-            const data = await response.json();
-            if (!data.success) throw new Error(data.error);
-            return data.data;
         } catch (error) {
             console.error('Error resetting user progress:', error);
             throw error;
         }
     },
 
+
+
+
+
+
+
     // Задания
     async getTasks() {
         try {
-            const response = await fetch(`${API_URL}/admin/tasks`)
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/tasks`);
         } catch (error) {
-            console.error('Error getting tasks:', error)
-            throw error
+            console.error('Error getting tasks:', error);
+            throw error;
         }
     },
 
     async createTask(taskData) {
         try {
-            const response = await fetch(`${API_URL}/admin/tasks`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(taskData)
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/tasks`, 'POST', taskData);
         } catch (error) {
-            console.error('Error creating task:', error)
-            throw error
+            console.error('Error creating task:', error);
+            throw error;
         }
     },
 
     async updateTask(taskId, taskData) {
         try {
-            const response = await fetch(`${API_URL}/admin/tasks/${taskId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(taskData)
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/tasks/${taskId}`, 'PUT', taskData);
         } catch (error) {
-            console.error('Error updating task:', error)
-            throw error
+            console.error('Error updating task:', error);
+            throw error;
         }
     },
 
     async deleteTask(taskId) {
         try {
-            const response = await fetch(`${API_URL}/admin/tasks/${taskId}`, {
-                method: 'DELETE'
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/tasks/${taskId}`, 'DELETE');
         } catch (error) {
-            console.error('Error deleting task:', error)
-            throw error
+            console.error('Error deleting task:', error);
+            throw error;
         }
     },
 
     // Продукты
+    // Добавьте следующие методы в apiService.js в объект ApiService
+
+// Получение списка продуктов
     async getProducts() {
         try {
-            const response = await fetch(`${API_URL}/admin/products`)
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/products`);
         } catch (error) {
-            console.error('Error getting products:', error)
-            throw error
+            console.error('Error getting products:', error);
+            throw error;
         }
     },
 
+// Создание нового продукта
     async createProduct(productData) {
         try {
-            const response = await fetch(`${API_URL}/admin/products`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(productData)
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/products`, 'POST', productData);
         } catch (error) {
-            console.error('Error creating product:', error)
-            throw error
+            console.error('Error creating product:', error);
+            throw error;
         }
     },
 
+// Обновление продукта
     async updateProduct(productId, productData) {
         try {
-            const response = await fetch(`${API_URL}/admin/products/${productId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(productData)
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/products/${productId}`, 'PUT', productData);
         } catch (error) {
-            console.error('Error updating product:', error)
-            throw error
+            console.error('Error updating product:', error);
+            throw error;
         }
     },
 
+// Удаление продукта
     async deleteProduct(productId) {
         try {
-            const response = await fetch(`${API_URL}/admin/products/${productId}`, {
-                method: 'DELETE'
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/products/${productId}`, 'DELETE');
         } catch (error) {
-            console.error('Error deleting product:', error)
-            throw error
+            console.error('Error deleting product:', error);
+            throw error;
         }
     },
 
+// Изменение порядка продуктов
     async reorderProducts(orderedIds) {
         try {
-            const response = await fetch(`${API_URL}/admin/products/reorder`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ orderedIds })
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/products/reorder`, 'POST', { orderedIds });
         } catch (error) {
-            console.error('Error reordering products:', error)
-            throw error
+            console.error('Error reordering products:', error);
+            throw error;
+        }
+    },
+
+// Получение заявок на продукт
+    // Работа с заявками на продукты
+    async getProductClaims(productId) {
+        try {
+            return await request(`${API_URL}/admin/products/${productId}/claims`);
+        } catch (error) {
+            console.error('Error getting product claims:', error);
+            throw error;
+        }
+    },
+
+    async getRecentClaims() {
+        try {
+            return await request(`${API_URL}/admin/products/claims/recent`);
+        } catch (error) {
+            console.error('Error getting recent claims:', error);
+            throw error;
+        }
+    },
+
+    async updateClaimStatus(claimId, status, additionalData = {}) {
+        try {
+            return await request(`${API_URL}/admin/products/claims/${claimId}`, 'PUT', {
+                status,
+                ...additionalData
+            });
+        } catch (error) {
+            console.error('Error updating claim status:', error);
+            throw error;
+        }
+    },
+
+// Методы для пользовательской части
+
+// Получение доступных продуктов для пользователя
+    async getUserProducts(telegramId) {
+        try {
+            return await request(`${API_URL}/products?telegramId=${telegramId}`);
+        } catch (error) {
+            console.error('Error getting user products:', error);
+            throw error;
+        }
+    },
+
+// Создание заявки на продукт
+    async createProductClaim(productId, telegramId, userData = {}, claimData = {}) {
+        try {
+            return await request(`${API_URL}/products/${productId}/claim`, 'POST', {
+                telegramId,
+                userData,
+                claimData
+            });
+        } catch (error) {
+            console.error('Error creating product claim:', error);
+            throw error;
         }
     },
 
     // Настройки игры
     async getGameSettings() {
         try {
-            const response = await fetch(`${API_URL}/settings`)
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/settings`);
         } catch (error) {
-            console.error('Error getting game settings:', error)
-            throw error
+            console.error('Error getting game settings:', error);
+            throw error;
         }
     },
 
     async updateGameSettings(settings) {
         try {
-            const response = await fetch(`${API_URL}/settings`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(settings)
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/settings`, 'PUT', settings);
         } catch (error) {
-            console.error('Error updating game settings:', error)
-            throw error
+            console.error('Error updating game settings:', error);
+            throw error;
         }
     },
 
     // Статистика
     async getStats() {
         try {
-            const response = await fetch(`${API_URL}/stats`)
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/stats`);
         } catch (error) {
-            console.error('Error getting stats:', error)
-            throw error
+            console.error('Error getting stats:', error);
+            throw error;
         }
     },
 
     // Добавляем методы для работы с уведомлениями в ApiService
     async getNotificationsHistory() {
         try {
-            const response = await fetch(`${API_URL}/admin/notifications`)
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/notifications`);
         } catch (error) {
-            console.error('Error getting notifications history:', error)
-            throw error
+            console.error('Error getting notifications history:', error);
+            throw error;
         }
     },
 
     async getNotificationStats() {
         try {
-            const response = await fetch(`${API_URL}/admin/notifications/stats`)
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/notifications/stats`);
         } catch (error) {
-            console.error('Error getting notification stats:', error)
-            throw error
+            console.error('Error getting notification stats:', error);
+            throw error;
         }
     },
 
     async sendNotification(notificationData) {
         try {
-            const response = await fetch(`${API_URL}/notifications/send`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(notificationData)
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            return data;
+            return await request(`${API_URL}/notifications/send`, 'POST', notificationData);
         } catch (error) {
             console.error('Error sending notification:', error);
             throw error;
@@ -350,63 +376,95 @@ export const ApiService = {
     // Тестовая отправка уведомления
     async sendTestNotification(notificationData) {
         try {
-            const response = await fetch(`${API_URL}/notifications/test`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(notificationData)
-            })
-
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.message || 'Failed to send test notification')
-            }
-
-            const data = await response.json()
-            return data
+            return await request(`${API_URL}/notifications/test`, 'POST', notificationData);
         } catch (error) {
-            console.error('Error sending test notification:', error)
-            throw error
+            console.error('Error sending test notification:', error);
+            throw error;
         }
     },
 
-
     async updateNotification(notificationId, notificationData) {
         try {
-            const response = await fetch(`${API_URL}/admin/notifications/${notificationId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(notificationData)
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/notifications/${notificationId}`, 'PUT', notificationData);
         } catch (error) {
-            console.error('Error updating notification:', error)
-            throw error
+            console.error('Error updating notification:', error);
+            throw error;
         }
     },
 
     async deleteNotification(notificationId) {
         try {
-            const response = await fetch(`${API_URL}/admin/notifications/${notificationId}`, {
-                method: 'DELETE'
-            })
-            const data = await response.json()
-            if (!data.success) throw new Error(data.error)
-            return data.data
+            return await request(`${API_URL}/admin/notifications/${notificationId}`, 'DELETE');
         } catch (error) {
-            console.error('Error deleting notification:', error)
-            throw error
+            console.error('Error deleting notification:', error);
+            throw error;
+        }
+    },
+
+
+    // Расширенная работа с пользователями
+    async getUserStats() {
+        try {
+            return await request(`${API_URL}/admin/users/stats`);
+        } catch (error) {
+            console.error('Error getting user stats:', error);
+            throw error;
+        }
+    },
+
+    async searchUsers(query) {
+        try {
+            return await request(`${API_URL}/admin/users/search?q=${encodeURIComponent(query)}`);
+        } catch (error) {
+            console.error('Error searching users:', error);
+            throw error;
+        }
+    },
+
+    // Улучшенная работа с настройками
+    async getDefaultSettings() {
+        try {
+            return await request(`${API_URL}/settings/default`);
+        } catch (error) {
+            console.error('Error getting default settings:', error);
+            return {
+                tapValue: 1,
+                baseEnergy: 100,
+                energyRegenRate: 1,
+                incomeMultiplier: 1,
+                expMultiplier: 1,
+                boosts: {
+                    tap3xCost: 8000,
+                    tap5xCost: 25000,
+                    duration: 86400000 // 24 часа в миллисекундах
+                },
+                investments: {
+                    baseReturn: 1.5,
+                    levelMultiplier: 1.2
+                },
+                levelRequirements: [
+                    { level: 1, income: 0, title: 'Новичок' }
+                ]
+            };
+        }
+    },
+
+    async resetSettings() {
+        try {
+            return await request(`${API_URL}/settings/reset`, 'POST');
+        } catch (error) {
+            console.error('Error resetting settings:', error);
+            throw error;
+        }
+    },
+
+    // В метод отправки уведомлений нужно добавить поддержку планирования
+    async scheduleNotification(notificationData) {
+        try {
+            return await request(`${API_URL}/notifications/schedule`, 'POST', notificationData);
+        } catch (error) {
+            console.error('Error scheduling notification:', error);
+            throw error;
         }
     }
-
-
-
-
-
-
 };

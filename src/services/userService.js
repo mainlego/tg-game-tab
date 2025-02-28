@@ -1,131 +1,188 @@
 // src/services/userService.js
-import { ApiService } from './apiService'
+import { ApiService } from './apiService';
 
+/**
+ * Сервис для работы с пользователями
+ */
 export const UserService = {
-    async saveUser(userData) {
-        try {
-            const existingUser = await this.getUser(userData.telegramId)
-            if (existingUser) {
-                return await ApiService.updateUser(userData.telegramId, {
-                    ...userData,
-                    lastLogin: new Date()
-                })
-            } else {
-                return await ApiService.createUser({
-                    ...userData,
-                    registeredAt: new Date(),
-                    lastLogin: new Date()
-                })
-            }
-        } catch (error) {
-            console.error('Error saving user:', error)
-            return null
-        }
-    },
-
-    async getUser(telegramId) {
-        try {
-            return await ApiService.getUser(telegramId)
-        } catch (error) {
-            console.error('Error getting user:', error)
-            return null
-        }
-    },
-
+    /**
+     * Получение списка всех пользователей
+     * @returns {Promise<Array>} - массив пользователей
+     */
     async getAllUsers() {
         try {
-            return await ApiService.getAllUsers()
+            const response = await ApiService.getAllUsers();
+            return response.users || [];
         } catch (error) {
-            console.error('Error getting all users:', error)
-            return []
+            console.error('Error getting all users:', error);
+            return [];
         }
     },
 
-    async updateGameData(telegramId, gameData) {
+    /**
+     * Получение данных пользователя по ID
+     * @param {string} userId - ID пользователя
+     * @returns {Promise<Object|null>} - данные пользователя или null в случае ошибки
+     */
+    async getUser(userId) {
         try {
-            return await ApiService.updateGameData(telegramId, gameData)
+            const response = await ApiService.getUser(userId);
+            return response.data || null;
         } catch (error) {
-            console.error('Error updating game data:', error)
-            return null
+            console.error(`Error getting user ${userId}:`, error);
+            return null;
         }
     },
 
-    async getUsersStats() {
+    /**
+     * Блокировка/разблокировка пользователя
+     * @param {string} userId - ID пользователя
+     * @returns {Promise<boolean>} - результат операции
+     */
+    async toggleUserBlock(userId) {
         try {
-            const users = await this.getAllUsers()
-            const now = new Date()
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-            const weekAgo = new Date(today)
-            weekAgo.setDate(weekAgo.getDate() - 7)
-
-            return {
-                total: users.length,
-                activeToday: users.filter(user => new Date(user.lastLogin) >= today).length,
-                newThisWeek: users.filter(user => new Date(user.registeredAt) >= weekAgo).length
-            }
+            await ApiService.blockUser(userId);
+            return true;
         } catch (error) {
-            console.error('Error getting users stats:', error)
+            console.error(`Error toggling block for user ${userId}:`, error);
+            return false;
+        }
+    },
+
+    /**
+     * Сброс прогресса пользователя
+     * @param {string} userId - ID пользователя
+     * @returns {Promise<boolean>} - результат операции
+     */
+    async resetUserProgress(userId) {
+        try {
+            await ApiService.resetUserProgress(userId);
+            return true;
+        } catch (error) {
+            console.error(`Error resetting progress for user ${userId}:`, error);
+            return false;
+        }
+    },
+
+    /**
+     * Обновление данных пользователя
+     * @param {string} userId - ID пользователя
+     * @param {Object} userData - новые данные пользователя
+     * @returns {Promise<Object|null>} - обновленные данные пользователя или null в случае ошибки
+     */
+    async updateUser(userId, userData) {
+        try {
+            const response = await ApiService.updateUser(userId, userData);
+            return response.data || null;
+        } catch (error) {
+            console.error(`Error updating user ${userId}:`, error);
+            return null;
+        }
+    }
+};
+
+/**
+ * Получение статистики пользователей
+ * @param {Array} users - массив пользователей
+ * @returns {Object} - объект статистики
+ */
+export const getUsersStats = (users) => {
+    try {
+        // Проверка, является ли users массивом
+        if (!users || !Array.isArray(users)) {
+            console.warn('getUsersStats: users is not an array', users);
             return {
                 total: 0,
                 activeToday: 0,
-                newThisWeek: 0
-            }
+                newThisWeek: 0,
+                totalIncome: 0
+            };
         }
-    },
 
-    async blockUser(telegramId) {
-        try {
-            const user = await this.getUser(telegramId)
-            if (user) {
-                return await ApiService.blockUser(telegramId, !user.blocked)
-            }
-            return null
-        } catch (error) {
-            console.error('Error blocking user:', error)
-            return null
-        }
-    },
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekAgo = new Date(now);
+        weekAgo.setDate(weekAgo.getDate() - 7);
 
-    async resetUserProgress(telegramId) {
-        try {
-            return await ApiService.updateGameData(telegramId, {
-                balance: 0,
-                passiveIncome: 0,
-                energy: {
-                    current: 1000,
-                    max: 1000,
-                    regenRate: 1,
-                    lastRegenTime: Date.now()
-                },
-                level: {
-                    current: 1,
-                    max: 10,
-                    progress: 0,
-                    title: 'Пацан'
-                },
-                multipliers: {
-                    tapValue: 1,
-                    tapMultiplier: 1,
-                    incomeBoost: 1
-                },
-                boosts: {
-                    tap3x: { active: false, endTime: null },
-                    tap5x: { active: false, endTime: null }
-                },
-                investments: {
-                    purchased: [],
-                    activeIncome: 0,
-                    lastCalculation: Date.now()
-                },
-                stats: {
-                    totalClicks: 0,
-                    totalEarned: 0,
-                    maxPassiveIncome: 0
-                }
-            })
-        } catch (error) {
-            console.error('Error resetting user progress:', error)
-            return null
-        }
+        // Подсчет активных пользователей сегодня
+        const activeToday = users.filter(user => {
+            if (!user.lastLogin) return false;
+            const lastLogin = new Date(user.lastLogin);
+            return lastLogin >= todayStart;
+        }).length;
+
+        // Подсчет новых пользователей на этой неделе
+        const newThisWeek = users.filter(user => {
+            if (!user.registeredAt) return false;
+            const registeredAt = new Date(user.registeredAt);
+            return registeredAt >= weekAgo;
+        }).length;
+
+        // Расчет общего дохода
+        const totalIncome = users.reduce((sum, user) => {
+            return sum + (user.passiveIncome || 0);
+        }, 0);
+
+        return {
+            total: users.length,
+            activeToday,
+            newThisWeek,
+            totalIncome
+        };
+    } catch (error) {
+        console.error('Error getting users stats:', error);
+        return {
+            total: 0,
+            activeToday: 0,
+            newThisWeek: 0,
+            totalIncome: 0
+        };
     }
+};
+
+/**
+ * Поиск пользователей по запросу
+ * @param {Array} users - массив пользователей
+ * @param {string} query - поисковый запрос
+ * @returns {Array} - отфильтрованный массив пользователей
+ */
+export const searchUsers = (users, query) => {
+    if (!users || !Array.isArray(users) || !query) {
+        return users || [];
+    }
+
+    const searchQuery = query.toLowerCase();
+
+    return users.filter(user =>
+        user.name?.toLowerCase().includes(searchQuery) ||
+        user.id?.toString().includes(searchQuery) ||
+        user.username?.toLowerCase().includes(searchQuery)
+    );
+};
+
+/**
+ * Форматирование денежных значений
+ * @param {number} value - значение
+ * @returns {string} - отформатированное значение
+ */
+export const formatMoney = (value) => {
+    if (value === undefined || value === null) return '0';
+
+    const num = Number(value);
+
+    if (isNaN(num)) return '0';
+
+    if (num >= 1000000000) {
+        return (num / 1000000000).toFixed(1) + 'B';
+    }
+
+    if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'M';
+    }
+
+    if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'K';
+    }
+
+    return Math.floor(num).toString();
 };

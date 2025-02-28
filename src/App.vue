@@ -1,91 +1,104 @@
-<!-- src/App.vue -->
+<!-- src/App.vue (Fixed) -->
 <template>
-  <div id="app" class="app">
-    <!-- Панель управления
-    <div class="dev-menu">
-      <button @click="store.resetGame()" class="dev-button">
-        Сброс игры
-      </button>
-      <div class="tap-control">
-        <button @click="decreaseTapValue" class="dev-button">-1000</button>
-        <span>Клик: {{ store.multipliers.tapValue }}</span>
-        <button @click="increaseTapValue" class="dev-button">+1000</button>
-      </div>
-    </div>-->
-
-    <router-view v-slot="{ Component }">
-      <transition name="fade" mode="out-in">
-        <component :is="Component" />
-      </transition>
-    </router-view>
-    <Tutorial />
-    <Notification ref="notificationSystem" />
-    <NotificationPopup ref="notificationPopup" />
-  </div>
+  <NotificationsProvider>
+    <div class="app">
+      <router-view v-slot="{ Component }">
+        <transition name="fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
+    </div>
+  </NotificationsProvider>
 </template>
 
-<!-- src/App.vue -->
 <script setup>
-import { ref, provide, onMounted, watch } from 'vue'
-import { useGameStore } from '@/stores/gameStore'
-import { useTelegram } from '@/composables/useTelegram'
+import { onMounted, provide } from 'vue';
+import { useRouter } from 'vue-router';
+import { useGameStore } from './stores/gameStore';
+import { useTelegram } from './composables/useTelegram';
+import NotificationsProvider from './components/NotificationsProvider.vue';
 
-import Tutorial from '@/components/Tutorial.vue'
+const router = useRouter();
+const store = useGameStore();
+const { tg, user, isAvailable, expandApp } = useTelegram();
 
-import Notification from '@/components/ui/Notification.vue'
-import NotificationPopup from '@/components/NotificationPopup.vue'
+// Предоставляем логгер для отладки
+const logger = {
+  log: (...args) => {
+    if (import.meta.env.DEV) {
+      console.log(...args);
+    }
+  },
+  error: (...args) => {
+    console.error(...args);
+  }
+};
 
-const logger = ref(null)
-const store = useGameStore()
-const notificationSystem = ref(null)
-const { tg, user, ready } = useTelegram()
+provide('logger', logger);
 
+// Инициализация приложения
 onMounted(async () => {
-  // Проверяем, является ли текущий путь админским
-  const isAdminRoute = window.location.pathname.startsWith('/admin')
+  // Инициализация Telegram Web App
+  if (isAvailable.value && tg.value) {
+    logger.log('Telegram WebApp initialized');
+    logger.log('Telegram User:', user.value);
 
-  if (!isAdminRoute) {
-    if (user.value) {
-      await store.initializeGame(user.value.id)
+    if (user.value?.id) {
+      // Сохраняем ID пользователя для WebSocket соединения
+      localStorage.setItem('userId', user.value.id);
+
+      // Инициализация игрового состояния
+      await store.initializeGame(user.value.id);
+
+      // Запускаем таймер для пассивного дохода
+      store.startPassiveIncomeTimer();
+
+      // Запускаем обновление энергии
+      setInterval(() => {
+        store.regenerateEnergy();
+      }, 1000); // Обновление каждую секунду
     }
 
-    // Настройка Telegram Web App
-    if (tg.value) {
-      tg.value.expand()
-      tg.value.setBackgroundColor('#08070d')
-      tg.value.setHeaderColor('#1a1a1a')
-      tg.value.BackButton.hide()
-      tg.value.enableClosingConfirmation()
+    // Безопасное использование методов Telegram WebApp
+    try {
+      // Расширяем приложение
+      expandApp();
+
+      // Безопасно пытаемся включить подтверждение закрытия
+      if (tg.value && typeof tg.value.enableClosingConfirmation === 'function') {
+        tg.value.enableClosingConfirmation();
+      }
+
+      // Обработка темы
+      if (tg.value && tg.value.colorScheme === 'dark') {
+        document.body.classList.add('dark-theme');
+      } else {
+        document.body.classList.remove('dark-theme');
+      }
+    } catch (e) {
+      logger.error('Error initializing Telegram WebApp features:', e);
     }
+  } else {
+    logger.log('Running outside of Telegram WebApp');
 
-    // Запуск таймеров
-    store.startPassiveIncomeTimer()
-    setInterval(() => {
-      store.regenerateEnergy()
-      // Сохраняем состояние каждую минуту
-      store.saveState()
-    }, 60000) // каждую минуту
+    // Для тестирования вне Telegram
+    if (import.meta.env.DEV) {
+      const testUserId = '12345';
+      localStorage.setItem('userId', testUserId);
+
+      try {
+        await store.initializeGame(testUserId);
+        store.startPassiveIncomeTimer();
+
+        setInterval(() => {
+          store.regenerateEnergy();
+        }, 1000);
+      } catch (e) {
+        logger.error('Error initializing test mode:', e);
+      }
+    }
   }
-})
-
-// Дополнительно следим за изменением пользователя
-watch(() => user.value, async (newUser) => {
-  if (newUser && !window.location.pathname.startsWith('/admin')) {
-    await store.initializeGame(newUser.id)
-  }
-}, { immediate: true })
-
-
-provide('logger', {
-  log: (message) => logger.value?.addLog(message)
-})
-
-provide('notifications', {
-  addNotification: (params) => {
-    notificationSystem.value?.addNotification(params)
-  }
-})
-
+});
 </script>
 
 <style>
@@ -101,7 +114,7 @@ provide('notifications', {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: "Roboto", serif;
+  font-family: "Roboto", sans-serif;
   font-optical-sizing: auto;
   font-style: normal;
 }
@@ -109,15 +122,15 @@ provide('notifications', {
 html, body {
   height: 100vh;
   width: 100%;
-  overflow: hidden;
   font-family: 'Roboto', sans-serif;
   background: var(--background-color);
 }
 
-#app {
+.app {
   min-height: 100vh;
-  background: url('@/assets/images/bg-2.jpg') center top no-repeat;
+  background: url('@/assets/images/bg.jpg') center top no-repeat;
   background-attachment: fixed;
+  background-size: cover;
 }
 
 .fade-enter-active,
@@ -130,54 +143,26 @@ html, body {
   opacity: 0;
 }
 
-.dev-menu {
-  position: fixed;
-  bottom: 120px;
-  right: 20px;
-  z-index: 9999;
-  background: rgba(0, 0, 0, 0.8);
-  padding: 10px;
-  border-radius: 8px;
-  display: flex;
-  gap: 10px;
-  backdrop-filter: blur(5px);
-}
-
-.dev-button {
-  background: var(--primary-color);
-  color: white;
-  border: none;
-  padding: 8px 16px;
+.form-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
   border-radius: 4px;
-  cursor: pointer;
   font-size: 14px;
-  transition: all 0.2s ease;
 }
 
-.dev-button:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+.form-input:focus {
+  border-color: var(--primary-color);
+  outline: none;
 }
 
-.dev-button:active {
-  transform: translateY(0);
+/* Стили для тёмной темы */
+.dark-theme {
+  --background-color: #08070d;
+  --text-color: white;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --card-bg: #211b30;
+  --input-bg: #333;
+  --input-border: #444;
 }
-
-.tap-control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: white;
-}
-
-.tap-control button {
-  width: auto;
-  padding: 4px 8px;
-}
-
-.tap-control span {
-  min-width: 80px;
-  text-align: center;
-}
-
 </style>

@@ -2,76 +2,83 @@
 <template>
   <button
       class="base-button"
-      :class="[type, size, { disabled }]"
+      :class="buttonClass"
       :disabled="disabled"
-      @click="$emit('click', $event)"
+      @click="$emit('click')"
   >
     <slot></slot>
   </button>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue';
+
+const props = defineProps({
   type: {
     type: String,
     default: 'primary',
-    validator: (value) => ['primary', 'secondary', 'danger'].includes(value)
-  },
-  size: {
-    type: String,
-    default: 'medium',
-    validator: (value) => ['small', 'medium', 'large'].includes(value)
+    validator: (value) => ['primary', 'secondary', 'danger', 'success'].includes(value)
   },
   disabled: {
     type: Boolean,
     default: false
   }
-})
+});
 
-defineEmits(['click'])
+const buttonClass = computed(() => props.type);
+
+defineEmits(['click']);
 </script>
 
 <style scoped>
 .base-button {
-  border: none;
-  border-radius: 6px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  font-weight: 500;
   transition: all 0.2s ease;
+  border: none;
+}
+
+.base-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .primary {
-  background: var(--primary-color);
+  background-color: var(--primary-color, #8C60E3);
   color: white;
+}
+
+.primary:hover:not(:disabled) {
+  background-color: #7550c8;
 }
 
 .secondary {
-  background: #f5f5f5;
+  background-color: #f2f2f2;
   color: #333;
 }
 
+.secondary:hover:not(:disabled) {
+  background-color: #e0e0e0;
+}
+
 .danger {
-  background: #ff4444;
+  background-color: #f44336;
   color: white;
 }
 
-.small {
-  padding: 6px 12px;
-  font-size: 12px;
+.danger:hover:not(:disabled) {
+  background-color: #d32f2f;
 }
 
-.medium {
-  padding: 8px 16px;
-  font-size: 14px;
+.success {
+  background-color: #4caf50;
+  color: white;
 }
 
-.large {
-  padding: 12px 24px;
-  font-size: 16px;
-}
-
-.disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.success:hover:not(:disabled) {
+  background-color: #388e3c;
 }
 </style>

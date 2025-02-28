@@ -1,17 +1,23 @@
 <!-- src/components/ui/FormGroup.vue -->
 <template>
   <div class="form-group">
-    <label v-if="label">{{ label }}</label>
+    <label v-if="label" class="form-label">{{ label }}</label>
     <slot></slot>
-    <span v-if="error" class="error">{{ error }}</span>
+    <div v-if="error" class="form-error">{{ error }}</div>
   </div>
 </template>
 
 <script setup>
 defineProps({
-  label: String,
-  error: String
-})
+  label: {
+    type: String,
+    default: ''
+  },
+  error: {
+    type: String,
+    default: ''
+  }
+});
 </script>
 
 <style scoped>
@@ -19,14 +25,14 @@ defineProps({
   margin-bottom: 16px;
 }
 
-label {
+.form-label {
   display: block;
   margin-bottom: 8px;
-  color: #666;
+  font-weight: 500;
 }
 
-.error {
-  color: #ff4444;
+.form-error {
+  color: #f44336;
   font-size: 12px;
   margin-top: 4px;
 }

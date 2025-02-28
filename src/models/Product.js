@@ -1,5 +1,5 @@
 // models/Product.js
-import mongoose from 'mongoose'
+import mongoose from 'mongoose';
 
 const ProductSchema = new mongoose.Schema({
     name: {
@@ -10,22 +10,22 @@ const ProductSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    requiredIncome: {
-        type: Number,
-        required: true
-    },
-    image: {
-        type: String,
-        required: true
-    },
-    active: {
-        type: Boolean,
-        default: true
-    },
     type: {
         type: String,
         enum: ['physical', 'digital', 'service'],
         default: 'digital'
+    },
+    requiredIncome: {
+        type: Number,
+        default: 0
+    },
+    image: {
+        type: String,
+        default: '' // URL изображения
+    },
+    active: {
+        type: Boolean,
+        default: true
     },
     order: {
         type: Number,
@@ -35,17 +35,26 @@ const ProductSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
-    claims: [{
-        userId: String,
-        claimedAt: Date,
-        status: {
-            type: String,
-            enum: ['pending', 'processing', 'completed', 'cancelled'],
-            default: 'pending'
+    gradient: {
+        type: String,
+        default: 'linear-gradient(140.83deg, rgb(111, 95, 242) 0%, rgb(73, 51, 131) 100%)'
+    },
+    stats: {
+        claims: {
+            type: Number,
+            default: 0
+        },
+        completedClaims: {
+            type: Number,
+            default: 0
+        },
+        cancelledClaims: {
+            type: Number,
+            default: 0
         }
-    }]
+    }
 }, {
     timestamps: true
-})
+});
 
-export default mongoose.models.Product || mongoose.model('Product', ProductSchema)
+export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

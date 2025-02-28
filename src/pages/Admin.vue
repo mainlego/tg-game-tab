@@ -34,7 +34,7 @@
     </div>
 
     <!-- Основной контент -->
-    <div class="admin-content" :class="{ 'content-with-sidebar': !isSidebarOpen }">
+    <div class="admin-content" :class="{ 'sidebar-closed': !isSidebarOpen }">
       <UsersSection v-if="currentTab === 'users'" />
       <TasksSection v-if="currentTab === 'tasks'" />
       <ProductsSection v-if="currentTab === 'products'" />
@@ -45,12 +45,17 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import UsersSection from '@/components/admin/UsersSection.vue'
-import TasksSection from '@/components/admin/TasksSection.vue'
-import ProductsSection from '@/components/admin/ProductsSection.vue'
-import NotificationsSection from '@/components/admin/NotificationsSection.vue'
-import SettingsSection from '@/components/admin/SettingsSection.vue'
+import { ref, computed, onMounted } from 'vue'
+import UsersSection from '../components/admin/UsersSection.vue'
+import TasksSection from '../components/admin/TasksSection.vue'
+import ProductsSection from '../components/admin/ProductsSection.vue'
+import NotificationsSection from '../components/admin/NotificationsSection.vue'
+import SettingsSection from '../components/admin/SettingsSection.vue'
+import { useAdminStore } from '../stores/adminStore'
+import { useRouter } from 'vue-router'
+
+const adminStore = useAdminStore()
+const router = useRouter()
 
 const currentTab = ref('users')
 const isSidebarOpen = ref(window.innerWidth > 768)
@@ -77,10 +82,32 @@ const switchTab = (tabId) => {
 const toggleSidebar = () => {
   isSidebarOpen.value = !isSidebarOpen.value
 }
+
+// Проверка авторизации при входе
+onMounted(() => {
+  const isAdmin = localStorage.getItem('isAdmin')
+  if (!isAdmin) {
+    router.push('/admin/login')
+  } else {
+    // Загрузка начальных данных
+    adminStore.fetchUsers()
+  }
+
+  // Обработчик изменения размера окна
+  window.addEventListener('resize', handleResize)
+})
+
+// Метод обработки изменения размера окна
+const handleResize = () => {
+  if (window.innerWidth > 768) {
+    isSidebarOpen.value = true
+  }
+}
 </script>
 
 <style scoped>
 .admin-page {
+  display: flex;
   min-height: 100vh;
   background: #f5f5f5;
   position: relative;
@@ -88,6 +115,7 @@ const toggleSidebar = () => {
 
 .admin-sidebar {
   width: 250px;
+  min-width: 250px; /* Фиксированная ширина сайдбара */
   background: #1a1a1a;
   padding: 20px;
   color: white;
@@ -95,9 +123,10 @@ const toggleSidebar = () => {
   position: fixed;
   left: 0;
   top: 0;
-  transition: transform 0.3s ease;
+  bottom: 0;
   z-index: 1000;
   overflow-y: auto;
+  transition: transform 0.3s ease;
 }
 
 .admin-sidebar--open {
@@ -119,13 +148,16 @@ const toggleSidebar = () => {
 }
 
 .admin-content {
-  margin-left: 250px;
+  flex: 1;
   padding: 20px;
+  margin-left: 250px; /* Соответствует ширине сайдбара */
   min-height: 100vh;
+  box-sizing: border-box;
+  overflow-y: auto;
   transition: margin-left 0.3s ease;
 }
 
-.content-with-sidebar {
+.admin-content.sidebar-closed {
   margin-left: 0;
 }
 
@@ -166,7 +198,7 @@ const toggleSidebar = () => {
 }
 
 .nav-button.active {
-  background: var(--primary-color);
+  background: var(--primary-color, #8C60E3);
 }
 
 .sidebar-toggle {
@@ -179,9 +211,14 @@ const toggleSidebar = () => {
 }
 
 @media (max-width: 768px) {
+  .admin-page {
+    display: block; /* На мобильных меняем flexbox на блочную модель */
+  }
+
   .admin-sidebar {
     transform: translateX(-100%);
-    z-index: 1000;
+    width: 80%;
+    max-width: 300px;
   }
 
   .admin-sidebar--open {
@@ -199,7 +236,7 @@ const toggleSidebar = () => {
 
   .admin-content {
     margin-left: 0;
-    padding-top: 80px;
+    padding-top: 80px; /* Отступ для мобильного заголовка */
   }
 }
 </style>

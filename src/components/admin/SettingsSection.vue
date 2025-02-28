@@ -3,177 +3,190 @@
   <div class="settings-section">
     <div class="section-header">
       <h2>Настройки игры</h2>
+      <BaseButton type="primary" @click="saveSettings" :disabled="saving">
+        {{ saving ? 'Сохранение...' : 'Сохранить настройки' }}
+      </BaseButton>
     </div>
 
-    <form @submit.prevent="saveSettings" class="settings-form">
-      <!-- Базовые настройки -->
-      <div class="settings-group">
-        <h3>Базовые настройки</h3>
-
-        <div class="setting-item">
-          <label>Монет за клик</label>
-          <input
-              type="number"
-              v-model.number="settings.tapValue"
-              min="1"
-              class="form-input"
-          >
-        </div>
-
-        <div class="setting-item">
-          <label>Базовая энергия</label>
-          <input
-              type="number"
-              v-model.number="settings.baseEnergy"
-              min="100"
-              step="100"
-              class="form-input"
-          >
-        </div>
-
-        <div class="setting-item">
-          <label>Восстановление энергии (в секунду)</label>
-          <input
-              type="number"
-              v-model.number="settings.energyRegenRate"
-              min="0.1"
-              step="0.1"
-              class="form-input"
-          >
-        </div>
-      </div>
-
-      <!-- Множители -->
-      <div class="settings-group">
-        <h3>Множители</h3>
-
-        <div class="setting-item">
-          <label>Множитель дохода</label>
-          <input
-              type="number"
-              v-model.number="settings.incomeMultiplier"
-              min="1"
-              step="0.1"
-              class="form-input"
-          >
-        </div>
-
-        <div class="setting-item">
-          <label>Множитель опыта</label>
-          <input
-              type="number"
-              v-model.number="settings.expMultiplier"
-              min="1"
-              step="0.1"
-              class="form-input"
-          >
-        </div>
-      </div>
-
-      <!-- Настройки бустов -->
-      <div class="settings-group">
-        <h3>Настройки бустов</h3>
-
-        <div class="setting-item">
-          <label>Стоимость буста x3</label>
-          <input
-              type="number"
-              v-model.number="settings.boosts.tap3xCost"
-              min="1000"
-              step="1000"
-              class="form-input"
-          >
-        </div>
-
-        <div class="setting-item">
-          <label>Стоимость буста x5</label>
-          <input
-              type="number"
-              v-model.number="settings.boosts.tap5xCost"
-              min="1000"
-              step="1000"
-              class="form-input"
-          >
-        </div>
-
-        <div class="setting-item">
-          <label>Длительность бустов (часов)</label>
-          <input
-              type="number"
-              v-model.number="settings.boosts.duration"
-              min="1"
-              max="72"
-              step="1"
-              class="form-input"
-          >
-        </div>
-      </div>
-
-      <!-- Настройки уровней -->
-      <div class="settings-group">
-        <h3>Настройки уровней</h3>
-
-        <div v-for="(level, index) in settings.levelRequirements"
-             :key="index"
-             class="level-setting">
-          <div class="level-header">
-            <h4>Уровень {{ index + 1 }}</h4>
-            <button type="button" class="btn-delete" @click="removeLevel(index)" v-if="index > 0">
-              Удалить
-            </button>
-          </div>
-
-          <div class="setting-item">
-            <label>Название</label>
-            <input
-                type="text"
-                v-model="level.title"
-                class="form-input"
-            >
-          </div>
-
-          <div class="setting-item">
-            <label>Требуемый доход</label>
+    <div class="settings-layout">
+      <!-- Основные настройки -->
+      <BaseCard>
+        <h3>Основные настройки</h3>
+        <div class="settings-grid">
+          <FormGroup label="Базовая стоимость клика">
             <input
                 type="number"
-                v-model.number="level.income"
-                min="0"
-                step="1000"
+                v-model.number="settings.tapValue"
                 class="form-input"
-            >
-          </div>
+                min="1"
+                step="1"
+            />
+          </FormGroup>
+
+          <FormGroup label="Базовая энергия">
+            <input
+                type="number"
+                v-model.number="settings.baseEnergy"
+                class="form-input"
+                min="100"
+                step="100"
+            />
+          </FormGroup>
+
+          <FormGroup label="Скорость восстановления энергии">
+            <input
+                type="number"
+                v-model.number="settings.energyRegenRate"
+                class="form-input"
+                min="0.1"
+                step="0.1"
+            />
+          </FormGroup>
+
+          <FormGroup label="Множитель дохода">
+            <input
+                type="number"
+                v-model.number="settings.incomeMultiplier"
+                class="form-input"
+                min="0.1"
+                step="0.1"
+            />
+          </FormGroup>
+
+          <FormGroup label="Множитель опыта">
+            <input
+                type="number"
+                v-model.number="settings.expMultiplier"
+                class="form-input"
+                min="0.1"
+                step="0.1"
+            />
+          </FormGroup>
+        </div>
+      </BaseCard>
+
+      <!-- Настройки бустов -->
+      <BaseCard>
+        <h3>Настройки бустов</h3>
+        <div class="settings-grid">
+          <FormGroup label="Стоимость буста x3">
+            <input
+                type="number"
+                v-model.number="settings.boosts.tap3xCost"
+                class="form-input"
+                min="1000"
+                step="1000"
+            />
+          </FormGroup>
+
+          <FormGroup label="Стоимость буста x5">
+            <input
+                type="number"
+                v-model.number="settings.boosts.tap5xCost"
+                class="form-input"
+                min="1000"
+                step="1000"
+            />
+          </FormGroup>
+
+          <FormGroup label="Длительность бустов (часы)">
+            <input
+                type="number"
+                v-model.number="boostDurationHours"
+                class="form-input"
+                min="1"
+                step="1"
+            />
+          </FormGroup>
+        </div>
+      </BaseCard>
+
+      <!-- Настройки инвестиций -->
+      <BaseCard>
+        <h3>Настройки инвестиций</h3>
+        <div class="settings-grid">
+          <FormGroup label="Базовая доходность инвестиций">
+            <input
+                type="number"
+                v-model.number="settings.investments.baseReturn"
+                class="form-input"
+                min="0.1"
+                step="0.1"
+            />
+          </FormGroup>
+
+          <FormGroup label="Множитель уровня для инвестиций">
+            <input
+                type="number"
+                v-model.number="settings.investments.levelMultiplier"
+                class="form-input"
+                min="0.1"
+                step="0.1"
+            />
+          </FormGroup>
+        </div>
+      </BaseCard>
+
+      <!-- Требования к уровням -->
+      <BaseCard>
+        <div class="card-header">
+          <h3>Требования к уровням</h3>
+          <BaseButton type="secondary" @click="addLevelRequirement">
+            Добавить уровень
+          </BaseButton>
         </div>
 
-        <button type="button" class="btn-secondary" @click="addLevel">
-          Добавить уровень
-        </button>
-      </div>
+        <div class="level-requirements">
+          <div
+              v-for="(level, index) in settings.levelRequirements"
+              :key="index"
+              class="level-item"
+          >
+            <div class="level-header">
+              <strong>Уровень {{ level.level }}</strong>
+              <button
+                  v-if="index > 0"
+                  class="delete-btn"
+                  @click="removeLevelRequirement(index)"
+              >
+                &times;
+              </button>
+            </div>
 
-      <div class="form-actions">
-        <button type="button" class="btn-secondary" @click="resetSettings">
-          Сбросить
-        </button>
-        <button type="submit" class="btn-primary">
-          Сохранить настройки
-        </button>
-      </div>
-    </form>
+            <FormGroup label="Название уровня">
+              <input
+                  type="text"
+                  v-model="level.title"
+                  class="form-input"
+              />
+            </FormGroup>
 
-    <!-- Модальное окно подтверждения сброса -->
-    <ConfirmModal
-        v-if="showResetModal"
-        title="Сброс настроек"
-        message="Вы уверены, что хотите сбросить все настройки к значениям по умолчанию?"
-        @confirm="confirmReset"
-        @cancel="showResetModal = false"
-    />
+            <FormGroup label="Необходимый доход">
+              <input
+                  type="number"
+                  v-model.number="level.income"
+                  class="form-input"
+                  min="0"
+                  step="1000"
+              />
+            </FormGroup>
+          </div>
+        </div>
+      </BaseCard>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { ApiService } from '@/services/apiService'
-import ConfirmModal from '@/components/admin/modals/ConfirmModal.vue'
+import { ref, computed, onMounted, inject } from 'vue';
+import { useAdminStore } from '../../stores/adminStore';
+import BaseCard from '../ui/BaseCard.vue';
+import BaseButton from '../ui/BaseButton.vue';
+import FormGroup from '../ui/FormGroup.vue';
+import { ApiService } from '../../services/apiService';
+
+const adminStore = useAdminStore();
+const notifications = inject('notifications');
 
 const settings = ref({
   tapValue: 1,
@@ -184,97 +197,131 @@ const settings = ref({
   boosts: {
     tap3xCost: 8000,
     tap5xCost: 25000,
-    duration: 24 // в часах
+    duration: 86400000 // 24 часа в миллисекундах
+  },
+  investments: {
+    baseReturn: 1.5,
+    levelMultiplier: 1.2
   },
   levelRequirements: [
-    { title: 'Пацан', income: 0 },
-    { title: 'Курьер', income: 10000 },
-    { title: 'Темщик', income: 70000 },
-    { title: 'Продавец', income: 150000 },
-    { title: 'Сотрудник', income: 300000 },
-    { title: 'Менеджер', income: 800000 },
-    { title: 'Владелец', income: 1800000 },
-    { title: 'Аристократ', income: 20000000 },
-    { title: 'Инвестор', income: 200000000 },
-    { title: 'Миллиардер', income: 2500000000 }
+    { level: 1, income: 0, title: 'Новичок' }
   ]
-})
+});
 
-const showResetModal = ref(false)
+const saving = ref(false);
 
-onMounted(async () => {
-  await loadSettings()
-})
+// Преобразование длительности буста из миллисекунд в часы и обратно
+const boostDurationHours = computed({
+  get() {
+    return settings.value.boosts.duration / (1000 * 60 * 60);
+  },
+  set(value) {
+    settings.value.boosts.duration = value * 1000 * 60 * 60;
+  }
+});
 
+// Загрузка настроек
 const loadSettings = async () => {
   try {
-    const data = await ApiService.getGameSettings()
-    if (data) {
-      settings.value = { ...settings.value, ...data }
+    // Сначала загружаем из админского стора (локальное состояние)
+    settings.value = { ...adminStore.gameSettings };
+
+    // Затем пытаемся получить настройки с сервера
+    const response = await ApiService.getGameSettings();
+    if (response.data) {
+      settings.value = response.data;
+
+      // Обновляем админский стор
+      adminStore.updateGameSettings(response.data);
     }
-  } catch (error) {
-    console.error('Error loading settings:', error)
-  }
-}
 
-const saveSettings = async () => {
-  try {
-    await ApiService.updateGameSettings(settings.value)
-    alert('Настройки успешно сохранены')
-  } catch (error) {
-    console.error('Error saving settings:', error)
-    alert('Ошибка при сохранении настроек')
-  }
-}
+    // Убедимся, что массив требований к уровням существует
+    if (!settings.value.levelRequirements || !Array.isArray(settings.value.levelRequirements)) {
+      settings.value.levelRequirements = [{ level: 1, income: 0, title: 'Новичок' }];
+    }
 
-const resetSettings = () => {
-  showResetModal.value = true
-}
-
-const confirmReset = async () => {
-  try {
-    await ApiService.updateGameSettings({
-      tapValue: 1,
-      baseEnergy: 100,
-      energyRegenRate: 1,
-      incomeMultiplier: 1,
-      expMultiplier: 1,
-      boosts: {
+    // Убедимся, что объект бустов существует
+    if (!settings.value.boosts) {
+      settings.value.boosts = {
         tap3xCost: 8000,
         tap5xCost: 25000,
-        duration: 24
-      },
-      levelRequirements: [
-        { title: 'Пацан', income: 0 },
-        { title: 'Курьер', income: 10000 },
-        { title: 'Темщик', income: 70000 },
-        { title: 'Продавец', income: 150000 },
-        { title: 'Сотрудник', income: 300000 },
-        { title: 'Менеджер', income: 800000 },
-        { title: 'Владелец', income: 1800000 },
-        { title: 'Аристократ', income: 20000000 },
-        { title: 'Инвестор', income: 200000000 },
-        { title: 'Миллиардер', income: 2500000000 }
-      ]
-    })
-    await loadSettings()
-    showResetModal.value = false
+        duration: 86400000
+      };
+    }
+
+    // Убедимся, что объект инвестиций существует
+    if (!settings.value.investments) {
+      settings.value.investments = {
+        baseReturn: 1.5,
+        levelMultiplier: 1.2
+      };
+    }
   } catch (error) {
-    console.error('Error resetting settings:', error)
-    alert('Ошибка при сбросе настроек')
+    console.error('Error loading settings:', error);
+    notifications.addNotification({
+      message: 'Ошибка при загрузке настроек',
+      type: 'error'
+    });
   }
-}
+};
 
-const addLevel = () => {
+// Сохранение настроек
+const saveSettings = async () => {
+  try {
+    saving.value = true;
+
+    // Сортируем требования к уровням по возрастанию
+    settings.value.levelRequirements.sort((a, b) => a.level - b.level);
+
+    // Обновляем настройки в сторе
+    await adminStore.updateGameSettings(settings.value);
+
+    // Отправляем на сервер
+    await ApiService.updateGameSettings(settings.value);
+
+    notifications.addNotification({
+      message: 'Настройки успешно сохранены',
+      type: 'success'
+    });
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    notifications.addNotification({
+      message: 'Ошибка при сохранении настроек',
+      type: 'error'
+    });
+  } finally {
+    saving.value = false;
+  }
+};
+
+// Добавление нового требования к уровню
+const addLevelRequirement = () => {
+  const nextLevel = settings.value.levelRequirements.length + 1;
+  const lastLevel = settings.value.levelRequirements[settings.value.levelRequirements.length - 1];
+
   settings.value.levelRequirements.push({
-    title: `Уровень ${settings.value.levelRequirements.length + 1}`,
-    income: 0
-  })
-}
+    level: nextLevel,
+    income: lastLevel.income * 2, // Удваиваем доход от предыдущего уровня
+    title: `Уровень ${nextLevel}`
+  });
+};
 
-const removeLevel = (index) => {
-  settings.value.levelRequirements.splice(index, 1)
-}
+// Удаление требования к уровню
+const removeLevelRequirement = (index) => {
+  if (index > 0) { // Нельзя удалить первый уровень
+    settings.value.levelRequirements.splice(index, 1);
+
+    // Пересчитываем номера уровней
+    settings.value.levelRequirements.forEach((level, i) => {
+      level.level = i + 1;
+    });
+  }
+};
+
+// Загрузка данных при монтировании
+onMounted(async () => {
+  await loadSettings();
+});
 </script>
 
 <style scoped>
@@ -282,53 +329,42 @@ const removeLevel = (index) => {
   padding: 20px;
 }
 
-.settings-form {
-  max-width: 800px;
-  margin: 0 auto;
-  overflow: scroll;
-  max-height: 80vh;
-}
-
-.settings-group {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.settings-group h3 {
-  margin: 0 0 20px;
-  font-size: 18px;
-  color: #333;
+.settings-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.setting-item {
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
 }
 
-.setting-item label {
-  flex: 1;
-  margin-right: 20px;
-  color: #666;
+.level-requirements {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.form-input {
-  width: 200px;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.level-setting {
+.level-item {
   background: #f8f9fa;
+  border-radius: 8px;
   padding: 16px;
-  border-radius: 6px;
-  margin-bottom: 16px;
 }
 
 .level-header {
@@ -338,70 +374,35 @@ const removeLevel = (index) => {
   margin-bottom: 12px;
 }
 
-.level-header h4 {
-  margin: 0;
-  font-size: 16px;
-  color: #333;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.btn-primary,
-.btn-secondary,
-.btn-delete {
-  padding: 8px 16px;
+.delete-btn {
+  background: #f44336;
+  color: white;
   border: none;
-  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+}
+
+.form-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
   font-size: 14px;
 }
 
-.btn-primary {
-  background: var(--primary-color);
-  color: white;
-}
-
-.btn-secondary {
-  background: #f5f5f5;
-  color: #333;
-}
-
-.btn-delete {
-  background: #f44336;
-  color: white;
-  padding: 4px 8px;
-  font-size: 12px;
+.form-input:focus {
+  border-color: var(--primary-color, #8C60E3);
+  outline: none;
 }
 
 @media (max-width: 768px) {
-  .settings-section {
-    padding: 10px;
-  }
-
-  .setting-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .setting-item label {
-    margin-bottom: 8px;
-  }
-
-  .form-input {
-    width: 100%;
-  }
-
-  .form-actions {
-    flex-direction: column;
-  }
-
-  .form-actions button {
-    width: 100%;
+  .settings-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

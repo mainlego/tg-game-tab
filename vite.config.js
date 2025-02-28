@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [
     vue(),
   ],
+
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
@@ -23,7 +24,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'https://tg-game-tab-server.onrender.com',
         changeOrigin: true
       }
     }

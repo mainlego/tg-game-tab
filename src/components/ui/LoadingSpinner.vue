@@ -1,8 +1,8 @@
 <!-- src/components/ui/LoadingSpinner.vue -->
 <template>
-  <div class="loading-spinner" :class="{ overlay }">
+  <div class="loading-container">
     <div class="spinner"></div>
-    <p v-if="message" class="message">{{ message }}</p>
+    <div v-if="message" class="loading-message">{{ message }}</div>
   </div>
 </template>
 
@@ -10,44 +10,31 @@
 defineProps({
   message: {
     type: String,
-    default: ''
-  },
-  overlay: {
-    type: Boolean,
-    default: false
+    default: 'Загрузка...'
   }
-})
+});
 </script>
 
 <style scoped>
-.loading-spinner {
+.loading-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-}
-
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.8);
-  z-index: 1000;
+  padding: 40px;
 }
 
 .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid var(--primary-color);
+  border: 4px solid rgba(0, 0, 0, 0.1);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  border-top-color: var(--primary-color, #8C60E3);
+  animation: spin 1s infinite linear;
 }
 
-.message {
-  margin-top: 12px;
+.loading-message {
+  margin-top: 16px;
   color: #666;
 }
 
