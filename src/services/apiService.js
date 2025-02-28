@@ -67,57 +67,50 @@ export const ApiService = {
     // ИСПРАВЛЕННЫЙ метод getAllUsers
     async getAllUsers() {
         try {
-            const response = await request(`${API_URL}/users`);
+            const response = await fetch(`${API_URL}/users`);
 
-            // Успешное получение данных с сервера
-            if (response && response.success && response.data) {
-                return response.data;
-            } else if (response && Array.isArray(response)) {
-                // Если API возвращает массив напрямую
-                return {
-                    users: response,
-                    stats: {
-                        total: response.length,
-                        activeToday: 0,
-                        newThisWeek: 0,
-                        totalIncome: 0
-                    }
-                };
+            // Log the raw response
+            console.log('Raw response status:', response.status);
+            const responseText = await response.text();
+            console.log('Raw response text:', responseText);
+
+            // Check if response is HTML (contains <!DOCTYPE or <html>)
+            if (responseText.includes('<!DOCTYPE') || responseText.includes('<html>')) {
+                throw new Error('Received HTML instead of JSON');
             }
 
-            throw new Error('Invalid response format from server');
-        } catch (error) {
-            console.warn('Using mock data due to API error:', error);
+            // Parse JSON
+            const data = JSON.parse(responseText);
 
-            // Мок-данные, используемые при ошибке запроса
+            if (data && data.success && data.data) {
+                return data.data;
+            } else {
+                throw new Error('Invalid response format');
+            }
+        } catch (error) {
+            console.error('Detailed API Error:', error);
+
+            // Detailed error logging
+            if (error instanceof TypeError) {
+                console.error('Network Error or CORS Issue');
+            }
+
+            // Return mock data or re-throw
             return {
                 users: [
                     {
                         id: '123456789',
-                        name: 'Иван Петров',
-                        level: 5,
-                        passiveIncome: 50000,
-                        balance: 120000,
-                        lastLogin: new Date().toISOString(),
-                        registeredAt: '2023-01-01T10:00:00Z',
-                        blocked: false
-                    },
-                    {
-                        id: '987654321',
-                        name: 'Мария Сидорова',
-                        level: 7,
-                        passiveIncome: 75000,
-                        balance: 200000,
-                        lastLogin: new Date().toISOString(),
-                        registeredAt: '2023-02-15T14:30:00Z',
-                        blocked: false
+                        name: 'Test User',
+                        level: 1,
+                        passiveIncome: 0,
+                        balance: 0
                     }
                 ],
                 stats: {
-                    total: 2,
-                    activeToday: 2,
+                    total: 1,
+                    activeToday: 0,
                     newThisWeek: 0,
-                    totalIncome: 125000
+                    totalIncome: 0
                 }
             };
         }
