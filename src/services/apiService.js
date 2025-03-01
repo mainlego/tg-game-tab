@@ -65,54 +65,35 @@ export const ApiService = {
     },
 
     // ИСПРАВЛЕННЫЙ метод getAllUsers
-    async getAllUsers() {
+// Клиентский apiService.js
+
+// Получение всех пользователей
+    async getAllUsers(params = {}) {
         try {
-            const response = await fetch(`${API_URL}/users`);
+            const queryParams = new URLSearchParams({
+                page: params.page || 1,
+                limit: params.limit || 50,
+                search: params.search || '',
+                sortBy: params.sortBy || 'lastLogin',
+                sortOrder: params.sortOrder || 'desc'
+            });
 
-            // Log the raw response
-            console.log('Raw response status:', response.status);
-            const responseText = await response.text();
-            console.log('Raw response text:', responseText);
+            const response = await fetch(`${API_URL}/admin/users?${queryParams}`);
 
-            // Check if response is HTML (contains <!DOCTYPE or <html>)
-            if (responseText.includes('<!DOCTYPE') || responseText.includes('<html>')) {
-                throw new Error('Received HTML instead of JSON');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            // Parse JSON
-            const data = JSON.parse(responseText);
+            const data = await response.json();
 
-            if (data && data.success && data.data) {
+            if (data && data.success) {
                 return data.data;
             } else {
-                throw new Error('Invalid response format');
+                throw new Error(data.error || 'Неизвестная ошибка');
             }
         } catch (error) {
-            console.error('Detailed API Error:', error);
-
-            // Detailed error logging
-            if (error instanceof TypeError) {
-                console.error('Network Error or CORS Issue');
-            }
-
-            // Return mock data or re-throw
-            return {
-                users: [
-                    {
-                        id: '123456789',
-                        name: 'Test User',
-                        level: 1,
-                        passiveIncome: 0,
-                        balance: 0
-                    }
-                ],
-                stats: {
-                    total: 1,
-                    activeToday: 0,
-                    newThisWeek: 0,
-                    totalIncome: 0
-                }
-            };
+            console.error('Error getting users:', error);
+            throw error;
         }
     },
 
