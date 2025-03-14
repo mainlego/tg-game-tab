@@ -1,7 +1,7 @@
 // src/services/apiService.js
 
 // Константы
-const API_URL = import.meta.env.VITE_API_URL || '/api'; // Берем URL из переменных окружения или используем относительный путь
+const API_URL = 'https://tg-game-tab-server.onrender.com/api'; // Прямой URL к серверу
 const DEBUG = import.meta.env.MODE === 'development'; // Включаем отладку только в режиме разработки
 
 /**
@@ -24,7 +24,8 @@ async function request(url, method = 'GET', data = null, options = {}) {
             'Accept': 'application/json',
             ...options.headers
         },
-        credentials: 'include', // Для работы с куками
+        // Убираем credentials: 'include', так как это вызывает проблемы с CORS
+        // credentials: 'include',
         ...options
     };
 
@@ -35,10 +36,9 @@ async function request(url, method = 'GET', data = null, options = {}) {
 
     // Логирование в режиме разработки
     if (DEBUG) {
-        console.group(`📡 API Request: ${method} ${url}`);
+        console.log(`📡 API Request: ${method} ${url}`);
         console.log('Options:', fetchOptions);
         if (data) console.log('Data:', data);
-        console.groupEnd();
     }
 
     try {
@@ -58,10 +58,9 @@ async function request(url, method = 'GET', data = null, options = {}) {
 
         // Логирование ответа в режиме разработки
         if (DEBUG) {
-            console.group(`🔍 API Response: ${method} ${url}`);
+            console.log(`🔍 API Response: ${method} ${url}`);
             console.log('Status:', response.status);
             console.log('Response:', result);
-            console.groupEnd();
         }
 
         // Проверка на ошибки HTTP и API
@@ -114,17 +113,6 @@ export const ApiService = {
         ).toString();
     },
 
-    // СТАТИСТИКА
-    // ==========
-
-    /**
-     * Получение общей статистики приложения
-     * @returns {Promise<Object>} - объект со статистикой
-     */
-    async getStats() {
-        return request('/admin/stats');
-    },
-
     // ПОЛЬЗОВАТЕЛИ
     // ============
 
@@ -174,20 +162,11 @@ export const ApiService = {
      * @param {string} userId - ID пользователя
      * @returns {Promise<Object>} - обновленные данные пользователя
      */
-    async toggleUserBlock(userId) {
+    async blockUser(userId) {
         return request(`/admin/users/actions`, 'POST', {
             action: 'block',
             userId
         });
-    },
-
-    /**
-     * Блокировка пользователя (alias для toggleUserBlock)
-     * @param {string} userId - ID пользователя
-     * @returns {Promise<Object>} - обновленные данные пользователя
-     */
-    async blockUser(userId) {
-        return this.toggleUserBlock(userId);
     },
 
     /**
@@ -200,15 +179,6 @@ export const ApiService = {
             action: 'reset',
             userId
         });
-    },
-
-    /**
-     * Получение списка рефералов пользователя
-     * @param {string} userId - ID пользователя
-     * @returns {Promise<Array>} - список рефералов
-     */
-    async getUserReferrals(userId) {
-        return request(`/users/${userId}/referrals`);
     },
 
     // ПРОДУКТЫ
@@ -299,17 +269,6 @@ export const ApiService = {
         });
     },
 
-    /**
-     * Создание заявки на продукт пользователем
-     * @param {string} userId - ID пользователя
-     * @param {string} productId - ID продукта
-     * @param {Object} claimData - дополнительные данные заявки
-     * @returns {Promise<Object>} - созданная заявка
-     */
-    async createProductClaim(userId, productId, claimData = {}) {
-        return request(`/users/${userId}/products/${productId}/claim`, 'POST', claimData);
-    },
-
     // УВЕДОМЛЕНИЯ
     // ===========
 
@@ -327,15 +286,6 @@ export const ApiService = {
      */
     async getNotificationStats() {
         return request('/admin/notifications/stats');
-    },
-
-    /**
-     * Получение конкретного уведомления
-     * @param {string} notificationId - ID уведомления
-     * @returns {Promise<Object>} - данные уведомления
-     */
-    async getNotification(notificationId) {
-        return request(`/admin/notifications/${notificationId}`);
     },
 
     /**
@@ -357,15 +307,6 @@ export const ApiService = {
     },
 
     /**
-     * Планирование отправки уведомления
-     * @param {Object} notificationData - данные уведомления
-     * @returns {Promise<Object>} - созданное запланированное уведомление
-     */
-    async scheduleNotification(notificationData) {
-        return request('/notifications/schedule', 'POST', notificationData);
-    },
-
-    /**
      * Обновление уведомления
      * @param {string} notificationId - ID уведомления
      * @param {Object} notificationData - данные для обновления
@@ -382,16 +323,6 @@ export const ApiService = {
      */
     async deleteNotification(notificationId) {
         return request(`/admin/notifications/${notificationId}`, 'DELETE');
-    },
-
-    /**
-     * Отметка уведомления как прочитанного
-     * @param {string} notificationId - ID уведомления
-     * @param {string} userId - ID пользователя
-     * @returns {Promise<Object>} - результат операции
-     */
-    async markNotificationAsRead(notificationId, userId) {
-        return request(`/notifications/${notificationId}/read`, 'POST', { userId });
     },
 
     // ЗАДАНИЯ
@@ -462,115 +393,15 @@ export const ApiService = {
         return request('/settings', 'PUT', settings);
     },
 
-    // ПОЛЬЗОВАТЕЛЬСКИЙ ИНТЕРФЕЙС
-    // =========================
-
-    /**
-     * Получение продуктов для конкретного пользователя
-     * @param {string} userId - ID пользователя
-     * @returns {Promise<Array>} - список доступных продуктов
-     */
-    async getUserProducts(userId) {
-        return request(`/users/${userId}/products`);
-    },
-
-    /**
-     * Получение заданий для конкретного пользователя
-     * @param {string} userId - ID пользователя
-     * @returns {Promise<Array>} - список доступных заданий
-     */
-    async getUserTasks(userId) {
-        return request(`/users/${userId}/tasks`);
-    },
-
-    /**
-     * Выполнение задания пользователем
-     * @param {string} userId - ID пользователя
-     * @param {string} taskId - ID задания
-     * @returns {Promise<Object>} - результат выполнения задания
-     */
-    async completeTask(userId, taskId) {
-        return request(`/users/${userId}/tasks/${taskId}/complete`, 'POST');
-    },
-
-    /**
-     * Обновление уровня энергии пользователя
-     * @param {string} userId - ID пользователя
-     * @param {number} amount - количество использованной энергии
-     * @returns {Promise<Object>} - обновленные данные пользователя
-     */
-    async updateUserEnergy(userId, amount) {
-        return request(`/users/${userId}/energy`, 'POST', { amount });
-    },
-
-    /**
-     * Получение хронологии действий пользователя
-     * @param {string} userId - ID пользователя
-     * @returns {Promise<Array>} - список действий
-     */
-    async getUserActivityLog(userId) {
-        return request(`/users/${userId}/activity`);
-    },
-
-    /**
-     * Покупка бустера пользователем
-     * @param {string} userId - ID пользователя
-     * @param {string} boosterId - ID бустера
-     * @returns {Promise<Object>} - результат покупки
-     */
-    async purchaseBooster(userId, boosterId) {
-        return request(`/users/${userId}/boosters`, 'POST', { boosterId });
-    },
-
-    /**
-     * Совершение нажатия (клика) пользователем
-     * @param {string} userId - ID пользователя
-     * @param {number} count - количество кликов
-     * @returns {Promise<Object>} - результат операции
-     */
-    async recordTaps(userId, count = 1) {
-        return request(`/users/${userId}/taps`, 'POST', { count });
-    },
-
-    /**
-     * Получение реферальной ссылки пользователя
-     * @param {string} userId - ID пользователя
-     * @returns {Promise<Object>} - данные реферальной ссылки
-     */
-    async getUserReferralLink(userId) {
-        return request(`/users/${userId}/referral-link`);
-    },
-
-    // ИНВЕСТИЦИИ
+    // СТАТИСТИКА
     // ==========
 
     /**
-     * Получение доступных инвестиций
-     * @param {string} userId - ID пользователя
-     * @returns {Promise<Array>} - список доступных инвестиций
+     * Получение общей статистики
+     * @returns {Promise<Object>} - объект со статистикой
      */
-    async getAvailableInvestments(userId) {
-        return request(`/users/${userId}/investments/available`);
-    },
-
-    /**
-     * Покупка инвестиции пользователем
-     * @param {string} userId - ID пользователя
-     * @param {string} investmentId - ID инвестиции
-     * @returns {Promise<Object>} - результат покупки
-     */
-    async purchaseInvestment(userId, investmentId) {
-        return request(`/users/${userId}/investments`, 'POST', { investmentId });
-    },
-
-    /**
-     * Улучшение существующей инвестиции
-     * @param {string} userId - ID пользователя
-     * @param {string} investmentId - ID инвестиции
-     * @returns {Promise<Object>} - результат улучшения
-     */
-    async upgradeInvestment(userId, investmentId) {
-        return request(`/users/${userId}/investments/${investmentId}/upgrade`, 'POST');
+    async getStats() {
+        return request('/admin/stats');
     }
 };
 

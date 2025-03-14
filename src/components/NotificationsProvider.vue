@@ -1,4 +1,4 @@
-<!-- src/components/ui/NotificationProvider.vue -->
+<!-- src/components/NotificationsProvider.vue -->
 <template>
   <div class="notifications-wrapper">
     <Transition name="fade" mode="out-in">
@@ -19,19 +19,23 @@
         </div>
       </div>
     </Transition>
+    <slot></slot>
   </div>
 </template>
 
 <script setup>
-import { ref, provide } from 'vue';
+import { ref, provide, inject } from 'vue';
 
 const notifications = ref([]);
+const logger = inject('logger', console);
 
 const addNotification = (notification) => {
   // Устанавливаем тип по умолчанию, если не указан
   if (!notification.type) {
     notification.type = 'info';
   }
+
+  logger.log('Adding notification:', notification);
 
   // Добавляем уведомление в массив
   notifications.value.push(notification);
@@ -63,7 +67,7 @@ const getNotificationIcon = (type) => {
   }
 };
 
-// Предоставляем функции для использования в других компонентах
+// Переопределяем notifications из App.vue
 provide('notifications', {
   addNotification,
   removeNotification
@@ -72,15 +76,18 @@ provide('notifications', {
 
 <style scoped>
 .notifications-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.notifications-container {
   position: fixed;
   top: 20px;
   right: 20px;
   z-index: 9999;
   max-width: 350px;
   width: 100%;
-}
-
-.notifications-container {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -164,21 +171,32 @@ provide('notifications', {
   }
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
 @media (max-width: 768px) {
-  .notifications-wrapper {
+  .notifications-container {
     max-width: 90%;
     top: 10px;
     right: 10px;
   }
+}
+
+/* Темная тема */
+:global(.dark-theme) .notification.success {
+  background-color: rgba(31, 157, 85, 0.2);
+  color: #4ade80;
+}
+
+:global(.dark-theme) .notification.error {
+  background-color: rgba(227, 52, 47, 0.2);
+  color: #f87171;
+}
+
+:global(.dark-theme) .notification.warning {
+  background-color: rgba(242, 208, 36, 0.2);
+  color: #fde047;
+}
+
+:global(.dark-theme) .notification.info {
+  background-color: rgba(33, 150, 243, 0.2);
+  color: #60a5fa;
 }
 </style>
