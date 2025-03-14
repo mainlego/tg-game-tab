@@ -1,199 +1,390 @@
 // src/stores/adminStore.js
 import { defineStore } from 'pinia'
-import { StorageService } from '@/services/storage'
-import { ReferralService } from '@/services/referralService'
-import { UserService } from '@/services/userService' // Добавляем импорт
+import { ApiService } from '@/services/apiService'
 
 export const useAdminStore = defineStore('admin', {
     state: () => {
-        const savedSettings = StorageService.loadState()?.gameSettings || {}
         return {
             users: [],
             tasks: [],
             products: [],
             notifications: [],
-            gameSettings: {
-                tapValue: savedSettings.tapValue || 1,
-                baseEnergy: savedSettings.baseEnergy || 100,
-                incomeMultiplier: savedSettings.incomeMultiplier || 1,
-                expMultiplier: savedSettings.expMultiplier || 1
-            },
             stats: {
                 totalUsers: 0,
                 activeUsers: 0,
                 newUsers: 0,
-                totalRevenue: 0
-            }
+                totalProducts: 0,
+                activeProducts: 0,
+                totalClaims: 0,
+                pendingClaims: 0,
+                totalTasks: 0,
+                activeTasks: 0,
+                completedTasks: 0,
+                totalNotifications: 0,
+                totalSentNotifications: 0,
+                totalReadNotifications: 0
+            },
+            gameSettings: {
+                tapValue: 1,
+                baseEnergy: 100,
+                incomeMultiplier: 1,
+                expMultiplier: 1,
+                boosts: {
+                    tap3xCost: 8000,
+                    tap5xCost: 25000,
+                    duration: 86400000 // 24 часа в миллисекундах
+                },
+                investments: {
+                    baseReturn: 1.5,
+                    levelMultiplier: 1.2
+                },
+                levelRequirements: [
+                    { level: 1, income: 0, title: 'Новичок' }
+                ]
+            },
+            loading: {
+                users: false,
+                tasks: false,
+                products: false,
+                notifications: false,
+                stats: false
+            },
+            error: null
         }
     },
 
     getters: {
-        userStats: (state) => {
-            return {
-                total: state.users.length,
-                activeToday: state.users.filter(user => {
-                    const lastLogin = new Date(user.lastLogin)
-                    const today = new Date()
-                    return lastLogin.toDateString() === today.toDateString()
-                }).length,
-                newThisWeek: state.users.filter(user => {
-                    const joinDate = new Date(user.joinDate)
-                    const weekAgo = new Date()
-                    weekAgo.setDate(weekAgo.getDate() - 7)
-                    return joinDate > weekAgo
-                }).length
-            }
+        // Пользователи
+        usersByLevel: (state) => {
+            return [...state.users].sort((a, b) => (b.level || 0) - (a.level || 0));
+        },
+        usersByIncome: (state) => {
+            return [...state.users].sort((a, b) => (b.passiveIncome || 0) - (a.passiveIncome || 0));
+        },
+        activeProducts: (state) => {
+            return state.products.filter(p => p.active);
+        },
+        activeTasks: (state) => {
+            return state.tasks.filter(t => t.active);
         }
     },
 
     actions: {
+        // Общие действия
+        setLoading(section, isLoading) {
+            this.loading[section] = isLoading;
+        },
+        clearError() {
+            this.error = null;
+        },
+        setError(error) {
+            this.error = error;
+        },
+
         // Аутентификация
         async login(username, password) {
-            // В реальном приложении здесь будет API запрос
-            if (username === 'admin' && password === 'admin') {
-                localStorage.setItem('isAdmin', 'true')
-                return true
+            try {
+                // В реальном приложении здесь будет API запрос
+                if (username === 'admin' && password === 'admin') {
+                    localStorage.setItem('isAdmin', 'true');
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                this.setError(error.message);
+                return false;
             }
-            return false
+        },
+
+        async logout() {
+            localStorage.removeItem('isAdmin');
         },
 
         // Управление пользователями
         async fetchUsers() {
-            const allUsers = UserService.getAllUsers()
-            this.users = Object.values(allUsers).map(user => ({
-                id: user.id,
-                name: `${user.first_name} ${user.last_name || ''}`.trim(),
-                level: user.gameData.level,
-                passiveIncome: user.gameData.passiveIncome,
-                balance: user.gameData.balance,
-                lastLogin: user.lastLogin,
-                joinDate: user.registeredAt,
-                blocked: user.blocked || false
-            }))
+            this.setLoading('users', true);
+            try {
+                const response = await ApiService.getAllUsers();
+                this.users = response.users || [];
 
-            // Обновляем статистику
-            const stats = UserService.getUsersStats()
-            this.stats = {
-                ...this.stats,
-                totalUsers: stats.total,
-                activeUsers: stats.activeToday,
-                newUsers: stats.newThisWeek
+                // Обновляем статистику, если доступна
+                if (response.stats) {
+                    this.stats.totalUsers = response.stats.total;
+                    this.stats.activeUsers = response.stats.activeToday;
+                    this.stats.newUsers = response.stats.newThisWeek;
+                }
+
+                return this.users;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error fetching users:', error);
+                return [];
+            } finally {
+                this.setLoading('users', false);
             }
         },
 
         async blockUser(userId) {
-            const updatedUser = UserService.toggleUserBlock(userId)
-            if (updatedUser) {
-                await this.fetchUsers()
-                return true
+            try {
+                await ApiService.blockUser(userId);
+                await this.fetchUsers();
+                return true;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error blocking user:', error);
+                return false;
             }
-            return false
         },
 
         async resetUserProgress(userId) {
-            const updatedUser = UserService.resetUserProgress(userId)
-            if (updatedUser) {
-                await this.fetchUsers()
-                return true
+            try {
+                await ApiService.resetUserProgress(userId);
+                await this.fetchUsers();
+                return true;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error resetting user progress:', error);
+                return false;
             }
-            return false
         },
 
         // Управление заданиями
         async fetchTasks() {
-            // Здесь будет API запрос
-            this.tasks = [
-                {
-                    id: 1,
-                    title: 'Ежедневное задание',
-                    description: 'Описание задания',
-                    reward: 100,
-                    active: true,
-                    completions: 0
-                }
-            ]
-        },
+            this.setLoading('tasks', true);
+            try {
+                const response = await ApiService.getTasks();
+                this.tasks = response || [];
 
-        async createTask(taskData) {
-            // Здесь будет API запрос
-            this.tasks.push({
-                id: Date.now(),
-                ...taskData,
-                completions: 0
-            })
-        },
+                // Обновляем статистику
+                this.stats.totalTasks = this.tasks.length;
+                this.stats.activeTasks = this.tasks.filter(t => t.active).length;
+                this.stats.completedTasks = this.tasks.reduce((sum, task) => sum + (task.completions || 0), 0);
 
-        async updateTask(taskId, taskData) {
-            const index = this.tasks.findIndex(t => t.id === taskId)
-            if (index !== -1) {
-                this.tasks[index] = { ...this.tasks[index], ...taskData }
-                // Здесь будет API запрос
+                return this.tasks;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error fetching tasks:', error);
+                return [];
+            } finally {
+                this.setLoading('tasks', false);
             }
         },
 
-        async toggleTaskStatus(taskId) {
-            const task = this.tasks.find(t => t.id === taskId)
-            if (task) {
-                task.active = !task.active
-                // Здесь будет API запрос
+        async createTask(taskData) {
+            try {
+                await ApiService.createTask(taskData);
+                await this.fetchTasks();
+                return true;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error creating task:', error);
+                return false;
+            }
+        },
+
+        async updateTask(taskId, taskData) {
+            try {
+                await ApiService.updateTask(taskId, taskData);
+                await this.fetchTasks();
+                return true;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error updating task:', error);
+                return false;
+            }
+        },
+
+        async deleteTask(taskId) {
+            try {
+                await ApiService.deleteTask(taskId);
+                await this.fetchTasks();
+                return true;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error deleting task:', error);
+                return false;
             }
         },
 
         // Управление продуктами
         async fetchProducts() {
-            // Здесь будет API запрос
-            this.products = [
-                {
-                    id: 1,
-                    name: 'Product 1',
-                    description: 'Product description',
-                    requiredIncome: 1000000,
-                    image: '/images/products/1.png',
-                    active: true
-                }
-            ]
-        },
+            this.setLoading('products', true);
+            try {
+                const response = await ApiService.getProducts();
+                this.products = response || [];
 
-        async createProduct(productData) {
-            // Здесь будет API запрос
-            this.products.push({
-                id: Date.now(),
-                ...productData
-            })
-        },
+                // Обновляем статистику
+                this.stats.totalProducts = this.products.length;
+                this.stats.activeProducts = this.products.filter(p => p.active).length;
+                this.stats.totalClaims = this.products.reduce((sum, product) => sum + (product.stats?.claims || 0), 0);
+                this.stats.pendingClaims = this.products.reduce((sum, product) => {
+                    // Предполагаем, что количество pending claims это общее количество минус выполненные и отмененные
+                    const pendingCount = (product.stats?.claims || 0) -
+                        (product.stats?.completedClaims || 0) -
+                        (product.stats?.cancelledClaims || 0);
+                    return sum + Math.max(0, pendingCount);
+                }, 0);
 
-        async updateProduct(productId, productData) {
-            const index = this.products.findIndex(p => p.id === productId)
-            if (index !== -1) {
-                this.products[index] = { ...this.products[index], ...productData }
-                // Здесь будет API запрос
+                return this.products;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error fetching products:', error);
+                return [];
+            } finally {
+                this.setLoading('products', false);
             }
         },
 
-        async toggleProduct(productId) {
-            const product = this.products.find(p => p.id === productId)
-            if (product) {
-                product.active = !product.active
-                // Здесь будет API запрос
+        async createProduct(productData) {
+            try {
+                await ApiService.createProduct(productData);
+                await this.fetchProducts();
+                return true;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error creating product:', error);
+                return false;
+            }
+        },
+
+        async updateProduct(productId, productData) {
+            try {
+                await ApiService.updateProduct(productId, productData);
+                await this.fetchProducts();
+                return true;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error updating product:', error);
+                return false;
+            }
+        },
+
+        async deleteProduct(productId) {
+            try {
+                await ApiService.deleteProduct(productId);
+                await this.fetchProducts();
+                return true;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error deleting product:', error);
+                return false;
+            }
+        },
+
+        // Управление уведомлениями
+        async fetchNotifications() {
+            this.setLoading('notifications', true);
+            try {
+                const response = await ApiService.getNotificationsHistory();
+                this.notifications = response || [];
+
+                // Получаем статистику уведомлений
+                const notificationStats = await ApiService.getNotificationStats();
+
+                // Обновляем статистику
+                this.stats.totalNotifications = this.notifications.length;
+                this.stats.totalSentNotifications = notificationStats?.totalSent || 0;
+                this.stats.totalReadNotifications = notificationStats?.totalRead || 0;
+                this.stats.avgReadRate = notificationStats?.avgReadRate || 0;
+
+                return this.notifications;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error fetching notifications:', error);
+                return [];
+            } finally {
+                this.setLoading('notifications', false);
+            }
+        },
+
+        async sendNotification(notificationData) {
+            try {
+                await ApiService.sendNotification(notificationData);
+                await this.fetchNotifications();
+                return true;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error sending notification:', error);
+                return false;
+            }
+        },
+
+        async deleteNotification(notificationId) {
+            try {
+                await ApiService.deleteNotification(notificationId);
+                await this.fetchNotifications();
+                return true;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error deleting notification:', error);
+                return false;
             }
         },
 
         // Управление игровыми настройками
-        async updateGameSettings(settings) {
-            this.gameSettings = { ...this.gameSettings, ...settings }
-            StorageService.saveState({ ...StorageService.loadState(), gameSettings: this.gameSettings })
+        async fetchGameSettings() {
+            try {
+                const settings = await ApiService.getGameSettings();
+                if (settings) {
+                    this.gameSettings = settings;
+                }
+                return this.gameSettings;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error fetching game settings:', error);
+                return this.gameSettings;
+            }
         },
 
-        // Управление уведомлениями
-        async sendNotification(notificationData) {
-            // Здесь будет API запрос для отправки уведомления
-            this.notifications.push({
-                id: Date.now(),
-                ...notificationData,
-                sentAt: new Date(),
-                sentCount: 0,
-                readCount: 0
-            })
+        async updateGameSettings(settings) {
+            try {
+                await ApiService.updateGameSettings(settings);
+                this.gameSettings = settings;
+                return true;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error updating game settings:', error);
+                return false;
+            }
+        },
+
+        // Загрузка общей статистики
+        async fetchStats() {
+            this.setLoading('stats', true);
+            try {
+                const stats = await ApiService.getStats();
+                if (stats) {
+                    // Обновляем существующую статистику новыми данными
+                    this.stats = { ...this.stats, ...stats };
+                }
+                return this.stats;
+            } catch (error) {
+                this.setError(error.message);
+                console.error('Error fetching stats:', error);
+                return this.stats;
+            } finally {
+                this.setLoading('stats', false);
+            }
+        },
+
+        // Загрузка всех данных для инициализации админки
+        async initializeAdmin() {
+            try {
+                // Загружаем данные параллельно
+                await Promise.all([
+                    this.fetchUsers(),
+                    this.fetchTasks(),
+                    this.fetchProducts(),
+                    this.fetchNotifications(),
+                    this.fetchGameSettings(),
+                    this.fetchStats()
+                ]);
+                return true;
+            } catch (error) {
+                this.setError('Ошибка инициализации: ' + error.message);
+                console.error('Error initializing admin:', error);
+                return false;
+            }
         }
     }
-})
+});

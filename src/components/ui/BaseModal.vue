@@ -1,20 +1,30 @@
-// BaseModal.vue
+<!-- src/components/ui/BaseModal.vue -->
 <template>
-  <div class="modal-backdrop" @click="$emit('close')">
+  <div class="modal-overlay" @click="$emit('close')">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3>{{ title }}</h3>
+        <h2>{{ title }}</h2>
         <button class="close-button" @click="$emit('close')">&times;</button>
       </div>
+
       <div class="modal-body">
         <slot></slot>
+      </div>
+
+      <div v-if="hasFooter" class="modal-footer">
+        <slot name="footer">
+          <BaseButton type="secondary" @click="$emit('close')">
+            Отмена
+          </BaseButton>
+        </slot>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, onBeforeUnmount } from 'vue';
+import { useSlots } from 'vue';
+import BaseButton from './BaseButton.vue';
 
 const props = defineProps({
   title: {
@@ -23,44 +33,32 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['close']);
+defineEmits(['close']);
 
-const handleEscape = (e) => {
-  if (e.key === 'Escape') {
-    emit('close');
-  }
-};
-
-onMounted(() => {
-  document.addEventListener('keydown', handleEscape);
-  document.body.style.overflow = 'hidden';
-});
-
-onBeforeUnmount(() => {
-  document.removeEventListener('keydown', handleEscape);
-  document.body.style.overflow = '';
-});
+const slots = useSlots();
+const hasFooter = !!slots.footer;
 </script>
 
 <style scoped>
-.modal-backdrop {
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   z-index: 1000;
 }
 
 .modal-content {
-  background-color: white;
+  background: white;
   border-radius: 8px;
+  padding: 20px;
   width: 90%;
-  max-width: 500px;
+  max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -69,13 +67,12 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #eee;
+  margin-bottom: 20px;
 }
 
-.modal-header h3 {
+.modal-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .close-button {
@@ -87,6 +84,21 @@ onBeforeUnmount(() => {
 }
 
 .modal-body {
-  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    padding: 15px;
+  }
 }
 </style>

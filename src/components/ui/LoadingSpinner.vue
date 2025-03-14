@@ -2,7 +2,7 @@
 <template>
   <div class="loading-container">
     <div class="spinner"></div>
-    <div v-if="message" class="loading-message">{{ message }}</div>
+    <p v-if="message" class="message">{{ message }}</p>
   </div>
 </template>
 
@@ -21,25 +21,28 @@ defineProps({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  padding: 30px;
+  width: 100%;
 }
 
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid rgba(0, 0, 0, 0.1);
-  border-radius: 50%;
+  border: 4px solid rgba(140, 96, 227, 0.2);
   border-top-color: var(--primary-color, #8C60E3);
-  animation: spin 1s infinite linear;
+  border-radius: 50%;
+  animation: spin 1s ease-in-out infinite;
 }
 
-.loading-message {
-  margin-top: 16px;
+.message {
+  margin-top: 15px;
   color: #666;
+  font-size: 14px;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
