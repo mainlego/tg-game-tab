@@ -22,10 +22,15 @@ export default defineConfig({
     }
   },
   server: {
+    port: 5173,
     proxy: {
       '/api': {
         target: 'https://tg-game-tab-server.onrender.com',
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false,
+        headers: {
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
   }
