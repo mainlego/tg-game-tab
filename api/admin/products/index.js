@@ -23,8 +23,13 @@ export default async function handler(req, res) {
 
                 const product = await Product.create({
                     ...req.body,
-                    order
-                })
+                    order,
+                    stats: {
+                        claims: 0,
+                        completedClaims: 0,
+                        cancelledClaims: 0
+                    }
+                });
                 res.status(201).json({ success: true, data: product })
             } catch (error) {
                 res.status(400).json({ success: false, error: error.message })

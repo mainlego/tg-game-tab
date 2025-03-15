@@ -189,7 +189,7 @@ export const ApiService = {
      * @returns {Promise<Array>} - список продуктов
      */
     async getProducts() {
-        return request('/admin/products');
+        return request('/api/admin/products');
     },
 
     /**
@@ -198,7 +198,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - созданный продукт
      */
     async createProduct(productData) {
-        return request('/admin/products', 'POST', productData);
+        return request('/api/admin/products', 'POST', productData);
     },
 
     /**
@@ -207,7 +207,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - данные продукта
      */
     async getProduct(productId) {
-        return request(`/admin/products/${productId}`);
+        return request('/api/admin/products', 'POST', productData);
     },
 
     /**
@@ -217,7 +217,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - обновленные данные продукта
      */
     async updateProduct(productId, productData) {
-        return request(`/admin/products/${productId}`, 'PUT', productData);
+        return request(`/api/admin/products/${productId}`, 'PUT', productData);
     },
 
     /**
@@ -226,7 +226,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - результат операции
      */
     async deleteProduct(productId) {
-        return request(`/admin/products/${productId}`, 'DELETE');
+        return request(`/api/admin/products/${productId}`, 'DELETE');
     },
 
     /**
@@ -235,7 +235,7 @@ export const ApiService = {
      * @returns {Promise<Array>} - обновленный список продуктов
      */
     async reorderProducts(orderedIds) {
-        return request('/admin/products/reorder', 'POST', { orderedIds });
+        return request('/api/admin/products/reorder', 'POST', { orderedIds });
     },
 
     /**
@@ -244,7 +244,7 @@ export const ApiService = {
      * @returns {Promise<Array>} - список заявок
      */
     async getProductClaims(productId) {
-        return request(`/admin/products/${productId}/claims`);
+        return request(`/api/admin/products/${productId}/claims`);
     },
 
     /**
@@ -252,7 +252,7 @@ export const ApiService = {
      * @returns {Promise<Array>} - список последних заявок
      */
     async getRecentClaims() {
-        return request('/admin/products/claims/recent');
+        return request('/api/admin/products/claims/recent');
     },
 
     /**
@@ -263,7 +263,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - обновленные данные заявки
      */
     async updateClaimStatus(claimId, status, additionalData = {}) {
-        return request(`/admin/products/claims/${claimId}`, 'PUT', {
+        return request(`/api/admin/products/claims/${claimId}`, 'PUT', {
             status,
             ...additionalData
         });

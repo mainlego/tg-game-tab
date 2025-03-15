@@ -95,16 +95,17 @@
             <BaseButton
                 type="secondary"
                 @click="sendTestNotification"
-                :disabled="!newNotification.message"
+                :disabled="!newNotification.message || loading"
             >
-              Тестовая отправка
+              <i v-if="loading" class="fas fa-spinner fa-spin"></i>
+              <span v-else>Тестовая отправка</span>
             </BaseButton>
             <BaseButton
                 type="primary"
-                @click="sendNotification"
-                :disabled="!newNotification.message"
+                :disabled="!newNotification.message || loading"
             >
-              {{ scheduledDate ? 'Запланировать' : 'Отправить' }}
+              <i v-if="loading" class="fas fa-spinner fa-spin"></i>
+              <span v-else>{{ scheduledDate ? 'Запланировать' : 'Отправить' }}</span>
             </BaseButton>
           </div>
         </BaseForm>
@@ -123,6 +124,10 @@
         </div>
 
         <LoadingSpinner v-if="loading" />
+
+        <div v-else-if="filteredHistory.length === 0" class="empty-list">
+          <p>Уведомления не найдены</p>
+        </div>
 
         <div v-else class="history-list">
           <div
@@ -150,10 +155,22 @@
 
             <p class="notification-message">{{ notification.message }}</p>
 
-            <NotificationStats
-                v-if="notification.status === 'sent'"
-                :stats="notification.stats"
-            />
+            <div class="notification-stats" v-if="notification.status === 'sent'">
+              <div class="stat-row">
+                <div class="stat-label">Отправлено:</div>
+                <div class="stat-value">{{ notification.stats?.sentCount || 0 }}</div>
+              </div>
+              <div class="stat-row">
+                <div class="stat-label">Прочитано:</div>
+                <div class="stat-value">{{ notification.stats?.readCount || 0 }}</div>
+              </div>
+              <div class="stat-row">
+                <div class="stat-label">Процент прочтения:</div>
+                <div class="stat-value">
+                  {{ calcReadPercentage(notification) }}%
+                </div>
+              </div>
+            </div>
 
             <div
                 v-if="notification.status === 'scheduled'"
@@ -176,28 +193,43 @@
         </div>
       </BaseCard>
     </div>
+
+    <!-- Модальное окно подтверждения отмены уведомления -->
+    <ConfirmModal
+        v-if="showConfirmModal"
+        :title="confirmTitle"
+        :message="confirmMessage"
+        @confirm="confirmAction"
+        @cancel="cancelConfirmAction"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, inject } from 'vue'
 import { ApiService } from '@/services/apiService'
-import { useTelegram } from '@/composables/useTelegram'
-
-// Импортируем новые базовые компоненты
 import BaseCard from '@/components/ui/BaseCard.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseForm from '@/components/ui/BaseForm.vue'
 import FormGroup from '@/components/ui/FormGroup.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
-import NotificationStats from '@/components/admin/NotificationStats.vue'
+import ConfirmModal from '@/components/admin/modals/ConfirmModal.vue'
 
-const { user } = useTelegram()
-const notifications = inject('notifications')
+const { user } = inject('useTelegram', { user: ref({ id: '12345' }) })
+const notifications = inject('notifications', {
+  addNotification: () => {}
+})
 
 // Добавляем состояние загрузки
 const loading = ref(false)
 const error = ref(null)
+
+// Модальное окно подтверждения
+const showConfirmModal = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+const pendingAction = ref(null)
+const actionParams = ref(null)
 
 const newNotification = ref({
   type: 'all',
@@ -265,6 +297,10 @@ const loadHistory = async () => {
   } catch (err) {
     console.error('Error loading notifications history:', err)
     error.value = 'Ошибка загрузки истории уведомлений'
+    notifications.addNotification({
+      message: 'Ошибка загрузки истории уведомлений',
+      type: 'error'
+    })
   } finally {
     loading.value = false
   }
@@ -288,7 +324,7 @@ const sendNotification = async () => {
 
     const response = await ApiService.sendNotification(notificationData)
 
-    if (response.success) {
+    if (response) {
       notifications.addNotification({
         message: 'Уведомление успешно отправлено',
         type: 'success'
@@ -309,7 +345,13 @@ const sendNotification = async () => {
 
 // Тестовая отправка
 const sendTestNotification = async () => {
-  if (!user.value?.id) return
+  if (!user.value?.id) {
+    notifications.addNotification({
+      message: 'ID пользователя недоступен',
+      type: 'error'
+    })
+    return
+  }
 
   try {
     loading.value = true
@@ -344,26 +386,48 @@ const editNotification = (notification) => {
 }
 
 // Отмена запланированного уведомления
-const cancelNotification = async (notification) => {
-  if (confirm('Вы уверены, что хотите отменить отправку уведомления?')) {
-    try {
-      loading.value = true
-      await ApiService.deleteNotification(notification.id)
-      await loadHistory()
-      notifications.addNotification({
-        message: 'Уведомление отменено',
-        type: 'success'
-      })
-    } catch (error) {
-      console.error('Error canceling notification:', error)
-      notifications.addNotification({
-        message: 'Ошибка при отмене уведомления',
-        type: 'error'
-      })
-    } finally {
-      loading.value = false
-    }
+const cancelNotification = (notification) => {
+  confirmTitle.value = 'Отмена уведомления'
+  confirmMessage.value = 'Вы уверены, что хотите отменить отправку уведомления?'
+  pendingAction.value = performCancelNotification
+  actionParams.value = notification
+  showConfirmModal.value = true
+}
+
+// Выполнение отмены уведомления после подтверждения
+const performCancelNotification = async (notification) => {
+  try {
+    loading.value = true
+    await ApiService.deleteNotification(notification.id)
+    await loadHistory()
+    notifications.addNotification({
+      message: 'Уведомление отменено',
+      type: 'success'
+    })
+  } catch (error) {
+    console.error('Error canceling notification:', error)
+    notifications.addNotification({
+      message: 'Ошибка при отмене уведомления',
+      type: 'error'
+    })
+  } finally {
+    loading.value = false
   }
+}
+
+// Обработка подтверждения действия
+const confirmAction = () => {
+  if (pendingAction.value && actionParams.value) {
+    pendingAction.value(actionParams.value)
+  }
+  showConfirmModal.value = false
+}
+
+// Отмена подтверждения
+const cancelConfirmAction = () => {
+  showConfirmModal.value = false
+  pendingAction.value = null
+  actionParams.value = null
 }
 
 // Сброс формы
@@ -380,6 +444,15 @@ const resetForm = () => {
     }
   }
   scheduledDate.value = ''
+}
+
+// Расчет процента прочтения
+const calcReadPercentage = (notification) => {
+  if (!notification.stats || !notification.stats.sentCount || notification.stats.sentCount === 0) {
+    return 0
+  }
+  const percent = (notification.stats.readCount / notification.stats.sentCount) * 100
+  return percent.toFixed(1)
 }
 
 // Вспомогательные функции
@@ -496,6 +569,34 @@ onMounted(async () => {
   margin: 12px 0;
   line-height: 1.5;
   word-break: break-word;
+}
+
+.notification-stats {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 6px;
+  margin-top: 12px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.notification-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.empty-list {
+  text-align: center;
+  padding: 30px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  color: #666;
 }
 
 /* Адаптивность */
