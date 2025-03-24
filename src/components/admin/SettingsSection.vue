@@ -72,7 +72,7 @@
           <FormGroup label="Стоимость буста x3">
             <input
                 type="number"
-                v-model.number="settings.boosts.tap3xCost"
+                v-model.number="boosts.tap3xCost"
                 class="form-input"
                 min="1000"
                 step="1000"
@@ -82,7 +82,7 @@
           <FormGroup label="Стоимость буста x5">
             <input
                 type="number"
-                v-model.number="settings.boosts.tap5xCost"
+                v-model.number="boosts.tap5xCost"
                 class="form-input"
                 min="1000"
                 step="1000"
@@ -108,7 +108,7 @@
           <FormGroup label="Базовая доходность инвестиций">
             <input
                 type="number"
-                v-model.number="settings.investments.baseReturn"
+                v-model.number="investments.baseReturn"
                 class="form-input"
                 min="0.1"
                 step="0.1"
@@ -118,7 +118,7 @@
           <FormGroup label="Множитель уровня для инвестиций">
             <input
                 type="number"
-                v-model.number="settings.investments.levelMultiplier"
+                v-model.number="investments.levelMultiplier"
                 class="form-input"
                 min="0.1"
                 step="0.1"
@@ -138,7 +138,7 @@
 
         <div class="level-requirements">
           <div
-              v-for="(level, index) in settings.levelRequirements"
+              v-for="(level, index) in levelRequirements"
               :key="index"
               class="level-item"
           >
@@ -178,7 +178,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject } from 'vue';
+import { ref, computed, onMounted, inject, watch } from 'vue';
 import { useAdminStore } from '../../stores/adminStore';
 import BaseCard from '../ui/BaseCard.vue';
 import BaseButton from '../ui/BaseButton.vue';
@@ -186,75 +186,122 @@ import FormGroup from '../ui/FormGroup.vue';
 import { ApiService } from '../../services/apiService';
 
 const adminStore = useAdminStore();
-const notifications = inject('notifications');
+const notifications = inject('notifications', {
+  addNotification: () => {
+    console.warn('Notifications provider not available');
+  }
+});
 
+// Создаем отдельные реактивные переменные для каждой группы настроек
+// Это предотвратит ошибки при доступе к вложенным свойствам
 const settings = ref({
   tapValue: 1,
   baseEnergy: 100,
   energyRegenRate: 1,
   incomeMultiplier: 1,
-  expMultiplier: 1,
-  boosts: {
-    tap3xCost: 8000,
-    tap5xCost: 25000,
-    duration: 86400000 // 24 часа в миллисекундах
-  },
-  investments: {
-    baseReturn: 1.5,
-    levelMultiplier: 1.2
-  },
-  levelRequirements: [
-    { level: 1, income: 0, title: 'Новичок' }
-  ]
+  expMultiplier: 1
 });
+
+const boosts = ref({
+  tap3xCost: 8000,
+  tap5xCost: 25000,
+  duration: 86400000 // 24 часа в миллисекундах
+});
+
+const investments = ref({
+  baseReturn: 1.5,
+  levelMultiplier: 1.2
+});
+
+const levelRequirements = ref([
+  { level: 1, income: 0, title: 'Новичок' }
+]);
 
 const saving = ref(false);
+const loading = ref(true);
 
 // Преобразование длительности буста из миллисекунд в часы и обратно
+// с защитой от null и undefined
 const boostDurationHours = computed({
   get() {
-    return settings.value.boosts.duration / (1000 * 60 * 60);
+    if (!boosts.value || typeof boosts.value.duration !== 'number') {
+      return 24; // Возвращаем дефолтное значение
+    }
+    return boosts.value.duration / (1000 * 60 * 60);
   },
   set(value) {
-    settings.value.boosts.duration = value * 1000 * 60 * 60;
+    if (!boosts.value) boosts.value = {};
+    boosts.value.duration = value * 1000 * 60 * 60;
   }
 });
+
+// Объединяем все настройки в один объект для сохранения
+const getAllSettings = () => {
+  return {
+    ...settings.value,
+    boosts: { ...boosts.value },
+    investments: { ...investments.value },
+    levelRequirements: [...levelRequirements.value]
+  };
+};
 
 // Загрузка настроек
 const loadSettings = async () => {
   try {
-    // Сначала загружаем из админского стора (локальное состояние)
-    settings.value = { ...adminStore.gameSettings };
+    loading.value = true;
 
-    // Затем пытаемся получить настройки с сервера
+    // Пытаемся получить настройки с сервера
     const response = await ApiService.getGameSettings();
-    if (response.data) {
-      settings.value = response.data;
+
+    // Проверяем разные форматы ответа API
+    let settingsData = {};
+    if (response && response.data) {
+      settingsData = response.data;
+    } else if (response && typeof response === 'object') {
+      settingsData = response;
+    }
+
+    // Обновляем основные настройки
+    if (settingsData) {
+      // Основные настройки
+      settings.value = {
+        tapValue: settingsData.tapValue || 1,
+        baseEnergy: settingsData.baseEnergy || 100,
+        energyRegenRate: settingsData.energyRegenRate || 1,
+        incomeMultiplier: settingsData.incomeMultiplier || 1,
+        expMultiplier: settingsData.expMultiplier || 1
+      };
+
+      // Бусты
+      if (settingsData.boosts) {
+        boosts.value = {
+          tap3xCost: settingsData.boosts.tap3xCost || 8000,
+          tap5xCost: settingsData.boosts.tap5xCost || 25000,
+          duration: settingsData.boosts.duration || 86400000
+        };
+      }
+
+      // Инвестиции
+      if (settingsData.investments) {
+        investments.value = {
+          baseReturn: settingsData.investments.baseReturn || 1.5,
+          levelMultiplier: settingsData.investments.levelMultiplier || 1.2
+        };
+      }
+
+      // Уровни
+      if (Array.isArray(settingsData.levelRequirements) && settingsData.levelRequirements.length > 0) {
+        levelRequirements.value = settingsData.levelRequirements;
+      }
 
       // Обновляем админский стор
-      adminStore.updateGameSettings(response.data);
-    }
-
-    // Убедимся, что массив требований к уровням существует
-    if (!settings.value.levelRequirements || !Array.isArray(settings.value.levelRequirements)) {
-      settings.value.levelRequirements = [{ level: 1, income: 0, title: 'Новичок' }];
-    }
-
-    // Убедимся, что объект бустов существует
-    if (!settings.value.boosts) {
-      settings.value.boosts = {
-        tap3xCost: 8000,
-        tap5xCost: 25000,
-        duration: 86400000
-      };
-    }
-
-    // Убедимся, что объект инвестиций существует
-    if (!settings.value.investments) {
-      settings.value.investments = {
-        baseReturn: 1.5,
-        levelMultiplier: 1.2
-      };
+      try {
+        if (adminStore && typeof adminStore.updateGameSettings === 'function') {
+          adminStore.updateGameSettings(getAllSettings());
+        }
+      } catch (storeError) {
+        console.error('Error updating admin store:', storeError);
+      }
     }
   } catch (error) {
     console.error('Error loading settings:', error);
@@ -262,6 +309,8 @@ const loadSettings = async () => {
       message: 'Ошибка при загрузке настроек',
       type: 'error'
     });
+  } finally {
+    loading.value = false;
   }
 };
 
@@ -271,13 +320,22 @@ const saveSettings = async () => {
     saving.value = true;
 
     // Сортируем требования к уровням по возрастанию
-    settings.value.levelRequirements.sort((a, b) => a.level - b.level);
+    levelRequirements.value.sort((a, b) => a.level - b.level);
 
-    // Обновляем настройки в сторе
-    await adminStore.updateGameSettings(settings.value);
+    // Собираем все настройки в единый объект
+    const allSettings = getAllSettings();
 
     // Отправляем на сервер
-    await ApiService.updateGameSettings(settings.value);
+    await ApiService.updateGameSettings(allSettings);
+
+    // Обновляем админский стор
+    try {
+      if (adminStore && typeof adminStore.updateGameSettings === 'function') {
+        adminStore.updateGameSettings(allSettings);
+      }
+    } catch (storeError) {
+      console.warn('Error updating admin store:', storeError);
+    }
 
     notifications.addNotification({
       message: 'Настройки успешно сохранены',
@@ -296,12 +354,12 @@ const saveSettings = async () => {
 
 // Добавление нового требования к уровню
 const addLevelRequirement = () => {
-  const nextLevel = settings.value.levelRequirements.length + 1;
-  const lastLevel = settings.value.levelRequirements[settings.value.levelRequirements.length - 1];
+  const nextLevel = levelRequirements.value.length + 1;
+  const lastLevel = levelRequirements.value[levelRequirements.value.length - 1];
 
-  settings.value.levelRequirements.push({
+  levelRequirements.value.push({
     level: nextLevel,
-    income: lastLevel.income * 2, // Удваиваем доход от предыдущего уровня
+    income: lastLevel?.income ? lastLevel.income * 2 : 1000, // Удваиваем доход от предыдущего уровня или ставим 1000
     title: `Уровень ${nextLevel}`
   });
 };
@@ -309,10 +367,10 @@ const addLevelRequirement = () => {
 // Удаление требования к уровню
 const removeLevelRequirement = (index) => {
   if (index > 0) { // Нельзя удалить первый уровень
-    settings.value.levelRequirements.splice(index, 1);
+    levelRequirements.value.splice(index, 1);
 
     // Пересчитываем номера уровней
-    settings.value.levelRequirements.forEach((level, i) => {
+    levelRequirements.value.forEach((level, i) => {
       level.level = i + 1;
     });
   }
@@ -320,7 +378,15 @@ const removeLevelRequirement = (index) => {
 
 // Загрузка данных при монтировании
 onMounted(async () => {
-  await loadSettings();
+  try {
+    await loadSettings();
+  } catch (error) {
+    console.error('Error during component initialization:', error);
+    notifications.addNotification({
+      message: 'Ошибка при инициализации компонента настроек',
+      type: 'error'
+    });
+  }
 });
 </script>
 

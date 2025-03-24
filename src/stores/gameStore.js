@@ -388,27 +388,38 @@ export const useGameStore = defineStore('game', {
             this.updateLevel()
         },
 
+        // Исправленный метод updateLevel()
         updateLevel() {
-            let newLevel = 1
+            // Для отладки
+            console.log('Обновление уровня! Текущий пассивный доход:', this.passiveIncome);
+            console.log('Пороги уровней:', this.level.levels.map(l => `${l.title}: ${l.income}`).join(', '));
+
+            let newLevel = 1;
             for (let i = 0; i < this.level.levels.length; i++) {
                 if (this.passiveIncome >= this.level.levels[i].income) {
-                    newLevel = i + 1
+                    newLevel = i + 1;
+                    console.log(`Порог пройден для уровня ${newLevel} (${this.level.levels[i].title}): ${this.passiveIncome} >= ${this.level.levels[i].income}`);
+                } else {
+                    // Выходим из цикла, как только найден первый непройденный порог
+                    break;
                 }
             }
 
             if (newLevel !== this.level.current) {
-                this.level.current = newLevel
-                this.level.title = this.level.levels[newLevel - 1].title
+                console.log(`Уровень повышен: ${this.level.current} -> ${newLevel} (${this.level.levels[newLevel-1].title})`);
+                this.level.current = newLevel;
+                this.level.title = this.level.levels[newLevel - 1].title;
             }
 
-            // Расчет прогресса
+            // Расчет прогресса...
             if (newLevel < this.level.levels.length) {
-                const currentMin = this.level.levels[newLevel - 1].income
-                const nextMin = this.level.levels[newLevel].income
-                const progress = ((this.passiveIncome - currentMin) / (nextMin - currentMin)) * 100
-                this.level.progress = Math.min(Math.max(progress, 0), 100)
+                const currentMin = this.level.levels[newLevel - 1].income;
+                const nextMin = this.level.levels[newLevel].income;
+                const progress = ((this.passiveIncome - currentMin) / (nextMin - currentMin)) * 100;
+                this.level.progress = Math.min(Math.max(progress, 0), 100);
+                console.log(`Прогресс до следующего уровня: ${this.level.progress.toFixed(2)}%`);
             } else {
-                this.level.progress = 100
+                this.level.progress = 100;
             }
         },
 

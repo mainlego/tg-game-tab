@@ -405,9 +405,12 @@ export const ApiService = {
      * Получение настроек игры
      * @returns {Promise<Object>} - настройки игры
      */
+    // Настройки игры
     async getGameSettings() {
         return request('/api/settings');
     },
+
+
 
     /**
      * Обновление настроек игры
