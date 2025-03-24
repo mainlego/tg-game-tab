@@ -204,57 +204,110 @@ export const useGameStore = defineStore('game', {
                 return false;
             }
 
+            // Экономим трафик и предотвращаем частые запросы
             const now = Date.now();
-            if (this._lastSaveTime && now - this._lastSaveTime < 2000) {
+            if (this._lastSaveTime && now - this._lastSaveTime < 5000) { // Увеличим интервал до 5 секунд
                 console.log('Сохранение пропущено: слишком частый вызов');
                 return false;
             }
             this._lastSaveTime = now;
 
-            const stateToSave = {
-                balance: this.balance,
-                passiveIncome: this.passiveIncome,
-                tutorialCompleted: this.tutorialCompleted,
-                energy: this.energy,
-                level: this.level,
-                multipliers: this.multipliers,
-                boosts: this.boosts,
-                investments: this.investments,
-                stats: this.stats,
-                userId: this.currentUser,
-                lastSaved: new Date().toISOString()
+            // Создаем упрощенную структуру для сохранения
+            const minimalData = {
+                gameData: {
+                    balance: Number(this.balance) || 0,
+                    passiveIncome: Number(this.passiveIncome) || 0,
+                    level: {
+                        current: Number(this.level.current) || 1,
+                        progress: Number(this.level.progress) || 0,
+                        title: String(this.level.title || 'Новичок')
+                    },
+                    // Отключаем сохранение инвестиций при каждом обновлении
+                    // investments: {
+                    //   purchased: [], // Не сохраняем при частых обновлениях
+                    //   activeIncome: Number(this.investments?.activeIncome) || 0,
+                    //   lastCalculation: now
+                    // },
+                    // Включаем важные статистические данные
+                    stats: {
+                        totalClicks: Number(this.stats.totalClicks) || 0,
+                        totalEarned: Number(this.stats.totalEarned) || 0
+                    }
+                },
+                lastLogin: new Date().toISOString()
             };
 
-            // Сохраняем локально
-            StorageService.saveState(stateToSave);
-
-            // Обновляем на сервере через ApiService
+            // Сохраняем только самое необходимое
             try {
-                const minimalData = {
-                    gameData: {
-                        balance: Number(this.balance) || 0,
-                        passiveIncome: Number(this.passiveIncome) || 0,
-                        level: {
-                            current: Number(this.level.current) || 1,
-                            title: String(this.level.title || 'Новичок')
-                        },
-                        investments: {
-                            purchased: this.investments?.purchased?.map(i => i.id) || [],
-                            activeIncome: Number(this.investments?.activeIncome) || 0
-                        }
+                // Используем прямой подход для простоты отладки
+                const API_URL = 'https://tg-game-tab-server.onrender.com';
+                const response = await fetch(`${API_URL}/api/admin/users/${this.currentUser}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
                     },
-                    lastLogin: new Date().toISOString()
-                };
+                    body: JSON.stringify(minimalData)
+                });
 
-                await ApiService.updateUser(this.currentUser, minimalData);
-                console.log('Данные успешно обновлены на сервере');
-                return true;
+                if (response.ok) {
+                    console.log('Базовые данные успешно сохранены');
+                    return true;
+                } else {
+                    const errorText = await response.text();
+                    console.error('Ошибка сохранения:', errorText);
+                    return false;
+                }
             } catch (error) {
-                console.error('Ошибка обновления данных на сервере:', error);
+                console.error('Критическая ошибка при сохранении:', error);
                 return false;
             }
         },
 
+        async fullSave() {
+            // Этот метод вызывается реже и сохраняет все данные, включая инвестиции
+            if (!this.currentUser) return false;
+
+            try {
+                const fullData = {
+                    gameData: {
+                        balance: Number(this.balance) || 0,
+                        passiveIncome: Number(this.passiveIncome) || 0,
+                        energy: {
+                            current: Number(this.energy.current) || 0,
+                            max: Number(this.energy.max) || 1000,
+                            regenRate: Number(this.energy.regenRate) || 1,
+                            lastRegenTime: Number(this.energy.lastRegenTime) || Date.now()
+                        },
+                        level: {
+                            current: Number(this.level.current) || 1,
+                            progress: Number(this.level.progress) || 0,
+                            title: String(this.level.title || 'Новичок')
+                        },
+                        investments: {
+                            purchased: this.investments.purchased,
+                            activeIncome: Number(this.investments.activeIncome) || 0,
+                            lastCalculation: Date.now()
+                        },
+                        stats: this.stats
+                    },
+                    lastLogin: new Date().toISOString()
+                };
+
+                const API_URL = 'https://tg-game-tab-server.onrender.com';
+                const response = await fetch(`${API_URL}/api/admin/users/${this.currentUser}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(fullData)
+                });
+
+                return response.ok;
+            } catch (error) {
+                console.error('Ошибка полного сохранения:', error);
+                return false;
+            }
+        },
 
         // Добавьте эту функцию в файл gameStore.js
         async directSaveBasics() {
@@ -760,13 +813,46 @@ export const useGameStore = defineStore('game', {
             }
         },
 
+        // Улучшенный метод resetGame() для обеспечения полной очистки данных
         resetGame() {
-            if (this.currentUser) {
-                ApiService.resetUserProgress(this.currentUser)
-                StorageService.clearState()
-                this.resetToDefault()
+            console.log('Запуск полного сброса прогресса...');
+
+            try {
+                // 1. Сначала очищаем все данные в localStorage
+                // Стандартный ключ для хранения состояния
+                localStorage.removeItem('game');
+
+                // Дополнительные ключи, которые могут использоваться приложением
+                localStorage.removeItem('preloadedGameSettings');
+
+                // Не удаляем userId, чтобы сохранить авторизацию
+
+                // 2. Сбрасываем состояние хранилища
+                this.$reset();
+
+                // 3. Если есть реализация метода clearState в StorageService, вызываем её
+                if (typeof StorageService.clearState === 'function') {
+                    StorageService.clearState();
+                }
+
+                // 4. Если пользователь авторизован, отправляем запрос на сервер для сброса прогресса
+                if (this.currentUser) {
+                    try {
+                        ApiService.resetUserProgress(this.currentUser);
+                        console.log('Отправлен запрос на сброс данных на сервере');
+                    } catch (e) {
+                        console.error('Ошибка при сбросе данных на сервере:', e);
+                        // Продолжаем сброс локальных данных даже при ошибке на сервере
+                    }
+                }
+
+                console.log('Прогресс успешно сброшен. Перезагрузка страницы...');
+            } catch (e) {
+                console.error('Ошибка при сбросе прогресса:', e);
             }
-            window.location.reload()
+
+            // 5. Перезагружаем страницу для применения изменений
+            window.location.reload();
         }
     }
 })

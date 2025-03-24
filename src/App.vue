@@ -12,9 +12,6 @@
       </router-view>
     </div>
   </NotificationsProvider>
-
-
-
 </template>
 
 <script setup>
@@ -26,14 +23,18 @@ import { ApiService } from './services/apiService';
 import { GameSettingsService } from './services/GameSettingsService';
 import NotificationsProvider from './components/NotificationsProvider.vue';
 
+// Получение экземпляра хранилища
+const store = useGameStore();
+
 function resetProgress() {
   if (confirm('Вы уверены, что хотите сбросить весь прогресс?')) {
-    game.resetState();
+    // Вызываем метод resetGame(), который не только удаляет данные,
+    // но и делает reload страницы для гарантированного сброса
+    store.resetGame();
   }
 }
 
 const router = useRouter();
-const store = useGameStore();
 const { tg, user, isAvailable, expandApp } = useTelegram();
 
 // Предоставляем логгер для отладки
