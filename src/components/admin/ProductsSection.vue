@@ -435,25 +435,28 @@ const filteredClaims = computed(() => {
 const loadProducts = async () => {
   try {
     loading.value = true;
-    const response = await ApiService.getProducts();
+    console.log('Загрузка продуктов...');
 
-    if (response && Array.isArray(response)) {
-      products.value = response;
-    } else if (response && response.products) {
-      products.value = response.products;
+    const response = await ApiService.getProducts();
+    console.log('Ответ от сервера:', response);
+
+    if (response && response.success && response.data) {
+      // Сервер возвращает { success: true, data: [...] }
+      products.value = response.data.map(product => ({
+        ...product,
+        id: product._id // Добавляем id для совместимости с фронтендом
+      }));
     } else {
-      console.error('Unexpected response format:', response);
+      console.error('Неожиданный формат ответа:', response);
       products.value = [];
     }
-
-    // Загрузка последних заявок
-    await loadRecentClaims();
   } catch (error) {
-    console.error('Error loading products:', error);
+    console.error('Ошибка загрузки продуктов:', error);
     notifications.addNotification({
-      message: 'Ошибка при загрузке продуктов',
+      message: `Ошибка загрузки продуктов: ${error.message}`,
       type: 'error'
     });
+    products.value = [];
   } finally {
     loading.value = false;
   }
@@ -496,30 +499,59 @@ const saveProduct = async () => {
   try {
     saving.value = true;
 
-    let response;
-    if (currentProduct.value.id) {
-      response = await ApiService.updateProduct(
-          currentProduct.value.id,
-          currentProduct.value
-      );
+    // Проверка обязательных полей
+    if (!currentProduct.value.name || !currentProduct.value.description) {
       notifications.addNotification({
-        message: 'Продукт успешно обновлен',
-        type: 'success'
+        message: 'Название и описание продукта обязательны',
+        type: 'warning'
       });
-    } else {
-      response = await ApiService.createProduct(currentProduct.value);
-      notifications.addNotification({
-        message: 'Продукт успешно создан',
-        type: 'success'
-      });
+      return;
     }
 
-    showProductModal.value = false;
-    await loadProducts();
+    // Формирование данных продукта
+    const productData = {
+      name: currentProduct.value.name,
+      description: currentProduct.value.description,
+      type: currentProduct.value.type || 'digital',
+      requiredIncome: Number(currentProduct.value.requiredIncome) || 0,
+      image: currentProduct.value.image || '',
+      active: typeof currentProduct.value.active === 'boolean' ? currentProduct.value.active : true,
+      claimInstructions: currentProduct.value.claimInstructions || '',
+      gradient: currentProduct.value.gradient || 'linear-gradient(140.83deg, rgb(111, 95, 242) 0%, rgb(73, 51, 131) 100%)'
+    };
+
+    console.log('Данные продукта для отправки:', productData);
+
+    let response;
+    if (currentProduct.value._id) {
+      // Обновление существующего продукта
+      response = await ApiService.updateProduct(
+          currentProduct.value._id,
+          productData
+      );
+    } else {
+      // Создание нового продукта
+      response = await ApiService.createProduct(productData);
+    }
+
+    console.log('Ответ от сервера:', response);
+
+    if (response && response.success) {
+      // Успешное создание/обновление
+      notifications.addNotification({
+        message: currentProduct.value._id ? 'Продукт успешно обновлен' : 'Продукт успешно создан',
+        type: 'success'
+      });
+
+      showProductModal.value = false;
+      await loadProducts(); // Перезагрузка списка продуктов
+    } else {
+      throw new Error('Не удалось сохранить продукт');
+    }
   } catch (error) {
-    console.error('Error saving product:', error);
+    console.error('Ошибка сохранения продукта:', error);
     notifications.addNotification({
-      message: 'Ошибка при сохранении продукта',
+      message: `Ошибка при сохранении продукта: ${error.message}`,
       type: 'error'
     });
   } finally {

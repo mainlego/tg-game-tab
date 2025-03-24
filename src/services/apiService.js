@@ -1,7 +1,7 @@
 // src/services/apiService.js
 
 // Константы
-const API_URL = 'https://tg-game-tab-server.onrender.com/api'; // Прямой URL к серверу
+const API_URL = 'https://tg-game-tab-server.onrender.com'; // Прямой URL к серверу (без /api на конце)
 const DEBUG = import.meta.env.MODE === 'development'; // Включаем отладку только в режиме разработки
 
 /**
@@ -15,6 +15,10 @@ const DEBUG = import.meta.env.MODE === 'development'; // Включаем отл
 async function request(url, method = 'GET', data = null, options = {}) {
     // Формируем полный URL
     const fullUrl = url.startsWith('http') ? url : `${API_URL}${url}`;
+    console.log(`[DEBUG] Полный URL: ${fullUrl}`);
+    if (data) {
+        console.log('Данные запроса:', data);
+    }
 
     // Настройки запроса
     const fetchOptions = {
@@ -24,9 +28,11 @@ async function request(url, method = 'GET', data = null, options = {}) {
             'Accept': 'application/json',
             ...options.headers
         },
+
         // Убираем credentials: 'include', так как это вызывает проблемы с CORS
         // credentials: 'include',
         ...options
+
     };
 
     // Добавляем тело запроса для методов не-GET
@@ -49,28 +55,33 @@ async function request(url, method = 'GET', data = null, options = {}) {
 
         // Выполняем запрос
         const response = await fetch(fullUrl, fetchOptions);
+        console.log(`Статус ответа: ${response.status}`);
+        console.log('Заголовки ответа:', Object.fromEntries([...response.headers]));
 
         // Получаем текст ответа
         const responseText = await response.text();
+        console.log('Текст ответа (первые 1000 символов):', responseText.slice(0, 1000));
 
-        // Преобразуем текст в JSON, если он не пустой
-        const result = responseText ? JSON.parse(responseText) : {};
-
-        // Логирование ответа в режиме разработки
-        if (DEBUG) {
-            console.log(`🔍 API Response: ${method} ${url}`);
-            console.log('Status:', response.status);
-            console.log('Response:', result);
+        // Если ответ пустой, возвращаем успех без данных
+        if (!responseText) {
+            return { success: true };
         }
 
-        // Проверка на ошибки HTTP и API
-        if (!response.ok || (result.success === false)) {
-            const errorMessage = result.error || result.message || `HTTP ошибка: ${response.status}`;
-            throw new Error(errorMessage);
-        }
+        // Пробуем распарсить JSON
+        try {
+            const result = JSON.parse(responseText);
 
-        // Возвращаем данные (либо из поля data, либо весь результат)
-        return result.data || result;
+            // Проверка на ошибки
+            if (!response.ok || (result.success === false)) {
+                const errorMessage = result.error || result.message || `HTTP ошибка: ${response.status}`;
+                throw new Error(errorMessage);
+            }
+
+            return result; // Возвращаем весь результат
+        } catch (jsonError) {
+            console.error('Ошибка разбора JSON:', jsonError);
+            throw new Error(`Ошибка разбора ответа сервера: ${jsonError.message}`);
+        }
 
     } catch (error) {
         // Обработка ошибок
@@ -135,7 +146,7 @@ export const ApiService = {
             ...params
         });
 
-        return request(`/admin/users?${queryParams}`);
+        return request(`/api/admin/users?${queryParams}`);
     },
 
     /**
@@ -144,7 +155,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - данные пользователя
      */
     async getUser(userId) {
-        return request(`/admin/users/${userId}`);
+        return request(`/api/admin/users/${userId}`);
     },
 
     /**
@@ -154,7 +165,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - обновленные данные пользователя
      */
     async updateUser(userId, userData) {
-        return request(`/admin/users/${userId}`, 'PUT', userData);
+        return request(`/api/admin/users/${userId}`, 'PUT', userData);
     },
 
     /**
@@ -163,7 +174,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - обновленные данные пользователя
      */
     async blockUser(userId) {
-        return request(`/admin/users/actions`, 'POST', {
+        return request(`/api/admin/users/actions`, 'POST', {
             action: 'block',
             userId
         });
@@ -175,7 +186,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - обновленные данные пользователя
      */
     async resetUserProgress(userId) {
-        return request(`/admin/users/actions`, 'POST', {
+        return request(`/api/admin/users/actions`, 'POST', {
             action: 'reset',
             userId
         });
@@ -198,7 +209,21 @@ export const ApiService = {
      * @returns {Promise<Object>} - созданный продукт
      */
     async createProduct(productData) {
-        return request('/api/admin/products', 'POST', productData);
+        console.log('Отправка данных продукта:', productData); // Добавьте логирование
+
+        try {
+            // Убедитесь, что contentType правильный и данные форматируются как JSON
+            const response = await request('/api/admin/products', 'POST', productData, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+            return response;
+        } catch (error) {
+            console.error('Детали ошибки создания продукта:', error);
+            throw error;
+        }
     },
 
     /**
@@ -207,7 +232,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - данные продукта
      */
     async getProduct(productId) {
-        return request('/api/admin/products', 'POST', productData);
+        return request(`/api/admin/products/${productId}`);
     },
 
     /**
@@ -277,7 +302,7 @@ export const ApiService = {
      * @returns {Promise<Array>} - список уведомлений
      */
     async getNotificationsHistory() {
-        return request('/admin/notifications');
+        return request('/api/admin/notifications');
     },
 
     /**
@@ -285,7 +310,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - статистика уведомлений
      */
     async getNotificationStats() {
-        return request('/admin/notifications/stats');
+        return request('/api/admin/notifications/stats');
     },
 
     /**
@@ -294,7 +319,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - результат отправки
      */
     async sendNotification(notificationData) {
-        return request('/notifications/send', 'POST', notificationData);
+        return request('/api/notifications/send', 'POST', notificationData);
     },
 
     /**
@@ -303,7 +328,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - результат отправки
      */
     async sendTestNotification(notificationData) {
-        return request('/notifications/test', 'POST', notificationData);
+        return request('/api/notifications/test', 'POST', notificationData);
     },
 
     /**
@@ -313,7 +338,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - обновленные данные уведомления
      */
     async updateNotification(notificationId, notificationData) {
-        return request(`/admin/notifications/${notificationId}`, 'PUT', notificationData);
+        return request(`/api/admin/notifications/${notificationId}`, 'PUT', notificationData);
     },
 
     /**
@@ -322,7 +347,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - результат операции
      */
     async deleteNotification(notificationId) {
-        return request(`/admin/notifications/${notificationId}`, 'DELETE');
+        return request(`/api/admin/notifications/${notificationId}`, 'DELETE');
     },
 
     // ЗАДАНИЯ
@@ -333,7 +358,7 @@ export const ApiService = {
      * @returns {Promise<Array>} - список заданий
      */
     async getTasks() {
-        return request('/admin/tasks');
+        return request('/api/admin/tasks');
     },
 
     /**
@@ -342,7 +367,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - созданное задание
      */
     async createTask(taskData) {
-        return request('/admin/tasks', 'POST', taskData);
+        return request('/api/admin/tasks', 'POST', taskData);
     },
 
     /**
@@ -351,7 +376,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - данные задания
      */
     async getTask(taskId) {
-        return request(`/admin/tasks/${taskId}`);
+        return request(`/api/admin/tasks/${taskId}`);
     },
 
     /**
@@ -361,7 +386,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - обновленные данные задания
      */
     async updateTask(taskId, taskData) {
-        return request(`/admin/tasks/${taskId}`, 'PUT', taskData);
+        return request(`/api/admin/tasks/${taskId}`, 'PUT', taskData);
     },
 
     /**
@@ -370,7 +395,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - результат операции
      */
     async deleteTask(taskId) {
-        return request(`/admin/tasks/${taskId}`, 'DELETE');
+        return request(`/api/admin/tasks/${taskId}`, 'DELETE');
     },
 
     // НАСТРОЙКИ
@@ -381,7 +406,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - настройки игры
      */
     async getGameSettings() {
-        return request('/settings');
+        return request('/api/settings');
     },
 
     /**
@@ -390,7 +415,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - обновленные настройки
      */
     async updateGameSettings(settings) {
-        return request('/settings', 'PUT', settings);
+        return request('/api/settings', 'PUT', settings);
     },
 
     // СТАТИСТИКА
@@ -401,7 +426,7 @@ export const ApiService = {
      * @returns {Promise<Object>} - объект со статистикой
      */
     async getStats() {
-        return request('/admin/stats');
+        return request('/api/admin/stats');
     }
 };
 

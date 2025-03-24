@@ -84,22 +84,36 @@
               <BaseButton
                   v-if="hasButton"
                   type="secondary"
-                  @click.prevent
               >
                 {{ newNotification.button.text }}
               </BaseButton>
             </div>
           </div>
 
+          <!-- Выбор пользователя для тестирования -->
+          <FormGroup label="Тестовое уведомление">
+            <div v-if="availableTestUsers.length === 0" class="warning-message">
+              Нет доступных пользователей для тестирования. Добавьте пользователей в систему.
+            </div>
+            <div v-else class="test-notification-container">
+              <select v-model="selectedTestUser" class="form-input">
+                <option :value="null">Выберите пользователя для тестирования</option>
+                <option v-for="user in availableTestUsers" :key="user.id" :value="user">
+                  {{ user.name }} ({{ user.id }})
+                </option>
+              </select>
+              <BaseButton
+                  type="secondary"
+                  @click="sendTestNotification"
+                  :disabled="!newNotification.message || loading || !selectedTestUser"
+              >
+                <i v-if="loading" class="fas fa-spinner fa-spin"></i>
+                <span v-else>Тестовая отправка</span>
+              </BaseButton>
+            </div>
+          </FormGroup>
+
           <div class="action-buttons">
-            <BaseButton
-                type="secondary"
-                @click="sendTestNotification"
-                :disabled="!newNotification.message || loading"
-            >
-              <i v-if="loading" class="fas fa-spinner fa-spin"></i>
-              <span v-else>Тестовая отправка</span>
-            </BaseButton>
             <BaseButton
                 type="primary"
                 :disabled="!newNotification.message || loading"
@@ -132,7 +146,7 @@
         <div v-else class="history-list">
           <div
               v-for="notification in filteredHistory"
-              :key="notification.id"
+              :key="notification.id || notification._id"
               class="notification-item"
               :class="{
               'important': notification.important,
@@ -215,14 +229,17 @@ import FormGroup from '@/components/ui/FormGroup.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import ConfirmModal from '@/components/admin/modals/ConfirmModal.vue'
 
-const { user } = inject('useTelegram', { user: ref({ id: '12345' }) })
 const notifications = inject('notifications', {
   addNotification: () => {}
 })
 
-// Добавляем состояние загрузки
+// Состояние загрузки и ошибок
 const loading = ref(false)
 const error = ref(null)
+
+// Доступные пользователи для тестирования
+const availableTestUsers = ref([])
+const selectedTestUser = ref(null)
 
 // Модальное окно подтверждения
 const showConfirmModal = ref(false)
@@ -245,6 +262,7 @@ const newNotification = ref({
 
 const scheduledDate = ref('')
 const historyFilter = ref('all')
+// Инициализируем как пустой массив для безопасной итерации
 const notificationsHistory = ref([])
 
 // Минимальная дата для планирования (текущее время + 5 минут)
@@ -268,8 +286,13 @@ const hasButton = computed(() => {
   return newNotification.value.button.text && newNotification.value.button.url
 })
 
-// Фильтрация истории
+// Фильтрация истории с безопасной проверкой на массив
 const filteredHistory = computed(() => {
+  // Убедимся, что у нас массив
+  if (!Array.isArray(notificationsHistory.value)) {
+    return []
+  }
+
   let filtered = [...notificationsHistory.value]
 
   switch (historyFilter.value) {
@@ -287,13 +310,22 @@ const filteredHistory = computed(() => {
   return filtered
 })
 
-// Загрузка истории уведомлений
+// Загрузка истории уведомлений с обработкой форматов ответа
 const loadHistory = async () => {
   try {
     loading.value = true
     error.value = null
-    const data = await ApiService.getNotificationsHistory()
-    notificationsHistory.value = data
+    const response = await ApiService.getNotificationsHistory()
+
+    // Обработка разных форматов ответа
+    if (Array.isArray(response)) {
+      notificationsHistory.value = response
+    } else if (response && response.data && Array.isArray(response.data)) {
+      notificationsHistory.value = response.data
+    } else {
+      console.warn('Unexpected notifications response format:', response)
+      notificationsHistory.value = []
+    }
   } catch (err) {
     console.error('Error loading notifications history:', err)
     error.value = 'Ошибка загрузки истории уведомлений'
@@ -301,8 +333,28 @@ const loadHistory = async () => {
       message: 'Ошибка загрузки истории уведомлений',
       type: 'error'
     })
+    notificationsHistory.value = []
   } finally {
     loading.value = false
+  }
+}
+
+// Загрузка пользователей для тестирования
+const loadTestUsers = async () => {
+  try {
+    const response = await ApiService.getAllUsers({ limit: 10 }) // Ограничиваем список для тестирования
+
+    if (response && Array.isArray(response.users)) {
+      availableTestUsers.value = response.users
+    } else if (response && response.data && Array.isArray(response.data.users)) {
+      availableTestUsers.value = response.data.users
+    } else {
+      availableTestUsers.value = []
+      console.warn('Unexpected users response format:', response)
+    }
+  } catch (error) {
+    console.error('Error loading test users:', error)
+    availableTestUsers.value = []
   }
 }
 
@@ -345,10 +397,10 @@ const sendNotification = async () => {
 
 // Тестовая отправка
 const sendTestNotification = async () => {
-  if (!user.value?.id) {
+  if (!selectedTestUser.value) {
     notifications.addNotification({
-      message: 'ID пользователя недоступен',
-      type: 'error'
+      message: 'Выберите пользователя для тестовой отправки',
+      type: 'warning'
     })
     return
   }
@@ -358,18 +410,18 @@ const sendTestNotification = async () => {
     const testData = {
       ...newNotification.value,
       type: 'test',
-      testUserId: user.value.id
+      testUserId: selectedTestUser.value.id
     }
 
     await ApiService.sendTestNotification(testData)
     notifications.addNotification({
-      message: 'Тестовое уведомление отправлено',
+      message: `Тестовое уведомление отправлено пользователю ${selectedTestUser.value.name}`,
       type: 'success'
     })
   } catch (error) {
     console.error('Error sending test notification:', error)
     notifications.addNotification({
-      message: 'Ошибка отправки тестового уведомления',
+      message: 'Ошибка отправки тестового уведомления: ' + (error.message || 'Неизвестная ошибка'),
       type: 'error'
     })
   } finally {
@@ -398,7 +450,7 @@ const cancelNotification = (notification) => {
 const performCancelNotification = async (notification) => {
   try {
     loading.value = true
-    await ApiService.deleteNotification(notification.id)
+    await ApiService.deleteNotification(notification.id || notification._id)
     await loadHistory()
     notifications.addNotification({
       message: 'Уведомление отменено',
@@ -483,7 +535,12 @@ const formatDate = (date) => {
 
 // Загрузка данных при монтировании
 onMounted(async () => {
-  await loadHistory()
+  try {
+    await loadTestUsers()
+    await loadHistory()
+  } catch (error) {
+    console.error('Error loading initial data:', error)
+  }
 })
 </script>
 
@@ -502,8 +559,8 @@ onMounted(async () => {
 
 /* Кнопки действий */
 .action-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  justify-content: flex-end;
   gap: 12px;
   margin-top: 16px;
 }
@@ -528,6 +585,25 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 8px;
+}
+
+/* Тестовое уведомление */
+.test-notification-container {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.test-notification-container select {
+  flex-grow: 1;
+}
+
+.warning-message {
+  color: #f44336;
+  background: #ffebee;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
 }
 
 /* История уведомлений */
@@ -615,8 +691,22 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 
-  .action-buttons {
-    grid-template-columns: 1fr;
+  .test-notification-container {
+    flex-direction: column;
+    align-items: stretch;
   }
+}
+
+/* Чекбокс */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
 }
 </style>
