@@ -174,9 +174,9 @@ const formatMoney = (num) => {
 
 .products-grid {
   display: grid;
-  overflow: auto;
-  padding: 0 1rem;
-  max-height: 60vh;
+  max-height: 70vh;
+  overflow: scroll;
+  padding: 0 1rem 150px 1rem;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   margin-top: 20px;

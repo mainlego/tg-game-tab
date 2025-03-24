@@ -205,9 +205,10 @@ const handleTaskClick = (task) => {
 
 .tasks-container {
   margin-top: 20px;
-  padding: 0 1rem;
+  padding: 0 1rem 150px 1rem;
   overflow: scroll;
-  height: 60vh;
+  height: 70vh;
+
 }
 
 .section {
