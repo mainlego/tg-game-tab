@@ -137,65 +137,90 @@ export const useGameStore = defineStore('game', {
             this.saveState()
         },
 
+        // Обновленный метод initializeGame
         async initializeGame(userId) {
             if (!userId) {
-                console.warn('No user ID provided for game initialization')
-                return
+                console.warn('No user ID provided for game initialization');
+                return;
             }
 
             try {
-                console.log('Initializing game for user:', userId)
+                console.log('Initializing game for user:', userId);
 
                 // Загружаем настройки игры
                 try {
-                    const gameSettings = await GameSettingsService.getSettings()
-                    console.log('Loaded game settings:', gameSettings)
-                    this.gameSettings = gameSettings
+                    const gameSettings = await GameSettingsService.getSettings();
+                    console.log('Loaded game settings:', gameSettings);
+                    this.gameSettings = gameSettings;
 
                     // Применяем настройки
-                    this.applyGameSettings(gameSettings)
+                    this.applyGameSettings(gameSettings);
                 } catch (error) {
-                    console.error('Error loading game settings:', error)
+                    console.error('Error loading game settings:', error);
                 }
 
                 // Загружаем данные пользователя из базы
-                const userData = await ApiService.getUser(userId)
-                console.log('Loaded user data:', userData)
+                const userData = await ApiService.getUser(userId);
+                console.log('Loaded user data from server:', userData);
 
                 if (userData?.gameData) {
+                    console.log('User data contains gameData with balance:', userData.gameData.balance);
+
                     // Всегда используем данные из базы как источник правды
-                    this.loadFromState(userData.gameData)
+                    this.loadFromState(userData.gameData);
+                    console.log('After loading from server - Balance:', this.balance, 'Passive Income:', this.passiveIncome);
+
                     // Сохраняем в localStorage для офлайн доступа
-                    StorageService.saveState({
+                    const savedToLocal = StorageService.saveState({
                         ...userData.gameData,
                         userId,
                         lastSaved: new Date().toISOString()
-                    })
+                    });
+                    console.log('Saved to localStorage:', savedToLocal ? 'success' : 'failed');
+                } else {
+                    console.warn('No gameData in user data or user data is empty');
+
+                    // Попробуем использовать данные из localStorage если есть
+                    const savedState = StorageService.loadState();
+                    console.log('Checking localStorage for saved state:', savedState);
+
+                    if (savedState?.userId === userId) {
+                        console.log('Found matching state in localStorage with balance:', savedState.balance);
+                        this.loadFromState(savedState);
+                        console.log('After loading from localStorage - Balance:', this.balance);
+                    } else {
+                        console.warn('No matching state in localStorage or localStorage is empty');
+                    }
                 }
 
-                this.currentUser = userId
-                this.processOfflineProgress()
-                await this.saveState()
+                this.currentUser = userId;
+                this.processOfflineProgress();
+                await this.saveState();
 
             } catch (error) {
-                console.error('Error initializing game:', error)
+                console.error('Error initializing game:', error);
                 // Попробуем использовать данные из localStorage если есть
-                const savedState = StorageService.loadState()
+                const savedState = StorageService.loadState();
                 if (savedState?.userId === userId) {
-                    this.loadFromState(savedState)
+                    this.loadFromState(savedState);
                 }
             }
         },
 
         resetState() {
-            StorageService.clearState?.(); // Это правильно, вызывается метод из StorageService
-            localStorage.removeItem('gameState'); // Изменено с 'game' на 'gameState'
+            console.log('Сброс состояния...');
 
-            // Остальной код без изменений
+            // Используем правильный ключ для localStorage
+            StorageService.clearState?.(); // Это вызовет очистку через StorageService
+            localStorage.removeItem('gameState'); // Теперь используем правильный ключ
+
+            // Сброс состояния Pinia
             this.$reset();
+
             console.log('Прогресс сброшен');
         },
 
+        // Обновленный метод saveState
         async saveState() {
             if (!this.currentUser) {
                 console.warn('Невозможно сохранить состояние: пользователь не определен');
@@ -209,6 +234,8 @@ export const useGameStore = defineStore('game', {
                 return false;
             }
             this._lastSaveTime = now;
+
+            console.log('Сохранение состояния. Текущий баланс:', this.balance, 'Пассивный доход:', this.passiveIncome);
 
             // Создаем упрощенную структуру для сохранения в БД
             const minimalData = {
@@ -229,7 +256,7 @@ export const useGameStore = defineStore('game', {
                 lastLogin: new Date().toISOString()
             };
 
-            // Создаем более полную структуру для localStorage
+            // Создаем структуру для сохранения в localStorage
             const localStorageData = {
                 balance: Number(this.balance) || 0,
                 passiveIncome: Number(this.passiveIncome) || 0,
@@ -258,11 +285,11 @@ export const useGameStore = defineStore('game', {
                 lastSaved: new Date().toISOString()
             };
 
-            // Сначала сохраняем в localStorage для обеспечения оффлайн доступа
+            // Сохраняем в localStorage
             const localSaved = StorageService.saveState(localStorageData);
-            console.log('Сохранение в localStorage:', localSaved ? 'успешно' : 'ошибка');
+            console.log('Сохранение в localStorage:', localSaved ? 'успешно' : 'ошибка', 'Баланс:', localStorageData.balance);
 
-            // Затем отправляем данные на сервер
+            // Сохраняем только самое необходимое на сервер
             try {
                 // Используем прямой подход для простоты отладки
                 const API_URL = 'https://tg-game-tab-server.onrender.com';
@@ -275,37 +302,15 @@ export const useGameStore = defineStore('game', {
                 });
 
                 if (response.ok) {
-                    console.log('Данные успешно сохранены в БД');
-
-                    // Проверка, что данные действительно сохранились в localStorage
-                    const checkSaved = StorageService.loadState();
-                    if (checkSaved) {
-                        console.log('Проверка localStorage после сохранения: баланс =',
-                            checkSaved.balance, 'пассивный доход =', checkSaved.passiveIncome);
-                    } else {
-                        console.warn('После сохранения данные в localStorage не обнаружены!');
-                    }
-
+                    console.log('Базовые данные успешно сохранены на сервере. Баланс:', minimalData.gameData.balance);
                     return true;
                 } else {
                     const errorText = await response.text();
-                    console.error('Ошибка сохранения в БД:', errorText);
-
-                    // Даже если сохранение в БД не удалось, данные в localStorage должны сохраниться
+                    console.error('Ошибка сохранения:', errorText);
                     return false;
                 }
             } catch (error) {
-                console.error('Критическая ошибка при сохранении в БД:', error);
-
-                // Логируем состояние localStorage даже при ошибке
-                try {
-                    const checkSaved = StorageService.loadState();
-                    console.log('После ошибки сохранения в БД, данные в localStorage:',
-                        checkSaved ? 'присутствуют' : 'отсутствуют');
-                } catch (e) {
-                    console.error('Ошибка при проверке localStorage:', e);
-                }
-
+                console.error('Критическая ошибка при сохранении:', error);
                 return false;
             }
         },
@@ -313,6 +318,8 @@ export const useGameStore = defineStore('game', {
         async fullSave() {
             // Этот метод вызывается реже и сохраняет все данные, включая инвестиции
             if (!this.currentUser) return false;
+
+            console.log('Выполняется полное сохранение данных. Текущий баланс:', this.balance);
 
             try {
                 const fullData = {
@@ -340,6 +347,20 @@ export const useGameStore = defineStore('game', {
                     lastLogin: new Date().toISOString()
                 };
 
+                // Сохраняем также в localStorage
+                StorageService.saveState({
+                    balance: this.balance,
+                    passiveIncome: this.passiveIncome,
+                    energy: this.energy,
+                    level: this.level,
+                    multipliers: this.multipliers,
+                    boosts: this.boosts,
+                    investments: this.investments,
+                    stats: this.stats,
+                    userId: this.currentUser,
+                    lastSaved: new Date().toISOString()
+                });
+
                 const API_URL = 'https://tg-game-tab-server.onrender.com';
                 const response = await fetch(`${API_URL}/api/admin/users/${this.currentUser}`, {
                     method: 'PUT',
@@ -349,7 +370,13 @@ export const useGameStore = defineStore('game', {
                     body: JSON.stringify(fullData)
                 });
 
-                return response.ok;
+                if (response.ok) {
+                    console.log('Полное сохранение успешно. Баланс:', fullData.gameData.balance);
+                    return true;
+                } else {
+                    console.error('Ошибка полного сохранения');
+                    return false;
+                }
             } catch (error) {
                 console.error('Ошибка полного сохранения:', error);
                 return false;
@@ -406,14 +433,38 @@ export const useGameStore = defineStore('game', {
         },
 
         loadFromState(state) {
-            this.balance = state.balance || 0
-            this.passiveIncome = state.passiveIncome || 0
-            this.energy = state.energy || this.energy
-            this.level = state.level || this.level
-            this.multipliers = state.multipliers || this.multipliers
-            this.boosts = state.boosts || this.boosts
-            this.investments = state.investments || this.investments
-            this.stats = state.stats || this.stats
+            console.log('Loading state with data:', state);
+
+            // Устанавливаем значения с проверкой типов
+            this.balance = Number(state.balance) || 0;
+            this.passiveIncome = Number(state.passiveIncome) || 0;
+
+            // Обновляем остальные данные, если они есть
+            if (state.energy) {
+                this.energy = {
+                    current: Number(state.energy.current) || this.energy.current,
+                    max: Number(state.energy.max) || this.energy.max,
+                    regenRate: Number(state.energy.regenRate) || this.energy.regenRate,
+                    lastRegenTime: Number(state.energy.lastRegenTime) || Date.now()
+                };
+            }
+
+            if (state.level) {
+                this.level = {
+                    current: Number(state.level.current) || this.level.current,
+                    max: Number(state.level.max) || this.level.max,
+                    progress: Number(state.level.progress) || this.level.progress,
+                    title: state.level.title || this.level.title,
+                    levels: state.level.levels || this.level.levels
+                };
+            }
+
+            if (state.multipliers) this.multipliers = state.multipliers;
+            if (state.boosts) this.boosts = state.boosts;
+            if (state.investments) this.investments = state.investments;
+            if (state.stats) this.stats = state.stats;
+
+            console.log('State loaded successfully, balance:', this.balance, 'passive income:', this.passiveIncome);
         },
 
         resetToDefault() {
@@ -566,15 +617,22 @@ export const useGameStore = defineStore('game', {
 
         handleTap() {
             if (this.canTap) {
-                this.energy.current -= 1
-                const reward = this.effectiveTapValue
-                this.balance += reward
-                this.stats.totalClicks++
-                this.stats.totalEarned += reward
-                this.saveState()
-                return reward
+                this.energy.current -= 1;
+                const reward = this.effectiveTapValue;
+
+                // Явно обновляем баланс
+                this.balance += reward;
+                console.log('Баланс после тапа:', this.balance);
+
+                this.stats.totalClicks++;
+                this.stats.totalEarned += reward;
+
+                // Сохраняем состояние
+                this.saveState();
+
+                return reward;
             }
-            return 0
+            return 0;
         },
 
         regenerateEnergy() {
@@ -865,15 +923,31 @@ export const useGameStore = defineStore('game', {
             console.log('Запуск полного сброса прогресса...');
 
             try {
-                // Очищаем все данные в localStorage
-                localStorage.removeItem('gameState'); // Изменено с 'game' на 'gameState'
+                // 1. Сначала очищаем все данные в localStorage
+                StorageService.clearState?.();
+                localStorage.removeItem('gameState'); // Теперь используем правильный ключ
                 localStorage.removeItem('preloadedGameSettings');
 
-                // Остальной код без изменений
+                // 2. Сбрасываем состояние хранилища
+                this.$reset();
+
+                // 3. Если пользователь авторизован, отправляем запрос на сервер для сброса прогресса
+                if (this.currentUser) {
+                    try {
+                        ApiService.resetUserProgress(this.currentUser);
+                        console.log('Отправлен запрос на сброс данных на сервере');
+                    } catch (e) {
+                        console.error('Ошибка при сбросе данных на сервере:', e);
+                        // Продолжаем сброс локальных данных даже при ошибке на сервере
+                    }
+                }
+
+                console.log('Прогресс успешно сброшен. Перезагрузка страницы...');
             } catch (e) {
                 console.error('Ошибка при сбросе прогресса:', e);
             }
 
+            // 5. Перезагружаем страницу для применения изменений
             window.location.reload();
         }
     }
