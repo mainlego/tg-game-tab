@@ -15,9 +15,9 @@ const DEBUG = import.meta.env.MODE === 'development'; // Включаем отл
 async function request(url, method = 'GET', data = null, options = {}) {
     // Формируем полный URL
     const fullUrl = url.startsWith('http') ? url : `${API_URL}${url}`;
-    console.log(`[DEBUG] Полный URL: ${fullUrl}`);
-    if (data) {
-        console.log('Данные запроса:', data);
+
+    if (DEBUG) {
+        console.log(`[DEBUG] Полный URL: ${fullUrl}`);
     }
 
     // Настройки запроса
@@ -28,23 +28,31 @@ async function request(url, method = 'GET', data = null, options = {}) {
             'Accept': 'application/json',
             ...options.headers
         },
-
-        // Убираем credentials: 'include', так как это вызывает проблемы с CORS
-        // credentials: 'include',
         ...options
-
     };
 
     // Добавляем тело запроса для методов не-GET
     if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
-        fetchOptions.body = JSON.stringify(data);
+        // Проверяем данные на возможность сериализации
+        try {
+            fetchOptions.body = JSON.stringify(data);
+        } catch (serializeError) {
+            console.error('Ошибка сериализации данных для отправки:', serializeError);
+            throw new Error('Невозможно сериализовать данные для отправки на сервер');
+        }
     }
 
     // Логирование в режиме разработки
     if (DEBUG) {
         console.log(`📡 API Request: ${method} ${url}`);
         console.log('Options:', fetchOptions);
-        if (data) console.log('Data:', data);
+        if (data) {
+            console.log('Data:',
+                JSON.stringify(data).length > 1000 ?
+                    'Большой объект данных...' :
+                    data
+            );
+        }
     }
 
     try {
@@ -55,15 +63,16 @@ async function request(url, method = 'GET', data = null, options = {}) {
 
         // Выполняем запрос
         const response = await fetch(fullUrl, fetchOptions);
-        console.log(`Статус ответа: ${response.status}`);
-        console.log('Заголовки ответа:', Object.fromEntries([...response.headers]));
+
+        if (DEBUG) {
+            console.log(`Статус ответа: ${response.status}`);
+        }
 
         // Получаем текст ответа
         const responseText = await response.text();
-        console.log('Текст ответа (первые 1000 символов):', responseText.slice(0, 1000));
 
-        // Если ответ пустой, возвращаем успех без данных
-        if (!responseText) {
+        // Если ответ пустой и статус успешный
+        if (!responseText && response.status >= 200 && response.status < 300) {
             return { success: true };
         }
 
@@ -77,12 +86,17 @@ async function request(url, method = 'GET', data = null, options = {}) {
                 throw new Error(errorMessage);
             }
 
-            return result; // Возвращаем весь результат
+            return result;
         } catch (jsonError) {
             console.error('Ошибка разбора JSON:', jsonError);
+
+            // Если ответ не JSON, но статус успешный
+            if (response.ok) {
+                return { success: true, rawText: responseText };
+            }
+
             throw new Error(`Ошибка разбора ответа сервера: ${jsonError.message}`);
         }
-
     } catch (error) {
         // Обработка ошибок
         if (DEBUG) {
@@ -98,7 +112,7 @@ async function request(url, method = 'GET', data = null, options = {}) {
 
         // Сохраняем оригинальную ошибку и детали запроса
         userFriendlyError.originalError = error;
-        userFriendlyError.request = { url, method, data };
+        userFriendlyError.request = { url, method };
 
         throw userFriendlyError;
     }
@@ -108,6 +122,9 @@ async function request(url, method = 'GET', data = null, options = {}) {
  * Сервис для работы с API
  */
 export const ApiService = {
+    // Экспортируем API_URL для использования в других местах
+    API_URL,
+
     // УТИЛИТЫ
     // =======
 
@@ -159,13 +176,154 @@ export const ApiService = {
     },
 
     /**
-     * Обновление данных пользователя
+     * Безопасное обновление данных пользователя
      * @param {string} userId - ID пользователя
      * @param {Object} userData - данные для обновления
      * @returns {Promise<Object>} - обновленные данные пользователя
      */
     async updateUser(userId, userData) {
-        return request(`/api/admin/users/${userId}`, 'PUT', userData);
+        try {
+            if (!userId) {
+                throw new Error("ID пользователя не может быть пустым");
+            }
+
+            // Создаем безопасную копию данных, исключая проблемные поля
+            const safeData = this.prepareSafeUserData(userData);
+
+            // Вызываем API
+            const result = await request(`/api/admin/users/${userId}`, 'PUT', safeData);
+            return result;
+        } catch (error) {
+            console.error(`Ошибка обновления пользователя ${userId}:`, error);
+            throw error;
+        }
+    },
+
+    /**
+     * Подготовка безопасных данных для обновления пользователя
+     * @param {Object} userData - исходные данные пользователя
+     * @returns {Object} - безопасные данные для отправки
+     */
+    prepareSafeUserData(userData) {
+        // Создаем пустой объект для безопасных данных
+        const safeData = {};
+
+        // Копируем все поля кроме gameData (его обработаем отдельно)
+        Object.entries(userData).forEach(([key, value]) => {
+            if (key !== 'gameData') {
+                safeData[key] = value;
+            }
+        });
+
+        // Если есть gameData, обрабатываем его безопасно
+        if (userData.gameData) {
+            safeData.gameData = {};
+
+            // Основные поля
+            if (userData.gameData.balance !== undefined) {
+                safeData.gameData.balance = Number(userData.gameData.balance);
+            }
+
+            if (userData.gameData.passiveIncome !== undefined) {
+                safeData.gameData.passiveIncome = Number(userData.gameData.passiveIncome);
+            }
+
+            if (userData.gameData.tutorialCompleted !== undefined) {
+                safeData.gameData.tutorialCompleted = Boolean(userData.gameData.tutorialCompleted);
+            }
+
+            // Энергия
+            if (userData.gameData.energy) {
+                safeData.gameData.energy = {
+                    current: Number(userData.gameData.energy.current) || 0,
+                    max: Number(userData.gameData.energy.max) || 100,
+                    regenRate: Number(userData.gameData.energy.regenRate) || 1,
+                    lastRegenTime: Number(userData.gameData.energy.lastRegenTime) || Date.now()
+                };
+            }
+
+            // Уровень
+            if (userData.gameData.level) {
+                safeData.gameData.level = {
+                    current: Number(userData.gameData.level.current) || 1,
+                    max: Number(userData.gameData.level.max) || 10,
+                    progress: Number(userData.gameData.level.progress) || 0,
+                    title: String(userData.gameData.level.title || 'Новичок')
+                };
+            }
+
+            // Множители
+            if (userData.gameData.multipliers) {
+                safeData.gameData.multipliers = {
+                    tapValue: Number(userData.gameData.multipliers.tapValue) || 1,
+                    tapMultiplier: Number(userData.gameData.multipliers.tapMultiplier) || 1,
+                    incomeBoost: Number(userData.gameData.multipliers.incomeBoost) || 1
+                };
+            }
+
+            // Бусты
+            if (userData.gameData.boosts) {
+                safeData.gameData.boosts = {
+                    tap3x: {
+                        active: Boolean(userData.gameData.boosts.tap3x?.active),
+                        endTime: userData.gameData.boosts.tap3x?.endTime
+                    },
+                    tap5x: {
+                        active: Boolean(userData.gameData.boosts.tap5x?.active),
+                        endTime: userData.gameData.boosts.tap5x?.endTime
+                    }
+                };
+            }
+
+            // Статистика
+            if (userData.gameData.stats) {
+                safeData.gameData.stats = {
+                    totalClicks: Number(userData.gameData.stats.totalClicks) || 0,
+                    totalEarned: Number(userData.gameData.stats.totalEarned) || 0,
+                    maxPassiveIncome: Number(userData.gameData.stats.maxPassiveIncome) || 0
+                };
+            }
+
+            // Инвестиции - особая обработка
+            if (userData.gameData.investments) {
+                safeData.gameData.investments = {
+                    // ВАЖНО: используем пустой массив вместо actual инвестиций
+                    purchased: [],
+                    activeIncome: Number(userData.gameData.investments.activeIncome) || 0,
+                    lastCalculation: new Date().toISOString()
+                };
+            }
+        }
+
+        return safeData;
+    },
+
+    /**
+     * Обновление только основных данных пользователя (облегченная версия)
+     * @param {string} userId - ID пользователя
+     * @param {Object} basicData - базовые данные для обновления
+     * @returns {Promise<Object>} - результат обновления
+     */
+    async updateUserBasics(userId, basicData) {
+        const { balance, passiveIncome, level } = basicData;
+
+        const minimalData = {
+            gameData: {
+                balance: Number(balance) || 0,
+                passiveIncome: Number(passiveIncome) || 0
+            },
+            lastLogin: new Date().toISOString()
+        };
+
+        if (level) {
+            minimalData.gameData.level = {
+                current: Number(level.current) || 1,
+                progress: Number(level.progress) || 0,
+                title: String(level.title || 'Новичок')
+            };
+        }
+
+        return request(`/api/admin/users/${userId}`, 'PUT', minimalData);
     },
 
     /**
@@ -209,21 +367,12 @@ export const ApiService = {
      * @returns {Promise<Object>} - созданный продукт
      */
     async createProduct(productData) {
-        console.log('Отправка данных продукта:', productData); // Добавьте логирование
-
-        try {
-            // Убедитесь, что contentType правильный и данные форматируются как JSON
-            const response = await request('/api/admin/products', 'POST', productData, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                }
-            });
-            return response;
-        } catch (error) {
-            console.error('Детали ошибки создания продукта:', error);
-            throw error;
-        }
+        return request('/api/admin/products', 'POST', productData, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
     },
 
     /**
@@ -405,12 +554,9 @@ export const ApiService = {
      * Получение настроек игры
      * @returns {Promise<Object>} - настройки игры
      */
-    // Настройки игры
     async getGameSettings() {
         return request('/api/settings');
     },
-
-
 
     /**
      * Обновление настроек игры

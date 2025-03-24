@@ -9,6 +9,11 @@
       </router-view>
     </div>
   </NotificationsProvider>
+
+  <button @click="resetProgress" class="bg-red-600 text-white px-4 py-2 rounded-lg">
+    Сбросить прогресс
+  </button>
+
 </template>
 
 <script setup>
@@ -19,6 +24,12 @@ import { useTelegram } from './composables/useTelegram';
 import { ApiService } from './services/apiService';
 import { GameSettingsService } from './services/GameSettingsService';
 import NotificationsProvider from './components/NotificationsProvider.vue';
+
+function resetProgress() {
+  if (confirm('Вы уверены, что хотите сбросить весь прогресс?')) {
+    game.resetState();
+  }
+}
 
 const router = useRouter();
 const store = useGameStore();

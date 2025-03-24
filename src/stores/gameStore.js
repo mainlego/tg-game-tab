@@ -187,48 +187,121 @@ export const useGameStore = defineStore('game', {
             }
         },
 
+        resetState() {
+            StorageService.clearState?.(); // если реализовано
+            localStorage.removeItem('game'); // ручная очистка
+
+            // Сброс состояния Pinia
+            this.$reset();
+
+            // Можно дополнительно перезагрузить страницу или вызвать init
+            console.log('Прогресс сброшен');
+        },
+
         async saveState() {
-            if (this.currentUser) {
-                const gameData = {
-                    balance: this.balance,
-                    passiveIncome: this.passiveIncome,
-                    energy: this.energy,
-                    level: {
-                        current: this.level.current,
-                        max: this.level.max,
-                        progress: this.level.progress,
-                        title: this.level.title,
-                        levels: this.level.levels // Убедитесь, что levels тоже сохраняется!
-                    },
-                    multipliers: this.multipliers,
-                    boosts: this.boosts,
-                    investments: this.investments,
-                    stats: this.stats
-                }
-
-                try {
-                    // Отладочное сообщение
-                    console.log('Сохраняем состояние игры:', gameData);
-
-                    // Сохраняем в localStorage
-                    StorageService.saveState({
-                        ...gameData,
-                        userId: this.currentUser,
-                        lastSaved: new Date().toISOString()
-                    })
-
-                    // Сохраняем в базу данных
-                    await ApiService.updateUser(this.currentUser, {
-                        gameData: gameData,
-                        lastUpdate: new Date()
-                    })
-
-                    console.log('Состояние успешно сохранено');
-                } catch (error) {
-                    console.error('Ошибка сохранения состояния игры:', error)
-                }
-            } else {
+            if (!this.currentUser) {
                 console.warn('Невозможно сохранить состояние: пользователь не определен');
+                return false;
+            }
+
+            const now = Date.now();
+            if (this._lastSaveTime && now - this._lastSaveTime < 2000) {
+                console.log('Сохранение пропущено: слишком частый вызов');
+                return false;
+            }
+            this._lastSaveTime = now;
+
+            const stateToSave = {
+                balance: this.balance,
+                passiveIncome: this.passiveIncome,
+                tutorialCompleted: this.tutorialCompleted,
+                energy: this.energy,
+                level: this.level,
+                multipliers: this.multipliers,
+                boosts: this.boosts,
+                investments: this.investments,
+                stats: this.stats,
+                userId: this.currentUser,
+                lastSaved: new Date().toISOString()
+            };
+
+            // Сохраняем локально
+            StorageService.saveState(stateToSave);
+
+            // Обновляем на сервере через ApiService
+            try {
+                const minimalData = {
+                    gameData: {
+                        balance: Number(this.balance) || 0,
+                        passiveIncome: Number(this.passiveIncome) || 0,
+                        level: {
+                            current: Number(this.level.current) || 1,
+                            title: String(this.level.title || 'Новичок')
+                        },
+                        investments: {
+                            purchased: this.investments?.purchased?.map(i => i.id) || [],
+                            activeIncome: Number(this.investments?.activeIncome) || 0
+                        }
+                    },
+                    lastLogin: new Date().toISOString()
+                };
+
+                await ApiService.updateUser(this.currentUser, minimalData);
+                console.log('Данные успешно обновлены на сервере');
+                return true;
+            } catch (error) {
+                console.error('Ошибка обновления данных на сервере:', error);
+                return false;
+            }
+        },
+
+
+        // Добавьте эту функцию в файл gameStore.js
+        async directSaveBasics() {
+            if (!this.currentUser) {
+                console.warn('Невозможно сохранить данные: пользователь не определен');
+                return false;
+            }
+
+            try {
+                console.log('Выполняем прямое сохранение базовых данных...');
+
+                // Супер-минимальный объект без investments
+                const basicData = {
+                    gameData: {
+                        balance: Number(this.balance) || 0,
+                        passiveIncome: Number(this.passiveIncome) || 0,
+                        level: {
+                            current: Number(this.level.current) || 1,
+                            progress: Number(this.level.progress) || 0,
+                            title: String(this.level.title || 'Новичок')
+                        },
+                        // Важно: НЕ включаем investments вообще
+                    },
+                    lastLogin: new Date().toISOString()
+                };
+
+                // Прямой запрос к серверу, минуя ApiService
+                const response = await fetch('https://tg-game-tab-server.onrender.com/api/admin/users/' + this.currentUser, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(basicData)
+                });
+
+                // Проверяем ответ
+                if (response.ok) {
+                    console.log('Базовые данные успешно сохранены через прямой запрос');
+                    return true;
+                } else {
+                    const errorText = await response.text();
+                    console.error('Ошибка прямого сохранения:', errorText);
+                    return false;
+                }
+            } catch (error) {
+                console.error('Критическая ошибка при прямом сохранении:', error);
+                return false;
             }
         },
 
@@ -362,12 +435,14 @@ export const useGameStore = defineStore('game', {
                 this.balance += (incomePerSecond / 10);
 
                 // Периодически обновляем уровень, но не каждый тик для производительности
-                // Обновляем каждую секунду (каждые 10 тиков)
-                if (Math.floor(previousBalance / 10) !== Math.floor(this.balance / 10)) {
+                // Обновляем каждые 5 секунд или при значительном изменении баланса
+                const now = Date.now();
+                if (!this._lastPassiveUpdate ||
+                    now - this._lastPassiveUpdate > 5000 ||
+                    Math.abs(this.balance - previousBalance) > 1000) {
+
                     this.updateLevel();
-                } else {
-                    // Сохраняем состояние, даже если уровень не обновился
-                    this.saveState();
+                    this._lastPassiveUpdate = now;
                 }
             }
         },
@@ -545,74 +620,111 @@ export const useGameStore = defineStore('game', {
         // Проблема может быть здесь, в методе updateLevel
         // Улучшенный метод updateLevel для gameStore.js
         updateLevel() {
-            // Проверка на наличие данных об уровнях
-            if (!this.level.levels || this.level.levels.length === 0) {
-                console.error('Отсутствуют данные об уровнях, невозможно обновить уровень');
-                this.level.progress = 0; // Сбрасываем прогресс в случае ошибки
-                return;
-            }
-
-            console.log(`[updateLevel] Начато обновление уровня. Пассивный доход: ${this.passiveIncome}`);
-
-            // Устанавливаем максимальный уровень
-            this.level.max = this.level.levels.length;
-
-            // Определяем текущий уровень на основе пассивного дохода
-            let newLevel = 1;
-            let currentLevelIndex = 0;
-
-            for (let i = 0; i < this.level.levels.length; i++) {
-                if (this.passiveIncome >= this.level.levels[i].income) {
-                    newLevel = i + 1;
-                    currentLevelIndex = i;
-                } else {
-                    // Прерываем цикл, как только найден первый непройденный порог
-                    break;
+            try {
+                // Проверка на наличие данных об уровнях
+                if (!this.level.levels || !Array.isArray(this.level.levels) || this.level.levels.length === 0) {
+                    console.warn('Отсутствуют данные об уровнях или некорректный формат, невозможно обновить уровень');
+                    this.level.progress = 0; // Сбрасываем прогресс в случае ошибки
+                    return;
                 }
-            }
 
-            // Обновляем текущий уровень и заголовок, если уровень изменился
-            if (newLevel !== this.level.current) {
-                console.log(`[updateLevel] Уровень изменен: ${this.level.current} -> ${newLevel} (${this.level.levels[currentLevelIndex].title})`);
-                this.level.current = newLevel;
-                this.level.title = this.level.levels[currentLevelIndex].title;
-            }
+                console.log(`[updateLevel] Начато обновление уровня. Пассивный доход: ${this.passiveIncome}`);
 
-            // Расчет прогресса до следующего уровня
-            // Если это не максимальный уровень
-            if (newLevel < this.level.levels.length) {
-                const currentThreshold = this.level.levels[currentLevelIndex].income;
-                const nextThreshold = this.level.levels[currentLevelIndex + 1].income;
-                const range = nextThreshold - currentThreshold;
+                // Устанавливаем максимальный уровень
+                this.level.max = this.level.levels.length;
 
-                console.log(`[updateLevel] Расчет прогресса: доход ${this.passiveIncome}, порог текущего уровня ${currentThreshold}, порог следующего уровня ${nextThreshold}`);
+                // Определяем текущий уровень на основе пассивного дохода
+                let newLevel = 1;
+                let currentLevelIndex = 0;
 
-                // Проверка на корректность порогов
-                if (range <= 0) {
-                    console.warn('[updateLevel] Ошибка в порогах уровней: текущий >= следующий');
+                // Перебираем все уровни и находим последний, требования которого выполнены
+                for (let i = 0; i < this.level.levels.length; i++) {
+                    // Защита от некорректных данных
+                    if (!this.level.levels[i] || typeof this.level.levels[i].income !== 'number') {
+                        console.warn(`[updateLevel] Некорректные данные уровня ${i+1}:`, this.level.levels[i]);
+                        continue;
+                    }
+
+                    if (this.passiveIncome >= this.level.levels[i].income) {
+                        newLevel = i + 1;
+                        currentLevelIndex = i;
+                    } else {
+                        // Прерываем цикл, как только найден первый непройденный порог
+                        break;
+                    }
+                }
+
+                // Обновляем текущий уровень и заголовок, если уровень изменился
+                if (newLevel !== this.level.current) {
+                    console.log(`[updateLevel] Уровень изменен: ${this.level.current} -> ${newLevel} (${this.level.levels[currentLevelIndex].title})`);
+                    this.level.current = newLevel;
+
+                    // Проверка наличия заголовка
+                    if (this.level.levels[currentLevelIndex] && this.level.levels[currentLevelIndex].title) {
+                        this.level.title = this.level.levels[currentLevelIndex].title;
+                    } else {
+                        this.level.title = `Уровень ${newLevel}`;
+                    }
+                }
+
+                // Расчет прогресса до следующего уровня
+                // Если это не максимальный уровень
+                if (newLevel < this.level.levels.length) {
+                    // Защита от выхода за границы массива
+                    if (currentLevelIndex >= 0 && currentLevelIndex + 1 < this.level.levels.length) {
+                        const currentThreshold = this.level.levels[currentLevelIndex].income;
+                        const nextThreshold = this.level.levels[currentLevelIndex + 1].income;
+                        const range = nextThreshold - currentThreshold;
+
+                        console.log(`[updateLevel] Расчет прогресса: доход ${this.passiveIncome}, порог текущего уровня ${currentThreshold}, порог следующего уровня ${nextThreshold}`);
+
+                        // Проверка на корректность порогов
+                        if (range <= 0) {
+                            console.warn('[updateLevel] Ошибка в порогах уровней: текущий >= следующий');
+                            this.level.progress = 0;
+                        } else {
+                            // Расчет процента прогресса
+                            const rawProgress = ((this.passiveIncome - currentThreshold) / range) * 100;
+                            // Ограничиваем значение от 0 до 100
+                            this.level.progress = Math.min(Math.max(rawProgress, 0), 100);
+                            console.log(`[updateLevel] Рассчитанный прогресс: ${this.level.progress.toFixed(2)}%`);
+                        }
+                    } else {
+                        console.warn('[updateLevel] Индекс уровня вне диапазона:', currentLevelIndex);
+                        this.level.progress = 0;
+                    }
+                } else {
+                    // Если достигнут максимальный уровень
+                    this.level.progress = 100;
+                    console.log('[updateLevel] Достигнут максимальный уровень, прогресс установлен на 100%');
+                }
+
+                // Гарантируем, что прогресс - валидное число
+                if (isNaN(this.level.progress) || this.level.progress === undefined) {
+                    console.warn('[updateLevel] Прогресс имеет невалидное значение, сбрасываем на 0');
                     this.level.progress = 0;
-                } else {
-                    // Расчет процента прогресса
-                    const rawProgress = ((this.passiveIncome - currentThreshold) / range) * 100;
-                    // Ограничиваем значение от 0 до 100
-                    this.level.progress = Math.min(Math.max(rawProgress, 0), 100);
-                    console.log(`[updateLevel] Рассчитанный прогресс: ${this.level.progress.toFixed(2)}%`);
                 }
-            } else {
-                // Если достигнут максимальный уровень
-                this.level.progress = 100;
-                console.log('[updateLevel] Достигнут максимальный уровень, прогресс установлен на 100%');
-            }
 
-            // Гарантируем, что прогресс - валидное число
-            if (isNaN(this.level.progress) || this.level.progress === undefined) {
-                console.warn('[updateLevel] Прогресс имеет невалидное значение, сбрасываем на 0');
-                this.level.progress = 0;
+                // Сохраняем обновленное состояние, но с ограничением частоты вызовов
+                // Для обновления уровня используем отдельный таймер, чтобы не конфликтовать с другими saveState вызовами
+                const now = Date.now();
+                if (!this._lastLevelUpdateSave || now - this._lastLevelUpdateSave > 3000) {
+                    console.log(`[updateLevel] Сохраняем состояние: уровень ${this.level.current}, прогресс ${this.level.progress}%`);
+                    this._lastLevelUpdateSave = now;
+                    this.saveState();
+                } else {
+                    console.log(`[updateLevel] Пропускаем сохранение из-за частых вызовов`);
+                }
+            } catch (error) {
+                console.error('[updateLevel] Ошибка при обновлении уровня:', error);
+                // Пытаемся восстановить корректное состояние
+                if (!this.level.current || isNaN(this.level.current)) {
+                    this.level.current = 1;
+                }
+                if (!this.level.progress || isNaN(this.level.progress)) {
+                    this.level.progress = 0;
+                }
             }
-
-            // Сохраняем обновленное состояние
-            console.log(`[updateLevel] Финальное состояние: уровень ${this.level.current}, прогресс ${this.level.progress}%`);
-            this.saveState();
         },
 
 
