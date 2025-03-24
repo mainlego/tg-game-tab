@@ -210,7 +210,7 @@ export const useGameStore = defineStore('game', {
             }
             this._lastSaveTime = now;
 
-            // Создаем упрощенную структуру для сохранения
+            // Создаем упрощенную структуру для сохранения в БД
             const minimalData = {
                 gameData: {
                     balance: Number(this.balance) || 0,
@@ -220,12 +220,6 @@ export const useGameStore = defineStore('game', {
                         progress: Number(this.level.progress) || 0,
                         title: String(this.level.title || 'Новичок')
                     },
-                    // Отключаем сохранение инвестиций при каждом обновлении
-                    // investments: {
-                    //   purchased: [], // Не сохраняем при частых обновлениях
-                    //   activeIncome: Number(this.investments?.activeIncome) || 0,
-                    //   lastCalculation: now
-                    // },
                     // Включаем важные статистические данные
                     stats: {
                         totalClicks: Number(this.stats.totalClicks) || 0,
@@ -235,7 +229,40 @@ export const useGameStore = defineStore('game', {
                 lastLogin: new Date().toISOString()
             };
 
-            // Сохраняем только самое необходимое
+            // Создаем более полную структуру для localStorage
+            const localStorageData = {
+                balance: Number(this.balance) || 0,
+                passiveIncome: Number(this.passiveIncome) || 0,
+                energy: {
+                    current: Number(this.energy.current) || 0,
+                    max: Number(this.energy.max) || 1000,
+                    regenRate: Number(this.energy.regenRate) || 1,
+                    lastRegenTime: Number(this.energy.lastRegenTime) || Date.now()
+                },
+                level: {
+                    current: Number(this.level.current) || 1,
+                    max: Number(this.level.max) || 10,
+                    progress: Number(this.level.progress) || 0,
+                    title: String(this.level.title || 'Новичок'),
+                    levels: this.level.levels || []
+                },
+                multipliers: this.multipliers,
+                boosts: this.boosts,
+                investments: {
+                    purchased: this.investments.purchased,
+                    activeIncome: Number(this.investments.activeIncome) || 0,
+                    lastCalculation: Date.now()
+                },
+                stats: this.stats,
+                userId: this.currentUser,
+                lastSaved: new Date().toISOString()
+            };
+
+            // Сначала сохраняем в localStorage для обеспечения оффлайн доступа
+            const localSaved = StorageService.saveState(localStorageData);
+            console.log('Сохранение в localStorage:', localSaved ? 'успешно' : 'ошибка');
+
+            // Затем отправляем данные на сервер
             try {
                 // Используем прямой подход для простоты отладки
                 const API_URL = 'https://tg-game-tab-server.onrender.com';
@@ -248,15 +275,37 @@ export const useGameStore = defineStore('game', {
                 });
 
                 if (response.ok) {
-                    console.log('Базовые данные успешно сохранены');
+                    console.log('Данные успешно сохранены в БД');
+
+                    // Проверка, что данные действительно сохранились в localStorage
+                    const checkSaved = StorageService.loadState();
+                    if (checkSaved) {
+                        console.log('Проверка localStorage после сохранения: баланс =',
+                            checkSaved.balance, 'пассивный доход =', checkSaved.passiveIncome);
+                    } else {
+                        console.warn('После сохранения данные в localStorage не обнаружены!');
+                    }
+
                     return true;
                 } else {
                     const errorText = await response.text();
-                    console.error('Ошибка сохранения:', errorText);
+                    console.error('Ошибка сохранения в БД:', errorText);
+
+                    // Даже если сохранение в БД не удалось, данные в localStorage должны сохраниться
                     return false;
                 }
             } catch (error) {
-                console.error('Критическая ошибка при сохранении:', error);
+                console.error('Критическая ошибка при сохранении в БД:', error);
+
+                // Логируем состояние localStorage даже при ошибке
+                try {
+                    const checkSaved = StorageService.loadState();
+                    console.log('После ошибки сохранения в БД, данные в localStorage:',
+                        checkSaved ? 'присутствуют' : 'отсутствуют');
+                } catch (e) {
+                    console.error('Ошибка при проверке localStorage:', e);
+                }
+
                 return false;
             }
         },
