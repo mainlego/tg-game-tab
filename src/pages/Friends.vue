@@ -249,7 +249,8 @@ watch(() => user.value, (newUser) => {
 .friends-container {
   margin-top: 20px;
   overflow: scroll;
-  height: 60vh;
+  height: 70vh;
+  padding-bottom: 180px;
 }
 
 .friends-title {

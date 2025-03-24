@@ -22,7 +22,7 @@
       </div>
 
       <!-- Сетка инвестиций -->
-      <div class="grid-scroll">
+
         <div class="investment-grid">
           <div
               v-for="investment in currentInvestments"
@@ -56,7 +56,7 @@
             </div>
           </div>
         </div>
-      </div>
+
     </div>
     </div>
 
@@ -193,6 +193,7 @@ const formatMoney = (num) => {
 .investments-container {
   margin-top: 20px;
   height: 100vh;
+  overflow: scroll;
 }
 
 .investment-tabs {
@@ -221,15 +222,15 @@ const formatMoney = (num) => {
   background: var(--primary-color);
 }
 
-.grid-scroll {
-  height: 70vh;
-  overflow: scroll;
-}
 
 .investment-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
+  max-height: 50vh;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  padding-bottom: 100px;
 }
 
 .investment-card {
@@ -355,6 +356,7 @@ const formatMoney = (num) => {
   border-radius: 40px 40px 0 0;
   background: url("../../images/bg.jpg");
   margin-top: 20px;
+
 }
 
 
