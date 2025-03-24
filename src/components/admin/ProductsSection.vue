@@ -10,6 +10,57 @@
 
     <div class="section-content">
       <div class="products-layout">
+
+        <!-- Статистика по продуктам -->
+        <BaseCard class="products-stats">
+          <h3>Статистика продуктов</h3>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value">{{ products.length }}</div>
+              <div class="stat-label">Всего продуктов</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">{{ activeProductsCount }}</div>
+              <div class="stat-label">Активных продуктов</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">{{ totalClaims }}</div>
+              <div class="stat-label">Общее количество заявок</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">{{ pendingClaims }}</div>
+              <div class="stat-label">Ожидающих обработки</div>
+            </div>
+          </div>
+
+          <div class="recent-claims" v-if="recentClaims.length > 0">
+            <h4>Последние заявки</h4>
+            <div class="claim-item" v-for="claim in recentClaims" :key="claim.id">
+              <div class="claim-user">{{ claim.userData?.first_name || 'Пользователь' }}</div>
+              <div class="claim-product">{{ claim.product?.name || 'Продукт' }}</div>
+              <div class="claim-date">{{ formatDate(claim.createdAt) }}</div>
+              <div class="claim-status">
+                <select
+                    v-model="claim.status"
+                    @change="updateClaimStatus(claim)"
+                    class="status-select"
+                    :class="getClaimStatusClass(claim.status)"
+                >
+                  <option value="pending">В обработке</option>
+                  <option value="processing">Обрабатывается</option>
+                  <option value="completed">Выполнено</option>
+                  <option value="cancelled">Отменено</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div v-else class="no-claims">
+            <p>Нет свежих заявок</p>
+          </div>
+        </BaseCard>
+
+
         <!-- Список продуктов -->
         <BaseCard class="products-list">
           <div class="list-header">
@@ -84,54 +135,7 @@
           </div>
         </BaseCard>
 
-        <!-- Статистика по продуктам -->
-        <BaseCard class="products-stats">
-          <h3>Статистика продуктов</h3>
 
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-value">{{ products.length }}</div>
-              <div class="stat-label">Всего продуктов</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">{{ activeProductsCount }}</div>
-              <div class="stat-label">Активных продуктов</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">{{ totalClaims }}</div>
-              <div class="stat-label">Общее количество заявок</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">{{ pendingClaims }}</div>
-              <div class="stat-label">Ожидающих обработки</div>
-            </div>
-          </div>
-
-          <div class="recent-claims" v-if="recentClaims.length > 0">
-            <h4>Последние заявки</h4>
-            <div class="claim-item" v-for="claim in recentClaims" :key="claim.id">
-              <div class="claim-user">{{ claim.userData?.first_name || 'Пользователь' }}</div>
-              <div class="claim-product">{{ claim.product?.name || 'Продукт' }}</div>
-              <div class="claim-date">{{ formatDate(claim.createdAt) }}</div>
-              <div class="claim-status">
-                <select
-                    v-model="claim.status"
-                    @change="updateClaimStatus(claim)"
-                    class="status-select"
-                    :class="getClaimStatusClass(claim.status)"
-                >
-                  <option value="pending">В обработке</option>
-                  <option value="processing">Обрабатывается</option>
-                  <option value="completed">Выполнено</option>
-                  <option value="cancelled">Отменено</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <div v-else class="no-claims">
-            <p>Нет свежих заявок</p>
-          </div>
-        </BaseCard>
       </div>
     </div>
 
@@ -768,10 +772,9 @@ onMounted(async () => {
 /* Общие стили для секции */
 .section-container {
   width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+
 }
 
 .section-header {
@@ -786,8 +789,9 @@ onMounted(async () => {
 
 .section-content {
   flex-grow: 1;
-  overflow-y: auto;
   padding-bottom: 20px;
+  max-height: 90vh;
+  overflow-y: scroll;
 }
 
 /* Стили для скроллбара */
@@ -812,7 +816,7 @@ onMounted(async () => {
 /* Специфичные стили для ProductsSection */
 .products-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: auto;
   gap: 20px;
   height: 100%;
 }

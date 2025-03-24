@@ -163,6 +163,8 @@ html, body {
 
 .app {
   min-height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   background: url('@/assets/images/bg.jpg') center top no-repeat;
   background-attachment: fixed;
   background-size: cover;

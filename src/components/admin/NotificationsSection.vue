@@ -551,7 +551,7 @@ onMounted(async () => {
 
 .notifications-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: auto;
   gap: 20px;
   height: 80vh;
   overflow: auto;

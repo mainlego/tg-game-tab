@@ -7,6 +7,7 @@
     <EnergyBar />
     <Navigation />
   </div>
+
 </template>
 
 <script setup>
@@ -24,4 +25,5 @@ import Navigation from '@/components/layout/Navigation.vue'
   display: flex;
   flex-direction: column;
 }
+
 </style>

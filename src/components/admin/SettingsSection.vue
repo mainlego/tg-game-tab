@@ -1,5 +1,6 @@
 <!-- src/components/admin/SettingsSection.vue -->
 <template>
+  <div class="section-container">
   <div class="settings-section">
     <div class="section-header">
       <h2>Настройки игры</h2>
@@ -174,6 +175,7 @@
         </div>
       </BaseCard>
     </div>
+  </div>
   </div>
 </template>
 
@@ -391,8 +393,12 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+
+
 .settings-section {
   padding: 20px;
+  max-height: 90vh;
+  overflow-y: scroll;
 }
 
 .section-header {
@@ -406,6 +412,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+
 }
 
 .settings-grid {

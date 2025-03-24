@@ -561,10 +561,11 @@ onMounted(async () => {
 /* Общие стили для секции */
 .section-container {
   width: 100%;
-  height: 100%;
+  max-height: 90vh;
+  overflow-y: scroll;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+
 }
 
 .section-header {
@@ -579,8 +580,8 @@ onMounted(async () => {
 
 .section-content {
   flex-grow: 1;
-  overflow-y: auto;
   padding-bottom: 20px;
+
 }
 
 /* Стили для скроллбара */

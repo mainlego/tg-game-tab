@@ -170,10 +170,11 @@ onMounted(async () => {
 <style scoped>
 .section-container {
   width: 100%;
-  height: 100%;
+  max-height: 95%;
+  overflow-y: scroll;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+
 }
 
 .section-header {

@@ -1,10 +1,16 @@
-<!-- src/pages/Admin.vue -->
+<!-- src/pages/Admin.vue с улучшенным логотипом -->
 <template>
   <div class="admin-page">
     <!-- Сайдбар с навигацией -->
     <div class="admin-sidebar" :class="{ 'admin-sidebar--open': isSidebarOpen }">
       <div class="admin-logo">
-        <h2>Admin Panel</h2>
+        <div class="logo-container">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+            <path d="M12 9l-3 3 3 3 3-3-3-3z"/>
+          </svg>
+          <h2 class="logo-text">Admin<span>Panel</span></h2>
+        </div>
         <button class="sidebar-toggle" @click="toggleSidebar">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M6 18L18 6M6 6l12 12"/>
@@ -18,7 +24,38 @@
             :class="['nav-button', { active: currentTab === tab.id }]"
             @click="switchTab(tab.id)"
         >
-          {{ tab.name }}
+          <!-- Иконка будет здесь -->
+          <span class="nav-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <template v-if="tab.id === 'users'">
+                <!-- Иконка пользователей -->
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </template>
+              <template v-else-if="tab.id === 'tasks'">
+                <!-- Иконка заданий -->
+                <path d="M9 11l3 3L22 4"></path>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </template>
+              <template v-else-if="tab.id === 'products'">
+                <!-- Иконка продуктов -->
+                <circle cx="9" cy="21" r="1"></circle>
+                <circle cx="20" cy="21" r="1"></circle>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+              </template>
+              <template v-else-if="tab.id === 'notifications'">
+                <!-- Иконка уведомлений -->
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </template>
+              <template v-else-if="tab.id === 'settings'">
+                <!-- Иконка настроек -->
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </template>
+            </svg>
+          </span>
+          <span class="nav-text">{{ tab.name }}</span>
         </button>
       </nav>
     </div>
@@ -170,9 +207,46 @@ const handleResize = () => {
   border-bottom: 1px solid #333;
 }
 
-.admin-logo h2 {
+/* Стили для логотипа */
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-text {
   margin: 0;
   font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #8C60E3, #5cbdff);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  position: relative;
+  letter-spacing: 0.5px;
+}
+
+.logo-text span {
+  background: linear-gradient(90deg, #5cbdff, #8C60E3);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 400;
+}
+
+.logo-container svg {
+  filter: drop-shadow(0 0 5px rgba(140, 96, 227, 0.7));
+  stroke: url(#gradient);
+  animation: pulse 2s infinite alternate;
+}
+
+@keyframes pulse {
+  from {
+    filter: drop-shadow(0 0 2px rgba(140, 96, 227, 0.7));
+  }
+  to {
+    filter: drop-shadow(0 0 8px rgba(92, 189, 255, 0.9));
+  }
 }
 
 .admin-nav {
@@ -182,6 +256,8 @@ const handleResize = () => {
 }
 
 .nav-button {
+  display: flex;
+  align-items: center;
   padding: 12px;
   background: none;
   border: none;
@@ -199,6 +275,20 @@ const handleResize = () => {
 
 .nav-button.active {
   background: var(--primary-color, #8C60E3);
+  box-shadow: 0 4px 12px rgba(140, 96, 227, 0.3);
+}
+
+.nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  width: 24px;
+  height: 24px;
+}
+
+.nav-text {
+  flex: 1;
 }
 
 .sidebar-toggle {
@@ -236,6 +326,8 @@ const handleResize = () => {
 
   .admin-content {
     margin-left: 0;
+    overflow-y: auto;
+    max-height: 100vh;
     padding-top: 80px; /* Отступ для мобильного заголовка */
   }
 }

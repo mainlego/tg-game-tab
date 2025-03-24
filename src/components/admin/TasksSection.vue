@@ -1,223 +1,279 @@
-<!-- src/components/admin/TasksSection.vue -->
-<template>
-  <div class="tasks-section">
-    <div class="section-header">
-      <h2>Управление заданиями</h2>
-      <BaseButton type="primary" @click="openTaskModal()">
-        Создать задание
-      </BaseButton>
-    </div>
-
-    <div class="tasks-layout">
-      <!-- Список заданий -->
-      <BaseCard class="tasks-list">
-        <div class="list-header">
-          <h3>Список заданий</h3>
-          <div class="filter-controls">
-            <select v-model="filterType" class="form-input">
-              <option value="all">Все типы</option>
-              <option value="daily">Ежедневные</option>
-              <option value="achievement">Достижения</option>
-              <option value="special">Особые</option>
-            </select>
-            <select v-model="filterStatus" class="form-input">
-              <option value="all">Все статусы</option>
-              <option value="active">Активные</option>
-              <option value="inactive">Неактивные</option>
-            </select>
-          </div>
+  <!-- src/components/admin/TasksSection.vue - исправленный вывод заданий -->
+    <template>
+      <div class="section-container">
+      <div class="tasks-section">
+        <div class="section-header">
+          <h2>Управление заданиями</h2>
+          <BaseButton type="primary" @click="openTaskModal()">
+            Создать задание
+          </BaseButton>
         </div>
 
-        <LoadingSpinner v-if="loading" />
+        <div class="tasks-layout">
 
-        <div v-else-if="filteredTasks.length === 0" class="empty-list">
-          <p>Задания не найдены</p>
-        </div>
+          <!-- Статистика заданий -->
+          <BaseCard class="tasks-stats">
+            <h3>Статистика заданий</h3>
 
-        <div v-else class="tasks-table">
-          <table>
-            <thead>
-            <tr>
-              <th>Название</th>
-              <th>Тип</th>
-              <th>Награда</th>
-              <th>Требования</th>
-              <th>Выполнено</th>
-              <th>Статус</th>
-              <th>Действия</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr v-for="task in filteredTasks" :key="task.id">
-              <td>{{ task.title }}</td>
-              <td>{{ getTaskType(task.type) }}</td>
-              <td>{{ formatMoney(task.reward) }}</td>
-              <td>
-                <div v-if="task.requirements?.level">Уровень: {{ task.requirements.level }}+</div>
-                <div v-if="task.requirements?.income">Доход: {{ formatMoney(task.requirements.income) }}+</div>
-              </td>
-              <td>{{ task.completions || 0 }}</td>
-              <td>
-                  <span :class="['status-badge', task.active ? 'active' : 'inactive']">
-                    {{ task.active ? 'Активно' : 'Неактивно' }}
-                  </span>
-              </td>
-              <td class="actions">
-                <button class="action-btn edit" @click="openTaskModal(task)">
-                  <i class="fas fa-edit"></i>
-                </button>
-                <button class="action-btn delete" @click="deleteTask(task)">
-                  <i class="fas fa-trash"></i>
-                </button>
-                <button
-                    class="action-btn toggle"
-                    @click="toggleTaskStatus(task)"
-                    :title="task.active ? 'Деактивировать' : 'Активировать'"
-                >
-                  <i :class="task.active ? 'fas fa-times-circle' : 'fas fa-check-circle'"></i>
-                </button>
-              </td>
-            </tr>
-            </tbody>
-          </table>
-        </div>
-      </BaseCard>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value">{{ tasks.length }}</div>
+                <div class="stat-label">Всего заданий</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">{{ activeTasks }}</div>
+                <div class="stat-label">Активных заданий</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">{{ totalCompletions }}</div>
+                <div class="stat-label">Всего выполнений</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">{{ formatMoney(totalRewards) }}</div>
+                <div class="stat-label">Выдано наград</div>
+              </div>
+            </div>
 
-      <!-- Статистика заданий -->
-      <BaseCard class="tasks-stats">
-        <h3>Статистика заданий</h3>
-
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value">{{ tasks.length }}</div>
-            <div class="stat-label">Всего заданий</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">{{ activeTasks }}</div>
-            <div class="stat-label">Активных заданий</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">{{ totalCompletions }}</div>
-            <div class="stat-label">Всего выполнений</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">{{ totalRewards }}</div>
-            <div class="stat-label">Выдано наград</div>
-          </div>
-        </div>
-
-        <div class="task-type-chart">
-          <h4>Распределение по типам</h4>
-          <div class="type-bars">
-            <div
-                v-for="(count, type) in typeCounts"
-                :key="type"
-                class="type-bar"
-                :style="{
+            <div class="task-type-chart">
+              <h4>Распределение по типам</h4>
+              <div class="type-bars">
+                <div
+                    v-for="(count, type) in typeCounts"
+                    :key="type"
+                    class="type-bar"
+                    :style="{
                 width: `${(count / tasks.length) * 100}%`,
                 backgroundColor: getTypeColor(type)
               }"
-            >
-              <span class="type-name">{{ getTaskType(type) }}</span>
-              <span class="type-count">{{ count }}</span>
+                >
+                  <span class="type-name">{{ getTaskType(type) }}</span>
+                  <span class="type-count">{{ count }}</span>
+                </div>
+              </div>
             </div>
-          </div>
+          </BaseCard>
+
+          <!-- Список заданий -->
+          <BaseCard class="tasks-list">
+            <div class="list-header">
+              <h3>Список заданий</h3>
+              <div class="filter-controls">
+                <select v-model="filterType" class="form-input">
+                  <option value="all">Все типы</option>
+                  <option value="daily">Ежедневные</option>
+                  <option value="achievement">Достижения</option>
+                  <option value="special">Особые</option>
+                </select>
+                <select v-model="filterStatus" class="form-input">
+                  <option value="all">Все статусы</option>
+                  <option value="active">Активные</option>
+                  <option value="inactive">Неактивные</option>
+                </select>
+              </div>
+            </div>
+
+            <LoadingSpinner v-if="loading" />
+
+            <div v-else-if="filteredTasks.length === 0" class="empty-list">
+              <p>Задания не найдены</p>
+            </div>
+
+            <div v-else>
+              <!-- Таблица для десктопа -->
+              <div class="tasks-table desktop-only">
+                <table>
+                  <thead>
+                  <tr>
+                    <th>Название</th>
+                    <th>Тип</th>
+                    <th>Награда</th>
+                    <th>Требования</th>
+                    <th>Выполнено</th>
+                    <th>Статус</th>
+                    <th>Действия</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                  <tr v-for="task in filteredTasks" :key="'table-'+task.id">
+                    <td>{{ task.title }}</td>
+                    <td>{{ getTaskType(task.type) }}</td>
+                    <td>{{ formatMoney(task.reward) }}</td>
+                    <td>
+                      <div v-if="task.requirements?.level">Уровень: {{ task.requirements.level }}+</div>
+                      <div v-if="task.requirements?.income">Доход: {{ formatMoney(task.requirements.income) }}+</div>
+                    </td>
+                    <td>{{ task.completions || 0 }}</td>
+                    <td>
+                  <span :class="['status-badge', task.active ? 'active' : 'inactive']">
+                    {{ task.active ? 'Активно' : 'Неактивно' }}
+                  </span>
+                    </td>
+                    <td class="actions">
+                      <button class="action-btn edit" @click="openTaskModal(task)">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <button class="action-btn delete" @click="deleteTask(task)">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                      <button
+                          class="action-btn toggle"
+                          @click="toggleTaskStatus(task)"
+                          :title="task.active ? 'Деактивировать' : 'Активировать'"
+                      >
+                        <i :class="task.active ? 'fas fa-times-circle' : 'fas fa-check-circle'"></i>
+                      </button>
+                    </td>
+                  </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Карточки для мобильной версии -->
+              <div class="task-cards mobile-only">
+                <div v-for="task in filteredTasks" :key="'card-'+task.id" class="task-card">
+                  <div class="task-card-header">
+                    <h4>{{ task.title }}</h4>
+                    <span :class="['status-badge', task.active ? 'active' : 'inactive']">
+                  {{ task.active ? 'Активно' : 'Неактивно' }}
+                </span>
+                  </div>
+
+                  <div class="task-card-content">
+                    <div class="task-detail">
+                      <strong>Тип:</strong> {{ getTaskType(task.type) }}
+                    </div>
+                    <div class="task-detail">
+                      <strong>Награда:</strong> {{ formatMoney(task.reward) }}
+                    </div>
+                    <div class="task-detail" v-if="task.requirements?.level || task.requirements?.income">
+                      <strong>Требования:</strong>
+                      <div v-if="task.requirements?.level">Уровень: {{ task.requirements.level }}+</div>
+                      <div v-if="task.requirements?.income">Доход: {{ formatMoney(task.requirements.income) }}+</div>
+                    </div>
+                    <div class="task-detail">
+                      <strong>Выполнено:</strong> {{ task.completions || 0 }}
+                    </div>
+                  </div>
+
+                  <div class="task-card-actions">
+                    <button class="action-btn edit" @click="openTaskModal(task)">
+                      <i class="fas fa-edit"></i>
+                      <span>Редактировать</span>
+                    </button>
+                    <button class="action-btn delete" @click="deleteTask(task)">
+                      <i class="fas fa-trash"></i>
+                      <span>Удалить</span>
+                    </button>
+                    <button
+                        class="action-btn toggle"
+                        @click="toggleTaskStatus(task)"
+                    >
+                      <i :class="task.active ? 'fas fa-times-circle' : 'fas fa-check-circle'"></i>
+                      <span>{{ task.active ? 'Деактивировать' : 'Активировать' }}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </BaseCard>
+
+
         </div>
-      </BaseCard>
-    </div>
 
-    <!-- Модальное окно для создания/редактирования задания -->
-    <BaseModal
-        v-if="showTaskModal"
-        :title="currentTask.id ? 'Редактирование задания' : 'Создание нового задания'"
-        @close="showTaskModal = false"
-    >
-      <BaseForm @submit="saveTask">
-        <FormGroup label="Название задания">
-          <input
-              type="text"
-              v-model="currentTask.title"
-              class="form-input"
-              required
-          />
-        </FormGroup>
+        <!-- Модальное окно для создания/редактирования задания -->
+        <!-- Модальное окно для создания/редактирования задания -->
+        <BaseModal
+            v-if="showTaskModal"
+            :title="currentTask.id ? 'Редактирование задания' : 'Создание нового задания'"
+            @close="showTaskModal = false"
+        >
+          <BaseForm @submit="saveTask">
+            <FormGroup label="Название задания">
+              <input
+                  type="text"
+                  v-model="currentTask.title"
+                  class="form-input"
+                  required
+              />
+            </FormGroup>
 
-        <FormGroup label="Описание">
-          <textarea
-              v-model="currentTask.description"
-              class="form-input"
-              rows="4"
-              required
-          ></textarea>
-        </FormGroup>
+            <FormGroup label="Описание">
+      <textarea
+          v-model="currentTask.description"
+          class="form-input"
+          rows="4"
+          required
+      ></textarea>
+            </FormGroup>
 
-        <FormGroup label="Тип задания">
-          <select v-model="currentTask.type" class="form-input">
-            <option value="daily">Ежедневное</option>
-            <option value="achievement">Достижение</option>
-            <option value="special">Особое</option>
-          </select>
-        </FormGroup>
+            <FormGroup label="Тип задания">
+              <select v-model="currentTask.type" class="form-input">
+                <option value="daily">Ежедневное</option>
+                <option value="achievement">Достижение</option>
+                <option value="special">Особое</option>
+              </select>
+            </FormGroup>
 
-        <FormGroup label="Награда">
-          <input
-              type="number"
-              v-model.number="currentTask.reward"
-              class="form-input"
-              min="1"
-              step="1"
-              required
-          />
-        </FormGroup>
+            <FormGroup label="Награда">
+              <input
+                  type="number"
+                  v-model.number="currentTask.reward"
+                  class="form-input"
+                  min="1"
+                  step="1"
+                  required
+              />
+            </FormGroup>
 
-        <FormGroup label="Иконка (URL)">
-          <input
-              type="text"
-              v-model="currentTask.icon"
-              class="form-input"
-              placeholder="URL изображения или путь"
-          />
-        </FormGroup>
+            <FormGroup label="Иконка (URL)">
+              <input
+                  type="text"
+                  v-model="currentTask.icon"
+                  class="form-input"
+                  placeholder="URL изображения или путь"
+              />
+            </FormGroup>
 
-        <FormGroup label="Минимальный уровень">
-          <input
-              type="number"
-              v-model.number="currentTask.requirements.level"
-              class="form-input"
-              min="1"
-              step="1"
-          />
-        </FormGroup>
+            <FormGroup label="Минимальный уровень">
+              <input
+                  type="number"
+                  v-model.number="currentTask.requirements.level"
+                  class="form-input"
+                  min="1"
+                  step="1"
+              />
+            </FormGroup>
 
-        <FormGroup label="Минимальный доход">
-          <input
-              type="number"
-              v-model.number="currentTask.requirements.income"
-              class="form-input"
-              min="0"
-              step="1000"
-          />
-        </FormGroup>
+            <FormGroup label="Минимальный доход">
+              <input
+                  type="number"
+                  v-model.number="currentTask.requirements.income"
+                  class="form-input"
+                  min="0"
+                  step="1000"
+              />
+            </FormGroup>
 
-        <FormGroup>
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="currentTask.active" />
-            Задание активно
-          </label>
-        </FormGroup>
+            <FormGroup>
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="currentTask.active" />
+                Задание активно
+              </label>
+            </FormGroup>
 
-        <div class="form-actions">
-          <BaseButton type="secondary" @click="showTaskModal = false">
-            Отмена
-          </BaseButton>
-          <BaseButton type="primary" :disabled="saving">
-            {{ saving ? 'Сохранение...' : 'Сохранить' }}
-          </BaseButton>
-        </div>
-      </BaseForm>
-    </BaseModal>
-  </div>
-</template>
+            <div class="form-actions">
+              <BaseButton type="secondary" @click="showTaskModal = false">
+                Отмена
+              </BaseButton>
+              <BaseButton type="primary" :disabled="saving">
+                {{ saving ? 'Сохранение...' : 'Сохранить' }}
+              </BaseButton>
+            </div>
+          </BaseForm>
+        </BaseModal>
+      </div>
+      </div>
+    </template>
 
 <script setup>
 import { ref, computed, onMounted, inject } from 'vue';
@@ -436,8 +492,19 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+
+.section-container {
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: scroll;
+  display: flex;
+  flex-direction: column;
+
+}
+
 .tasks-section {
   padding: 20px;
+
 }
 
 .section-header {
@@ -449,7 +516,7 @@ onMounted(async () => {
 
 .tasks-layout {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: auto;
   gap: 20px;
 }
 
@@ -627,27 +694,175 @@ th {
   outline: none;
 }
 
+/* Мобильные карточки */
+.task-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.task-card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.task-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #eee;
+}
+
+.task-card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  flex: 1;
+}
+
+.task-card-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.task-card-actions {
+  display: flex;
+  padding: 12px 16px;
+  background-color: #f8f9fa;
+  border-top: 1px solid #eee;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.task-card-actions .action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  white-space: nowrap;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.task-card-actions .action-btn.edit {
+  background-color: rgba(33, 150, 243, 0.1);
+}
+
+.task-card-actions .action-btn.delete {
+  background-color: rgba(244, 67, 54, 0.1);
+}
+
+.task-card-actions .action-btn.toggle {
+  background-color: rgba(255, 152, 0, 0.1);
+}
+
+/* Управление видимостью для разных устройств */
+.desktop-only {
+  display: block;
+}
+
+.mobile-only {
+  display: none;
+}
+
 /* Адаптивность */
 @media (max-width: 1024px) {
   .tasks-layout {
     grid-template-columns: 1fr;
   }
-}
 
-@media (max-width: 768px) {
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
   .section-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
+  }
+
+  .section-header h2 {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .section-header button {
+    width: 100%;
+  }
+
+  .list-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 
   .filter-controls {
-    flex-direction: column;
     width: 100%;
+    flex-direction: column;
   }
 
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Уменьшаем отступы для мобильных устройств */
+  .tasks-section {
+    padding: 12px;
+  }
+
+  /* Модальное окно для мобильных */
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
+}
+
+/* Еще более мелкие экраны */
+@media (max-width: 480px) {
+  .task-card-actions {
+    flex-direction: column;
+  }
+
+  .task-card-actions .action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .type-bar{
+    min-width: 100%;
+  }
+
+  .stats-grid {
+    gap: 8px;
+  }
+
+  .stat-card {
+    padding: 12px 8px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+
+  .stat-label {
+    font-size: 12px;
   }
 }
 </style>
