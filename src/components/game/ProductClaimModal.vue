@@ -3,7 +3,7 @@
   <div class="modal-backdrop" @click="$emit('close')">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <div class="title">Оформление продукта</div>
+        <div class="title">{{ customStrings.title || 'Оформление продукта' }}</div>
         <button class="close-button" @click="$emit('close')">×</button>
       </div>
 
@@ -13,7 +13,7 @@
           <div class="product-info">
             <h3 class="product-name">{{ product.name }}</h3>
             <div class="required-income">
-              <span>Необходимый доход: </span>
+              <span>{{ customStrings.requiredIncome || 'Необходимый доход:' }} </span>
               <strong>{{ formatMoney(product.requiredIncome) }}</strong>
             </div>
           </div>
@@ -24,46 +24,47 @@
         </div>
 
         <div v-if="product.claimInstructions" class="claim-instructions">
-          <h4>Инструкции по получению:</h4>
+          <h4>{{ customStrings.instructions || 'Инструкции по получению:' }}</h4>
           <p>{{ product.claimInstructions }}</p>
         </div>
 
         <div class="user-info">
           <div class="user-fields">
             <div class="form-group">
-              <label>Имя</label>
+              <label>{{ customStrings.name || 'Имя' }}</label>
               <div class="user-value">{{ userName }}</div>
             </div>
 
             <div class="form-group">
-              <label>Telegram</label>
+              <label>{{ customStrings.telegram || 'Telegram' }}</label>
               <div class="user-value">{{ userTelegram }}</div>
             </div>
 
             <div class="form-group">
-              <label>Пассивный доход</label>
-              <div class="user-value">{{ formatMoney(passiveIncome) }} / месяц</div>
+              <label>{{ customStrings.passiveIncome || 'Пассивный доход' }}</label>
+              <div class="user-value">{{ formatMoney(passiveIncome) }} / {{ customStrings.month || 'месяц' }}</div>
             </div>
           </div>
 
           <div class="disclaimer">
-            <p>Нажимая кнопку "Оформить", вы соглашаетесь с тем, что ваши данные будут переданы для дальнейшей обработки заявки.</p>
+            <p>{{ customStrings.disclaimer || 'Нажимая кнопку "Оформить", вы соглашаетесь с тем, что ваши данные будут переданы для дальнейшей обработки заявки.' }}</p>
           </div>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button class="secondary-button" @click="$emit('close')">Отмена</button>
-        <button class="primary-button" @click="$emit('claim')">Оформить</button>
+        <button class="secondary-button" @click="$emit('close')">{{ customStrings.cancel || 'Отмена' }}</button>
+        <button class="primary-button" @click="$emit('claim')">{{ customStrings.submit || 'Оформить' }}</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, inject } from 'vue';
 import { useTelegram } from '@/composables/useTelegram';
 import { useGameStore } from '@/stores/gameStore';
+import { GameSettingsService } from '@/services/GameSettingsService';
 
 const props = defineProps({
   product: {
@@ -75,6 +76,55 @@ const props = defineProps({
 const emit = defineEmits(['close', 'claim']);
 const { user } = useTelegram();
 const store = useGameStore();
+const logger = inject('logger', console);
+
+// Настраиваемые строки для модального окна
+const customStrings = ref({
+  title: 'Оформление продукта',
+  requiredIncome: 'Необходимый доход:',
+  instructions: 'Инструкции по получению:',
+  name: 'Имя',
+  telegram: 'Telegram',
+  passiveIncome: 'Пассивный доход',
+  month: 'месяц',
+  disclaimer: 'Нажимая кнопку "Оформить", вы соглашаетесь с тем, что ваши данные будут переданы для дальнейшей обработки заявки.',
+  cancel: 'Отмена',
+  submit: 'Оформить'
+});
+
+// Настройка форматирования денег
+const moneyFormat = ref({
+  thousand: 'K',
+  million: 'M',
+  billion: 'B'
+});
+
+// Загрузка настроек при монтировании
+onMounted(async () => {
+  try {
+    // Загрузка кастомных строк для модального окна
+    const customModalStrings = await GameSettingsService.getSetting('products.modalStrings', null);
+    if (customModalStrings && typeof customModalStrings === 'object') {
+      customStrings.value = {
+        ...customStrings.value,
+        ...customModalStrings
+      };
+      logger.log('Загружены кастомные строки для модального окна продуктов:', customModalStrings);
+    }
+
+    // Загрузка настроек форматирования денег
+    const customMoneyFormat = await GameSettingsService.getSetting('balance.customSuffixes', null);
+    if (customMoneyFormat && typeof customMoneyFormat === 'object') {
+      moneyFormat.value = {
+        ...moneyFormat.value,
+        ...customMoneyFormat
+      };
+      logger.log('Загружены настройки форматирования денег:', customMoneyFormat);
+    }
+  } catch (error) {
+    logger.error('Ошибка загрузки настроек для модального окна продуктов:', error);
+  }
+});
 
 // Форматированные данные пользователя
 const userName = computed(() => {
@@ -91,16 +141,16 @@ const passiveIncome = computed(() => {
   return store.passiveIncome;
 });
 
-// Форматирование чисел
+// Форматирование чисел с учетом настроек
 const formatMoney = (num) => {
   if (num >= 1000000000) {
-    return (num / 1000000000).toFixed(1) + 'B';
+    return (num / 1000000000).toFixed(1) + moneyFormat.value.billion;
   }
   if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + 'M';
+    return (num / 1000000).toFixed(1) + moneyFormat.value.million;
   }
   if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'K';
+    return (num / 1000).toFixed(1) + moneyFormat.value.thousand;
   }
   return num.toString();
 };

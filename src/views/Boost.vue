@@ -1,4 +1,4 @@
-<!-- src/pages/Boost.vue -->
+<!-- src/pages/Boost.vue (обновленный) -->
 <template>
   <div class="boost-page">
     <!-- Кнопка возврата -->
@@ -16,33 +16,33 @@
           <img src="@/assets/images/energy.png" alt="Energy" class="boost-icon">
           <div class="boost-content">
             <div class="boost-name">Полная энергия</div>
-            <div class="boost-available">Доступно {{ dailyBoosts.fullEnergy }}/6</div>
+            <div class="boost-available">Доступно {{ dailyBoosts.fullEnergy }}/{{ maxDailyEnergy }}</div>
           </div>
         </div>
 
         <h3>Усилители</h3>
         <!-- Мультитап x3 -->
-        <div class="boost-option" @click="handleBoost('tap3x', 8000)">
+        <div class="boost-option" @click="handleBoost('tap3x')">
           <img src="@/assets/images/finger.png" alt="Multitap" class="boost-icon">
           <div class="boost-content">
             <div class="boost-name">Мультитап</div>
             <div class="boost-description">Увеличить количество монет за нажатие до 3</div>
             <div class="boost-cost">
               <CoinIcon />
-              <span>8K</span>
+              <span>{{ formatBoostCost('tap3x') }}</span>
             </div>
           </div>
         </div>
 
         <!-- Мультитап x5 -->
-        <div class="boost-option" @click="handleBoost('tap5x', 25000)">
+        <div class="boost-option" @click="handleBoost('tap5x')">
           <img src="@/assets/images/finger.png" alt="Multitap" class="boost-icon">
           <div class="boost-content">
             <div class="boost-name">Мультитап</div>
             <div class="boost-description">Увеличить количество монет за нажатие до 5</div>
             <div class="boost-cost">
               <CoinIcon />
-              <span>25K</span>
+              <span>{{ formatBoostCost('tap5x') }}</span>
             </div>
           </div>
         </div>
@@ -80,8 +80,9 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted } from 'vue'
+import { ref, inject, onMounted, computed } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
+import { GameSettingsService } from '@/services/GameSettingsService'
 import Balance from '@/components/game/Balance.vue'
 import Navigation from '@/components/layout/Navigation.vue'
 import CoinIcon from '@/components/ui/CoinIcon.vue'
@@ -95,27 +96,59 @@ const dailyBoosts = ref({
   lastReset: null
 })
 
-// Загрузка состояния ежедневных бустов
-onMounted(() => {
-  const saved = localStorage.getItem('dailyBoosts')
-  if (saved) {
-    const parsed = JSON.parse(saved)
-    const lastReset = new Date(parsed.lastReset)
-    const now = new Date()
+// Настройки бустов из GameSettingsService
+const maxDailyEnergy = ref(6) // Значение по умолчанию
 
-    // Сброс бустов в начале нового дня
-    if (lastReset.getDate() !== now.getDate()) {
-      resetDailyBoosts()
-    } else {
-      dailyBoosts.value = parsed
+// При загрузке компонента пытаемся загрузить настройки
+onMounted(async () => {
+  try {
+    // Попытка загрузить кастомное значение для максимального количества бесплатных восстановлений энергии
+    const customMaxEnergy = await GameSettingsService.getSetting('dailyBoosts.maxEnergy', 6)
+    maxDailyEnergy.value = customMaxEnergy
+
+    // Загрузка состояния из localStorage
+    const saved = localStorage.getItem('dailyBoosts')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      const lastReset = new Date(parsed.lastReset)
+      const now = new Date()
+
+      // Сброс бустов в начале нового дня
+      if (lastReset.getDate() !== now.getDate()) {
+        resetDailyBoosts()
+      } else {
+        dailyBoosts.value = parsed
+      }
     }
+  } catch (error) {
+    console.error('Ошибка загрузки настроек бустов:', error)
   }
 })
+
+// Получаем стоимость бустов из хранилища и форматируем
+const formatBoostCost = (boostType) => {
+  const cost = store.getBoostCost(boostType)
+  return formatMoney(cost)
+}
+
+// Форматирование чисел для отображения
+const formatMoney = (num) => {
+  if (num >= 1000000000) {
+    return (num / 1000000000).toFixed(1) + 'B'
+  }
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'M'
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'K'
+  }
+  return num.toString()
+}
 
 // Сброс ежедневных бустов
 const resetDailyBoosts = () => {
   dailyBoosts.value = {
-    fullEnergy: 6,
+    fullEnergy: maxDailyEnergy.value,
     lastReset: new Date().toISOString()
   }
   saveDailyBoosts()
@@ -147,7 +180,9 @@ const handleFullEnergy = () => {
 }
 
 // Обработка покупки буста
-const handleBoost = (type, cost) => {
+const handleBoost = (type) => {
+  const cost = store.getBoostCost(type)
+
   if (store.balance < cost) {
     notifications.addNotification({
       message: 'Недостаточно монет',
@@ -156,12 +191,29 @@ const handleBoost = (type, cost) => {
     return
   }
 
+  // Проверяем, не активен ли уже буст
+  if ((type === 'tap3x' && store.boosts.tap3x.active) ||
+      (type === 'tap5x' && store.boosts.tap5x.active)) {
+    notifications.addNotification({
+      message: 'Этот буст уже активен',
+      type: 'warning'
+    })
+    return
+  }
+
   store.balance -= cost
-  const duration = 24 * 60 * 60 * 1000 // 24 часа
+
+  // Получаем продолжительность из настроек
+  const duration = store.boostSettings?.duration || 24 * 60 * 60 * 1000 // 24 часа по умолчанию
+
+  // Применяем буст
   store.applyBoost(type, duration)
 
+  // Рассчитываем и отображаем продолжительность в часах
+  const hours = Math.floor(duration / (60 * 60 * 1000))
+
   notifications.addNotification({
-    message: `Буст х${type === 'tap3x' ? '3' : '5'} активирован на 24 часа!`,
+    message: `Буст х${type === 'tap3x' ? '3' : '5'} активирован на ${hours} часов!`,
     type: 'success'
   })
 }

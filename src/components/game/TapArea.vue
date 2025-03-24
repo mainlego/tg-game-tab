@@ -23,24 +23,60 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
+import { GameSettingsService } from '@/services/GameSettingsService'
 
 const store = useGameStore()
 const tapAreaRef = ref(null)
 const coins = ref([])
 let coinId = 0
 let isAnimating = false
+const logger = inject('logger', console)
 
+// Настраиваемые параметры с API
+const customBackgrounds = ref({})
+const defaultAnimation = ref({
+  duration: 200,
+  maxOffset: 3
+})
+
+// Загрузка настроек при монтировании
+onMounted(async () => {
+  try {
+    // Загрузка кастомных фонов для уровней
+    const backgrounds = await GameSettingsService.getSetting('levelBackgrounds', null)
+    if (backgrounds && typeof backgrounds === 'object') {
+      customBackgrounds.value = backgrounds
+      logger.log('Загружены кастомные фоны для уровней:', backgrounds)
+    }
+
+    // Загрузка настроек анимации
+    const animSettings = await GameSettingsService.getSetting('tapAnimation', null)
+    if (animSettings && typeof animSettings === 'object') {
+      defaultAnimation.value = {
+        ...defaultAnimation.value,
+        ...animSettings
+      }
+      logger.log('Загружены настройки анимации тапа:', animSettings)
+    }
+  } catch (error) {
+    logger.error('Ошибка загрузки настроек для TapArea:', error)
+  }
+})
 
 // Следим за изменением уровня
 const backgroundImage = computed(() => {
-  return `url(../../images/bg-level-${store.level.current}.png)`
+  const level = store.level.current
+
+  // Проверяем, есть ли кастомный фон для данного уровня
+  if (customBackgrounds.value && customBackgrounds.value[level]) {
+    return `url(${customBackgrounds.value[level]})`
+  }
+
+  // Стандартный фон, зависящий от уровня
+  return `url(../../images/bg-level-${level}.png)`
 })
-
-
-
-
 
 // Проверяем наличие активных бустов
 const hasActiveBoosts = computed(() => {
@@ -99,8 +135,8 @@ const animateBackground = () => {
 
   isAnimating = true
   const startTime = performance.now()
-  const duration = 200
-  const maxOffset = 3
+  const duration = defaultAnimation.value.duration
+  const maxOffset = defaultAnimation.value.maxOffset
 
   const animate = (currentTime) => {
     const elapsed = currentTime - startTime

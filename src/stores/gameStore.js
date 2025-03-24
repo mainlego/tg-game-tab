@@ -3,13 +3,13 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { StorageService } from '@/services/storage'
 import { ApiService } from '@/services/apiService'
+import { GameSettingsService } from '@/services/GameSettingsService'
 
 export const useGameStore = defineStore('game', {
     state: () => {
-
-
         const currentUser = ref(null)
         const gameData = ref(null)
+        const gameSettings = ref(null)
 
         // Пытаемся загрузить состояние из localStorage сразу
         const savedState = StorageService.loadState()
@@ -17,9 +17,30 @@ export const useGameStore = defineStore('game', {
             return {
                 ...savedState,
                 // Обновляем время для корректного расчета офлайн прогресса
-                lastSaved: new Date().toISOString()
+                lastSaved: new Date().toISOString(),
+                currentUser,
+                gameData,
+                gameSettings
             }
         }
+
+        // Значения по умолчанию из GameSettingsService
+        const tapValue = GameSettingsService.getSettingSync('tapValue', 1);
+        const baseEnergy = GameSettingsService.getSettingSync('baseEnergy', 1000);
+        const energyRegenRate = GameSettingsService.getSettingSync('energyRegenRate', 1);
+        const incomeMultiplier = GameSettingsService.getSettingSync('incomeMultiplier', 1);
+        const levelRequirements = GameSettingsService.getSettingSync('levelRequirements', [
+            { level: 1, income: 0, title: 'Пацан' },
+            { level: 2, income: 10000, title: 'Курьер' },
+            { level: 3, income: 70000, title: 'Темщик' },
+            { level: 4, income: 150000, title: 'Продавец' },
+            { level: 5, income: 300000, title: 'Сотрудник' },
+            { level: 6, income: 800000, title: 'Менеджер' },
+            { level: 7, income: 1800000, title: 'Владелец' },
+            { level: 8, income: 20000000, title: 'Аристократ' },
+            { level: 9, income: 200000000, title: 'Инвестор' },
+            { level: 10, income: 2500000000, title: 'Миллиардер' }
+        ]);
 
         // Состояние пользователя
         return {
@@ -30,9 +51,9 @@ export const useGameStore = defineStore('game', {
 
             // Система энергии
             energy: {
-                current: 1000,
-                max: 1000,
-                regenRate: 1,
+                current: baseEnergy,
+                max: baseEnergy,
+                regenRate: energyRegenRate,
                 lastRegenTime: Date.now()
             },
 
@@ -41,26 +62,22 @@ export const useGameStore = defineStore('game', {
                 current: 1,
                 max: 10,
                 progress: 0,
-                title: 'Пацан',
-                levels: [
-                    { income: 0, title: 'Пацан' },
-                    { income: 10000, title: 'Курьер' },
-                    { income: 70000, title: 'Темщик' },
-                    { income: 150000, title: 'Продавец' },
-                    { income: 300000, title: 'Сотрудник' },
-                    { income: 800000, title: 'Менеджер' },
-                    { income: 1800000, title: 'Владелец' },
-                    { income: 20000000, title: 'Аристократ' },
-                    { income: 200000000, title: 'Инвестор' },
-                    { income: 2500000000, title: 'Миллиардер' }
-                ]
+                title: levelRequirements.length > 0 ? levelRequirements[0].title : 'Пацан',
+                levels: levelRequirements
             },
 
             // Множители и бусты
             multipliers: {
-                tapValue: 1,
+                tapValue: tapValue,
                 tapMultiplier: 1,
-                incomeBoost: 1
+                incomeBoost: incomeMultiplier
+            },
+
+            // Настройки бустов
+            boostSettings: {
+                tap3xCost: GameSettingsService.getSettingSync('boosts.tap3xCost', 8000),
+                tap5xCost: GameSettingsService.getSettingSync('boosts.tap5xCost', 25000),
+                duration: GameSettingsService.getSettingSync('boosts.duration', 24 * 60 * 60 * 1000)
             },
 
             // Активные бусты
@@ -89,9 +106,10 @@ export const useGameStore = defineStore('game', {
                 maxPassiveIncome: 0
             },
 
-            // Данные пользователя
+            // Данные пользователя и настройки игры
             currentUser,
-            gameData
+            gameData,
+            gameSettings
         }
     },
 
@@ -114,8 +132,6 @@ export const useGameStore = defineStore('game', {
     },
 
     actions: {
-
-
         completeTutorial() {
             this.tutorialCompleted = true
             this.saveState()
@@ -130,7 +146,19 @@ export const useGameStore = defineStore('game', {
             try {
                 console.log('Initializing game for user:', userId)
 
-                // Загружаем данные из базы
+                // Загружаем настройки игры
+                try {
+                    const gameSettings = await GameSettingsService.getSettings()
+                    console.log('Loaded game settings:', gameSettings)
+                    this.gameSettings = gameSettings
+
+                    // Применяем настройки
+                    this.applyGameSettings(gameSettings)
+                } catch (error) {
+                    console.error('Error loading game settings:', error)
+                }
+
+                // Загружаем данные пользователя из базы
                 const userData = await ApiService.getUser(userId)
                 console.log('Loaded user data:', userData)
 
@@ -159,14 +187,19 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-
         async saveState() {
             if (this.currentUser) {
                 const gameData = {
                     balance: this.balance,
                     passiveIncome: this.passiveIncome,
                     energy: this.energy,
-                    level: this.level,
+                    level: {
+                        current: this.level.current,
+                        max: this.level.max,
+                        progress: this.level.progress,
+                        title: this.level.title,
+                        levels: this.level.levels // Убедитесь, что levels тоже сохраняется!
+                    },
                     multipliers: this.multipliers,
                     boosts: this.boosts,
                     investments: this.investments,
@@ -174,6 +207,9 @@ export const useGameStore = defineStore('game', {
                 }
 
                 try {
+                    // Отладочное сообщение
+                    console.log('Сохраняем состояние игры:', gameData);
+
                     // Сохраняем в localStorage
                     StorageService.saveState({
                         ...gameData,
@@ -187,12 +223,14 @@ export const useGameStore = defineStore('game', {
                         lastUpdate: new Date()
                     })
 
+                    console.log('Состояние успешно сохранено');
                 } catch (error) {
-                    console.error('Error saving game state:', error)
+                    console.error('Ошибка сохранения состояния игры:', error)
                 }
+            } else {
+                console.warn('Невозможно сохранить состояние: пользователь не определен');
             }
         },
-
 
         loadFromState(state) {
             this.balance = state.balance || 0
@@ -206,24 +244,29 @@ export const useGameStore = defineStore('game', {
         },
 
         resetToDefault() {
+            const baseEnergy = GameSettingsService.getSettingSync('baseEnergy', 1000);
+            const tapValue = GameSettingsService.getSettingSync('tapValue', 1);
+            const levelRequirements = GameSettingsService.getSettingSync('levelRequirements', []);
+
             this.balance = 0
             this.passiveIncome = 0
             this.energy = {
-                current: 1000,
-                max: 1000,
-                regenRate: 1,
+                current: baseEnergy,
+                max: baseEnergy,
+                regenRate: GameSettingsService.getSettingSync('energyRegenRate', 1),
                 lastRegenTime: Date.now()
             }
             this.level = {
                 current: 1,
                 max: 10,
                 progress: 0,
-                title: 'Пацан'
+                title: levelRequirements.length > 0 ? levelRequirements[0].title : 'Пацан',
+                levels: levelRequirements
             }
             this.multipliers = {
-                tapValue: 1,
+                tapValue: tapValue,
                 tapMultiplier: 1,
-                incomeBoost: 1
+                incomeBoost: GameSettingsService.getSettingSync('incomeMultiplier', 1)
             }
             this.boosts = {
                 tap3x: { active: false, endTime: null },
@@ -241,9 +284,57 @@ export const useGameStore = defineStore('game', {
             }
         },
 
+        // Применение настроек из API
+        applyGameSettings(settings) {
+            if (!settings) return
 
+            // Применяем основные настройки
+            if (settings.tapValue !== undefined) {
+                this.multipliers.tapValue = settings.tapValue
+            }
 
+            if (settings.baseEnergy !== undefined) {
+                // Только если у пользователя нет кастомного значения энергии
+                const isDefaultEnergy = this.energy.max === 1000 ||
+                    this.energy.max === GameSettingsService._defaultSettings.baseEnergy
 
+                if (isDefaultEnergy) {
+                    const oldMax = this.energy.max
+                    this.energy.max = settings.baseEnergy
+
+                    // Масштабируем текущую энергию пропорционально новому максимуму
+                    if (oldMax > 0) {
+                        const ratio = this.energy.current / oldMax
+                        this.energy.current = Math.min(this.energy.max, Math.round(settings.baseEnergy * ratio))
+                    } else {
+                        this.energy.current = Math.min(this.energy.current, settings.baseEnergy)
+                    }
+                }
+            }
+
+            if (settings.energyRegenRate !== undefined) {
+                this.energy.regenRate = settings.energyRegenRate
+            }
+
+            if (settings.incomeMultiplier !== undefined) {
+                this.multipliers.incomeBoost = settings.incomeMultiplier
+            }
+
+            // Применяем настройки бустов
+            if (settings.boosts) {
+                this.boostSettings = {
+                    ...this.boostSettings,
+                    ...settings.boosts
+                }
+            }
+
+            // Применяем уровни, если они определены в настройках
+            if (settings.levelRequirements && settings.levelRequirements.length > 0) {
+                this.level.levels = settings.levelRequirements
+                // Обновляем текущий уровень и заголовок на основе новых требований
+                this.updateLevel()
+            }
+        },
 
         formatBigNumber(num) {
             if (num >= 1000000000) {
@@ -258,20 +349,44 @@ export const useGameStore = defineStore('game', {
             return Math.floor(num).toString()
         },
 
+        // Улучшенный метод processPassiveIncome для gameStore.js
         processPassiveIncome() {
             if (this.passiveIncome > 0) {
-                const monthInSeconds = 30 * 24 * 60 * 60
-                const incomePerSecond = this.passiveIncome / monthInSeconds
-                this.balance += (incomePerSecond / 10)
-                this.updateLevel()
-                this.saveState()
+                const monthInSeconds = 30 * 24 * 60 * 60;
+                const incomePerSecond = this.passiveIncome / monthInSeconds;
+
+                // Сохраняем предыдущее значение для проверки изменения
+                const previousBalance = this.balance;
+
+                // Начисляем доход (10 раз в секунду)
+                this.balance += (incomePerSecond / 10);
+
+                // Периодически обновляем уровень, но не каждый тик для производительности
+                // Обновляем каждую секунду (каждые 10 тиков)
+                if (Math.floor(previousBalance / 10) !== Math.floor(this.balance / 10)) {
+                    this.updateLevel();
+                } else {
+                    // Сохраняем состояние, даже если уровень не обновился
+                    this.saveState();
+                }
             }
         },
 
+        // Улучшенный метод startPassiveIncomeTimer
         startPassiveIncomeTimer() {
+            // Сразу вызываем updateLevel при запуске таймера
+            this.updateLevel();
+
+            // Запускаем обработку пассивного дохода 10 раз в секунду
             setInterval(() => {
-                this.processPassiveIncome()
-            }, 100)
+                this.processPassiveIncome();
+            }, 100);
+
+            // Дополнительно принудительно обновляем уровень каждые 10 секунд
+            // для гарантии актуальности данных
+            setInterval(() => {
+                this.updateLevel();
+            }, 10000);
         },
 
         handleTap() {
@@ -301,8 +416,10 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        applyBoost(type, duration) {
+        applyBoost(type, customDuration = null) {
             const now = Date.now()
+            // Используем продолжительность из настроек или предоставленную продолжительность
+            const duration = customDuration || this.boostSettings?.duration || 24 * 60 * 60 * 1000
             const endTime = now + duration
 
             switch(type) {
@@ -350,78 +467,154 @@ export const useGameStore = defineStore('game', {
             this.saveState()
         },
 
+        // Получение стоимости буста из настроек
+        getBoostCost(type) {
+            if (type === 'tap3x') {
+                return this.boostSettings?.tap3xCost || 8000
+            }
+            if (type === 'tap5x') {
+                return this.boostSettings?.tap5xCost || 25000
+            }
+            return 0
+        },
+
+        // Улучшенный метод purchaseInvestment
         purchaseInvestment(investment, calculatedIncome) {
             if (this.balance < investment.cost) {
-                return false
+                return false;
             }
 
-            this.balance -= investment.cost
+            this.balance -= investment.cost;
+
+            // Используем множитель дохода из настроек
+            const incomeMultiplier = this.multipliers.incomeBoost || 1;
+            const adjustedIncome = calculatedIncome * incomeMultiplier;
 
             this.investments.purchased.push({
                 id: investment.id,
                 level: investment.level,
-                income: calculatedIncome,
+                income: adjustedIncome,
                 purchaseDate: Date.now(),
                 type: investment.type
-            })
+            });
 
-            this.passiveIncome += calculatedIncome
-            this.recalculateInvestmentIncome()
-            this.saveState()
-            return true
+            const previousPassiveIncome = this.passiveIncome;
+            this.passiveIncome += adjustedIncome;
+
+            console.log(`[purchaseInvestment] Пассивный доход изменен: ${previousPassiveIncome} -> ${this.passiveIncome}`);
+
+            // Пересчитываем инвестиции с актуальным доходом
+            this.recalculateInvestmentIncome();
+
+            // Принудительно обновляем уровень после изменения пассивного дохода
+            this.updateLevel();
+
+            // Сохраняем состояние
+            this.saveState();
+            return true;
         },
 
         recalculateInvestmentIncome() {
-            let totalIncome = 0
-            this.investments.purchased.forEach(investment => {
-                totalIncome += investment.income
-            })
+            // Запоминаем предыдущее значение дохода
+            const previousIncome = this.passiveIncome;
 
-            this.passiveIncome = totalIncome
+            // Пересчитываем доход
+            let totalIncome = 0;
+            this.investments.purchased.forEach(investment => {
+                totalIncome += investment.income;
+            });
+
+            this.passiveIncome = totalIncome;
 
             if (totalIncome > this.stats.maxPassiveIncome) {
-                this.stats.maxPassiveIncome = totalIncome
+                this.stats.maxPassiveIncome = totalIncome;
             }
 
-            this.investments.activeIncome = totalIncome
-            this.investments.lastCalculation = Date.now()
-            this.updateLevel()
+            this.investments.activeIncome = totalIncome;
+            this.investments.lastCalculation = Date.now();
+
+            // Проверяем, изменился ли доход
+            if (previousIncome !== totalIncome) {
+                console.log(`[recalculateInvestmentIncome] Пассивный доход изменен: ${previousIncome} -> ${totalIncome}`);
+                // Если доход изменился, обновляем уровень
+                this.updateLevel();
+            }
         },
 
         // Исправленный метод updateLevel()
+        // Проблема может быть здесь, в методе updateLevel
+        // Улучшенный метод updateLevel для gameStore.js
         updateLevel() {
-            // Для отладки
-            console.log('Обновление уровня! Текущий пассивный доход:', this.passiveIncome);
-            console.log('Пороги уровней:', this.level.levels.map(l => `${l.title}: ${l.income}`).join(', '));
+            // Проверка на наличие данных об уровнях
+            if (!this.level.levels || this.level.levels.length === 0) {
+                console.error('Отсутствуют данные об уровнях, невозможно обновить уровень');
+                this.level.progress = 0; // Сбрасываем прогресс в случае ошибки
+                return;
+            }
 
+            console.log(`[updateLevel] Начато обновление уровня. Пассивный доход: ${this.passiveIncome}`);
+
+            // Устанавливаем максимальный уровень
+            this.level.max = this.level.levels.length;
+
+            // Определяем текущий уровень на основе пассивного дохода
             let newLevel = 1;
+            let currentLevelIndex = 0;
+
             for (let i = 0; i < this.level.levels.length; i++) {
                 if (this.passiveIncome >= this.level.levels[i].income) {
                     newLevel = i + 1;
-                    console.log(`Порог пройден для уровня ${newLevel} (${this.level.levels[i].title}): ${this.passiveIncome} >= ${this.level.levels[i].income}`);
+                    currentLevelIndex = i;
                 } else {
-                    // Выходим из цикла, как только найден первый непройденный порог
+                    // Прерываем цикл, как только найден первый непройденный порог
                     break;
                 }
             }
 
+            // Обновляем текущий уровень и заголовок, если уровень изменился
             if (newLevel !== this.level.current) {
-                console.log(`Уровень повышен: ${this.level.current} -> ${newLevel} (${this.level.levels[newLevel-1].title})`);
+                console.log(`[updateLevel] Уровень изменен: ${this.level.current} -> ${newLevel} (${this.level.levels[currentLevelIndex].title})`);
                 this.level.current = newLevel;
-                this.level.title = this.level.levels[newLevel - 1].title;
+                this.level.title = this.level.levels[currentLevelIndex].title;
             }
 
-            // Расчет прогресса...
+            // Расчет прогресса до следующего уровня
+            // Если это не максимальный уровень
             if (newLevel < this.level.levels.length) {
-                const currentMin = this.level.levels[newLevel - 1].income;
-                const nextMin = this.level.levels[newLevel].income;
-                const progress = ((this.passiveIncome - currentMin) / (nextMin - currentMin)) * 100;
-                this.level.progress = Math.min(Math.max(progress, 0), 100);
-                console.log(`Прогресс до следующего уровня: ${this.level.progress.toFixed(2)}%`);
+                const currentThreshold = this.level.levels[currentLevelIndex].income;
+                const nextThreshold = this.level.levels[currentLevelIndex + 1].income;
+                const range = nextThreshold - currentThreshold;
+
+                console.log(`[updateLevel] Расчет прогресса: доход ${this.passiveIncome}, порог текущего уровня ${currentThreshold}, порог следующего уровня ${nextThreshold}`);
+
+                // Проверка на корректность порогов
+                if (range <= 0) {
+                    console.warn('[updateLevel] Ошибка в порогах уровней: текущий >= следующий');
+                    this.level.progress = 0;
+                } else {
+                    // Расчет процента прогресса
+                    const rawProgress = ((this.passiveIncome - currentThreshold) / range) * 100;
+                    // Ограничиваем значение от 0 до 100
+                    this.level.progress = Math.min(Math.max(rawProgress, 0), 100);
+                    console.log(`[updateLevel] Рассчитанный прогресс: ${this.level.progress.toFixed(2)}%`);
+                }
             } else {
+                // Если достигнут максимальный уровень
                 this.level.progress = 100;
+                console.log('[updateLevel] Достигнут максимальный уровень, прогресс установлен на 100%');
             }
+
+            // Гарантируем, что прогресс - валидное число
+            if (isNaN(this.level.progress) || this.level.progress === undefined) {
+                console.warn('[updateLevel] Прогресс имеет невалидное значение, сбрасываем на 0');
+                this.level.progress = 0;
+            }
+
+            // Сохраняем обновленное состояние
+            console.log(`[updateLevel] Финальное состояние: уровень ${this.level.current}, прогресс ${this.level.progress}%`);
+            this.saveState();
         },
+
 
         processOfflineProgress() {
             const now = Date.now()

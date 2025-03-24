@@ -1,4 +1,4 @@
-<!-- src/App.vue (Fixed) -->
+<!-- src/App.vue (обновленный) -->
 <template>
   <NotificationsProvider>
     <div class="app">
@@ -16,6 +16,8 @@ import { onMounted, provide } from 'vue';
 import { useRouter } from 'vue-router';
 import { useGameStore } from './stores/gameStore';
 import { useTelegram } from './composables/useTelegram';
+import { ApiService } from './services/apiService';
+import { GameSettingsService } from './services/GameSettingsService';
 import NotificationsProvider from './components/NotificationsProvider.vue';
 
 const router = useRouter();
@@ -38,10 +40,22 @@ provide('logger', logger);
 
 // Инициализация приложения
 onMounted(async () => {
+  // Предзагрузка настроек игры
+  try {
+    logger.log('Предзагрузка настроек игры...');
+    const gameSettings = await ApiService.getGameSettings();
+    logger.log('Предзагруженные настройки игры:', gameSettings);
+    if (gameSettings?.data) {
+      localStorage.setItem('preloadedGameSettings', JSON.stringify(gameSettings.data));
+    }
+  } catch (error) {
+    logger.error('Ошибка предзагрузки настроек игры:', error);
+  }
+
   // Инициализация Telegram Web App
   if (isAvailable.value && tg.value) {
-    logger.log('Telegram WebApp initialized');
-    logger.log('Telegram User:', user.value);
+    logger.log('Telegram WebApp инициализирован');
+    logger.log('Пользователь Telegram:', user.value);
 
     if (user.value?.id) {
       // Сохраняем ID пользователя для WebSocket соединения
@@ -76,13 +90,21 @@ onMounted(async () => {
         document.body.classList.remove('dark-theme');
       }
     } catch (e) {
-      logger.error('Error initializing Telegram WebApp features:', e);
+      logger.error('Ошибка инициализации функций Telegram WebApp:', e);
     }
   } else {
-    logger.log('Running outside of Telegram WebApp');
+    logger.log('Запуск вне Telegram WebApp');
 
     // Для тестирования вне Telegram
     if (import.meta.env.DEV) {
+      // Попытка загрузить настройки игры снова (на всякий случай)
+      try {
+        const gameSettings = await GameSettingsService.getSettings();
+        logger.log('Настройки игры в режиме DEV:', gameSettings);
+      } catch (error) {
+        logger.error('Ошибка загрузки настроек в режиме DEV:', error);
+      }
+
       const testUserId = '12345';
       localStorage.setItem('userId', testUserId);
 
@@ -94,7 +116,7 @@ onMounted(async () => {
           store.regenerateEnergy();
         }, 1000);
       } catch (e) {
-        logger.error('Error initializing test mode:', e);
+        logger.error('Ошибка инициализации тестового режима:', e);
       }
     }
   }
