@@ -139,97 +139,13 @@
       </div>
     </div>
 
-    <!-- Модальное окно для создания/редактирования продукта -->
-    <BaseModal
+
+    <ProductModal
         v-if="showProductModal"
-        :title="currentProduct.id ? 'Редактирование продукта' : 'Создание нового продукта'"
+        :product="currentProduct"
         @close="showProductModal = false"
-    >
-      <BaseForm @submit="saveProduct">
-        <FormGroup label="Название продукта">
-          <input
-              type="text"
-              v-model="currentProduct.name"
-              class="form-input"
-              required
-          />
-        </FormGroup>
-
-        <FormGroup label="Описание">
-          <textarea
-              v-model="currentProduct.description"
-              class="form-input"
-              rows="4"
-              required
-          ></textarea>
-        </FormGroup>
-
-        <FormGroup label="Необходимый доход">
-          <input
-              type="number"
-              v-model.number="currentProduct.requiredIncome"
-              class="form-input"
-              min="0"
-              step="1000"
-              required
-          />
-        </FormGroup>
-
-        <FormGroup label="Изображение (URL)">
-          <input
-              type="text"
-              v-model="currentProduct.image"
-              class="form-input"
-              required
-          />
-        </FormGroup>
-
-        <FormGroup label="Тип продукта">
-          <select v-model="currentProduct.type" class="form-input">
-            <option value="physical">Физический товар</option>
-            <option value="digital">Цифровой товар</option>
-            <option value="service">Услуга</option>
-          </select>
-        </FormGroup>
-
-        <FormGroup label="Инструкции по получению">
-          <textarea
-              v-model="currentProduct.claimInstructions"
-              class="form-input"
-              rows="3"
-          ></textarea>
-        </FormGroup>
-
-        <FormGroup label="Градиент фона (CSS)">
-          <input
-              type="text"
-              v-model="currentProduct.gradient"
-              class="form-input"
-              placeholder="linear-gradient(140.83deg, rgb(111, 95, 242) 0%, rgb(73, 51, 131) 100%)"
-          />
-          <div
-              class="color-preview"
-              :style="{ background: currentProduct.gradient || getDefaultGradient(0) }"
-          ></div>
-        </FormGroup>
-
-        <FormGroup>
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="currentProduct.active" />
-            Продукт активен
-          </label>
-        </FormGroup>
-
-        <div class="form-actions">
-          <BaseButton type="secondary" @click="showProductModal = false">
-            Отмена
-          </BaseButton>
-          <BaseButton type="primary" :disabled="saving">
-            {{ saving ? 'Сохранение...' : 'Сохранить' }}
-          </BaseButton>
-        </div>
-      </BaseForm>
-    </BaseModal>
+        @save="saveProduct"
+    />
 
     <!-- Модальное окно просмотра заявок на продукт -->
     <BaseModal
@@ -350,6 +266,7 @@ import BaseForm from '../ui/BaseForm.vue';
 import FormGroup from '../ui/FormGroup.vue';
 import BaseModal from '../ui/BaseModal.vue';
 import LoadingSpinner from '../ui/LoadingSpinner.vue';
+import ProductModal from '../admin/modals/ProductModal.vue';
 
 const notifications = inject('notifications');
 
@@ -436,6 +353,8 @@ const filteredClaims = computed(() => {
 });
 
 // Методы
+
+// для обработки путей к изображениям
 const loadProducts = async () => {
   try {
     loading.value = true;
@@ -446,10 +365,18 @@ const loadProducts = async () => {
 
     if (response && response.success && response.data) {
       // Сервер возвращает { success: true, data: [...] }
-      products.value = response.data.map(product => ({
-        ...product,
-        id: product._id // Добавляем id для совместимости с фронтендом
-      }));
+      products.value = response.data.map(product => {
+        // Проверяем, если изображение не содержит полный URL или путь с /uploads/
+        if (product.image && !product.image.startsWith('http') && !product.image.startsWith('/')) {
+          // Добавляем префикс /uploads/ к имени файла
+          product.image = `/uploads/${product.image}`;
+        }
+
+        return {
+          ...product,
+          id: product._id // Добавляем id для совместимости с фронтендом
+        };
+      });
     } else {
       console.error('Неожиданный формат ответа:', response);
       products.value = [];
@@ -499,12 +426,12 @@ const openProductModal = (product = null) => {
   showProductModal.value = true;
 };
 
-const saveProduct = async () => {
+const saveProduct = async (productData, isFormData = false) => {
   try {
     saving.value = true;
 
-    // Проверка обязательных полей
-    if (!currentProduct.value.name || !currentProduct.value.description) {
+    // Проверка обязательных полей для обычного объекта
+    if (!isFormData && (!productData.name || !productData.description)) {
       notifications.addNotification({
         message: 'Название и описание продукта обязательны',
         type: 'warning'
@@ -512,30 +439,32 @@ const saveProduct = async () => {
       return;
     }
 
-    // Формирование данных продукта
-    const productData = {
-      name: currentProduct.value.name,
-      description: currentProduct.value.description,
-      type: currentProduct.value.type || 'digital',
-      requiredIncome: Number(currentProduct.value.requiredIncome) || 0,
-      image: currentProduct.value.image || '',
-      active: typeof currentProduct.value.active === 'boolean' ? currentProduct.value.active : true,
-      claimInstructions: currentProduct.value.claimInstructions || '',
-      gradient: currentProduct.value.gradient || 'linear-gradient(140.83deg, rgb(111, 95, 242) 0%, rgb(73, 51, 131) 100%)'
-    };
-
-    console.log('Данные продукта для отправки:', productData);
-
     let response;
-    if (currentProduct.value._id) {
-      // Обновление существующего продукта
-      response = await ApiService.updateProduct(
-          currentProduct.value._id,
-          productData
-      );
+
+    if (isFormData) {
+      // Загрузка с файлом
+      if (currentProduct.value._id) {
+        // Обновление существующего продукта с файлом
+        response = await ApiService.updateProductWithImage(
+            currentProduct.value._id,
+            productData
+        );
+      } else {
+        // Создание нового продукта с файлом
+        response = await ApiService.createProductWithImage(productData);
+      }
     } else {
-      // Создание нового продукта
-      response = await ApiService.createProduct(productData);
+      // Обычная загрузка без файла
+      if (currentProduct.value._id) {
+        // Обновление существующего продукта
+        response = await ApiService.updateProduct(
+            currentProduct.value._id,
+            productData
+        );
+      } else {
+        // Создание нового продукта
+        response = await ApiService.createProduct(productData);
+      }
     }
 
     console.log('Ответ от сервера:', response);

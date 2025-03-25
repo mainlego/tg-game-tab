@@ -39,8 +39,8 @@
                 required
                 class="form-input"
             >
-              <option value="physical">Физический</option>
-              <option value="digital">Цифровой</option>
+              <option value="physical">Физический товар</option>
+              <option value="digital">Цифровой товар</option>
               <option value="service">Услуга</option>
             </select>
           </div>
@@ -59,17 +59,45 @@
         </div>
 
         <div class="form-group">
-          <label for="image">URL изображения</label>
-          <input
-              type="text"
-              id="image"
-              v-model="form.image"
-              required
-              class="form-input"
-              placeholder="https://example.com/image.jpg"
-          >
-          <div class="image-preview" v-if="form.image">
-            <img :src="form.image" alt="Preview">
+          <label for="productImage">Изображение</label>
+          <div class="image-upload">
+            <div class="file-input-wrapper">
+              <input
+                  type="file"
+                  id="productImage"
+                  ref="fileInput"
+                  @change="handleFileChange"
+                  accept="image/*"
+                  class="file-input"
+              >
+              <div class="file-input-button">
+                <span>Выбрать файл</span>
+              </div>
+              <div class="file-name" v-if="selectedFile">
+                {{ selectedFile.name }}
+              </div>
+              <div class="file-name" v-else-if="form.image">
+                Текущее изображение
+              </div>
+              <div class="file-name empty" v-else>
+                Файл не выбран
+              </div>
+            </div>
+            <div class="or-separator">ИЛИ</div>
+            <input
+                type="text"
+                id="image"
+                v-model="form.image"
+                class="form-input"
+                placeholder="https://example.com/image.jpg"
+            >
+          </div>
+          <div class="image-preview" v-if="imagePreview || form.image">
+            <img
+                :src="imagePreview || form.image"
+                alt="Preview"
+                @error="handleImageError"
+            >
           </div>
         </div>
 
@@ -82,6 +110,21 @@
               class="form-input"
               placeholder="Опишите, как пользователь может получить продукт..."
           ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="gradient">Градиент фона (CSS)</label>
+          <input
+              type="text"
+              id="gradient"
+              v-model="form.gradient"
+              class="form-input"
+              placeholder="linear-gradient(140.83deg, rgb(111, 95, 242) 0%, rgb(73, 51, 131) 100%)"
+          >
+          <div
+              class="color-preview"
+              :style="{ background: form.gradient || getDefaultGradient(0) }"
+          ></div>
         </div>
 
         <div class="form-group">
@@ -126,8 +169,13 @@ const form = ref({
   requiredIncome: 0,
   image: '',
   claimInstructions: '',
+  gradient: '',
   active: true
 })
+
+const selectedFile = ref(null)
+const fileInput = ref(null)
+const imagePreview = ref(null)
 
 onMounted(() => {
   if (props.product) {
@@ -135,8 +183,65 @@ onMounted(() => {
   }
 })
 
+const handleFileChange = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    selectedFile.value = file
+
+    // Очищаем URL изображения, если выбран файл
+    form.value.image = ''
+
+    // Создаем превью изображения
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      imagePreview.value = e.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+const handleImageError = (e) => {
+  // При ошибке загрузки изображения можно заменить его на заглушку
+  e.target.src = '/path/to/default/image.png';
+  console.error('Ошибка загрузки изображения:', form.value.image);
+};
+
+const getDefaultGradient = (index) => {
+  const gradients = [
+    'linear-gradient(140.83deg, rgb(111, 95, 242) 0%, rgb(73, 51, 131) 100%)',
+    'linear-gradient(140.83deg, rgb(242, 95, 95) 0%, rgb(131, 51, 51) 100%)',
+    'linear-gradient(140.83deg, rgb(95, 135, 242) 0%, rgb(51, 71, 131) 100%)',
+    'linear-gradient(140.83deg, rgb(95, 242, 169) 0%, rgb(51, 131, 94) 100%)',
+    'linear-gradient(140.83deg, rgb(242, 95, 156) 0%, rgb(131, 51, 87) 100%)',
+    'linear-gradient(140.83deg, rgb(242, 162, 95) 0%, rgb(131, 90, 51) 100%)'
+  ];
+
+  const idx = typeof index === 'number' ? index % gradients.length : 0;
+  return gradients[idx];
+};
+
 const handleSubmit = () => {
-  emit('save', { ...form.value })
+  // Если выбран файл, сообщаем родителю, что нужно использовать FormData
+  if (selectedFile.value) {
+    const formData = new FormData()
+
+    // Добавляем основные данные продукта
+    formData.append('name', form.value.name)
+    formData.append('description', form.value.description)
+    formData.append('type', form.value.type)
+    formData.append('requiredIncome', form.value.requiredIncome)
+    formData.append('claimInstructions', form.value.claimInstructions || '')
+    formData.append('gradient', form.value.gradient || '')
+    formData.append('active', form.value.active)
+
+    // Добавляем файл изображения
+    formData.append('productImage', selectedFile.value)
+
+    emit('save', formData, true) // Второй параметр указывает, что это FormData
+  } else {
+    // Если файл не выбран, отправляем обычный объект
+    emit('save', { ...form.value }, false)
+  }
 }
 </script>
 
@@ -209,6 +314,56 @@ const handleSubmit = () => {
   font-size: 14px;
 }
 
+.image-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.file-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.file-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.file-input-button {
+  padding: 8px 16px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.file-name {
+  margin-left: 10px;
+  font-size: 14px;
+  color: #333;
+}
+
+.file-name.empty {
+  color: #999;
+}
+
+.or-separator {
+  text-align: center;
+  margin: 10px 0;
+  font-size: 12px;
+  color: #666;
+}
+
 textarea.form-input {
   resize: vertical;
   min-height: 80px;
@@ -220,12 +375,20 @@ textarea.form-input {
   overflow: hidden;
   border-radius: 4px;
   margin-top: 8px;
+  border: 1px solid #ddd;
 }
 
 .image-preview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.color-preview {
+  width: 100%;
+  height: 30px;
+  border-radius: 4px;
+  margin-top: 8px;
 }
 
 .checkbox-label {
@@ -254,7 +417,7 @@ textarea.form-input {
 }
 
 .btn-primary {
-  background: var(--primary-color);
+  background: var(--primary-color, #8C60E3);
   color: white;
 }
 

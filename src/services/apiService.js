@@ -16,44 +16,33 @@ async function request(url, method = 'GET', data = null, options = {}) {
     // Формируем полный URL
     const fullUrl = url.startsWith('http') ? url : `${API_URL}${url}`;
 
-    if (DEBUG) {
-        console.log(`[DEBUG] Полный URL: ${fullUrl}`);
-    }
-
     // Настройки запроса
     const fetchOptions = {
         method,
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            ...options.headers
-        },
+        // Начинаем с пустого объекта заголовков или используем переданные
+        headers: options.headers || {},
         ...options
     };
 
     // Добавляем тело запроса для методов не-GET
     if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
-        // Проверяем данные на возможность сериализации
-        try {
+        // Если данные не FormData, преобразуем в JSON
+        if (!(data instanceof FormData)) {
             fetchOptions.body = JSON.stringify(data);
-        } catch (serializeError) {
-            console.error('Ошибка сериализации данных для отправки:', serializeError);
-            throw new Error('Невозможно сериализовать данные для отправки на сервер');
+            // Устанавливаем Content-Type только для JSON
+            fetchOptions.headers['Content-Type'] = 'application/json';
+        } else {
+            // Для FormData не устанавливаем Content-Type
+            fetchOptions.body = data;
         }
     }
 
-    // Логирование в режиме разработки
-    if (DEBUG) {
-        console.log(`📡 API Request: ${method} ${url}`);
-        console.log('Options:', fetchOptions);
-        if (data) {
-            console.log('Data:',
-                JSON.stringify(data).length > 1000 ?
-                    'Большой объект данных...' :
-                    data
-            );
-        }
+    // Используем body из options, если он есть
+    if (options.body) {
+        fetchOptions.body = options.body;
     }
+
+    console.log(`Sending ${method} request to ${fullUrl}`, fetchOptions);
 
     try {
         // Проверка наличия интернет-соединения
@@ -64,9 +53,7 @@ async function request(url, method = 'GET', data = null, options = {}) {
         // Выполняем запрос
         const response = await fetch(fullUrl, fetchOptions);
 
-        if (DEBUG) {
-            console.log(`Статус ответа: ${response.status}`);
-        }
+        console.log(`Response status: ${response.status}`);
 
         // Получаем текст ответа
         const responseText = await response.text();
@@ -88,33 +75,19 @@ async function request(url, method = 'GET', data = null, options = {}) {
 
             return result;
         } catch (jsonError) {
-            console.error('Ошибка разбора JSON:', jsonError);
+            console.error('Ошибка разбора JSON:', jsonError, 'Raw response:', responseText);
 
             // Если ответ не JSON, но статус успешный
             if (response.ok) {
                 return { success: true, rawText: responseText };
             }
 
-            throw new Error(`Ошибка разбора ответа сервера: ${jsonError.message}`);
+            throw new Error(`Ошибка разбора ответа сервера: ${responseText}`);
         }
     } catch (error) {
         // Обработка ошибок
-        if (DEBUG) {
-            console.error(`❌ API Error (${method} ${url}):`, error);
-        }
-
-        // Форматируем ошибку для пользователя
-        const userFriendlyError = new Error(
-            error.message === 'Failed to fetch'
-                ? 'Не удалось подключиться к серверу. Проверьте подключение к интернету.'
-                : error.message
-        );
-
-        // Сохраняем оригинальную ошибку и детали запроса
-        userFriendlyError.originalError = error;
-        userFriendlyError.request = { url, method };
-
-        throw userFriendlyError;
+        console.error(`❌ API Error (${method} ${url}):`, error);
+        throw error;
     }
 }
 
@@ -127,6 +100,94 @@ export const ApiService = {
 
     // УТИЛИТЫ
     // =======
+
+
+    // Добавьте эти методы в ApiService в файле apiService.js
+
+
+
+
+    /**
+     * Создание нового продукта с изображением
+     * @param {FormData} formData - данные продукта с файлом
+     * @returns {Promise<Object>} - созданный продукт
+     */
+    async createProductWithImage(formData) {
+        // Добавляем отладочный вывод
+        console.log('Creating product with image, formData entries:');
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + (pair[0] === 'productImage' ? '[File]' : pair[1]));
+        }
+
+        return request('/api/admin/products/upload', 'POST', null, {
+            headers: {
+                // Важно: НЕ устанавливаем Content-Type для FormData
+                'Accept': 'application/json'
+            },
+            // Передаем FormData как body
+            body: formData
+        });
+    },
+
+    /**
+     * Обновление продукта с изображением
+     * @param {string} productId - ID продукта
+     * @param {FormData} formData - данные продукта с файлом
+     * @returns {Promise<Object>} - обновленный продукт
+     */
+    async updateProductWithImage(productId, formData) {
+        return request(`/api/admin/products/${productId}/upload`, 'PUT', null, {
+            headers: {
+                // Убираем Content-Type, чтобы браузер мог автоматически установить
+                // правильный Content-Type с boundary для FormData
+                'Content-Type': undefined,
+                'Accept': 'application/json'
+            },
+            body: formData // Передаем FormData напрямую
+        });
+    },
+
+
+
+    /**
+     * Создание нового задания с изображением
+     * @param {FormData} formData - данные задания с файлом
+     * @returns {Promise<Object>} - созданное задание
+     */
+    async createTaskWithImage(formData) {
+        // Добавляем отладочный вывод
+        console.log('Creating task with image, formData entries:');
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + (pair[0] === 'taskImage' ? '[File]' : pair[1]));
+        }
+
+        return request('/api/admin/tasks/upload', 'POST', null, {
+            headers: {
+                // Важно: НЕ устанавливаем Content-Type для FormData
+                'Accept': 'application/json'
+            },
+            // Передаем FormData как body
+            body: formData
+        });
+    },
+
+    /**
+     * Обновление задания с изображением
+     * @param {string} taskId - ID задания
+     * @param {FormData} formData - данные задания с файлом
+     * @returns {Promise<Object>} - обновленное задание
+     */
+    async updateTaskWithImage(taskId, formData) {
+        return request(`/api/admin/tasks/${taskId}/upload`, 'PUT', null, {
+            headers: {
+                // Убираем Content-Type, чтобы браузер мог автоматически установить
+                // правильный Content-Type с boundary для FormData
+                'Content-Type': undefined,
+                'Accept': 'application/json'
+            },
+            body: formData // Передаем FormData напрямую
+        });
+    },
 
     /**
      * Форматирование параметров запроса из объекта

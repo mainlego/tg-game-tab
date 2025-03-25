@@ -225,13 +225,40 @@
               />
             </FormGroup>
 
-            <FormGroup label="Иконка (URL)">
-              <input
-                  type="text"
-                  v-model="currentTask.icon"
-                  class="form-input"
-                  placeholder="URL изображения или путь"
-              />
+            <!-- Обновленная часть для формы в TasksSection -->
+            <FormGroup label="Иконка">
+              <div class="image-upload-container">
+                <div v-if="imagePreview" class="image-preview">
+                  <img :src="imagePreview" alt="Предпросмотр" />
+                  <button type="button" class="remove-image" @click="removeImage">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+
+                <div class="upload-controls">
+                  <input
+                      type="file"
+                      id="icon-upload"
+                      ref="fileInput"
+                      @change="handleFileUpload"
+                      accept="image/*"
+                      class="file-input"
+                  />
+                  <label for="icon-upload" class="upload-button">
+                    <i class="fas fa-upload"></i>
+                    Выбрать изображение
+                  </label>
+
+                  <p class="or-text">или</p>
+
+                  <input
+                      type="text"
+                      v-model="currentTask.icon"
+                      class="form-input"
+                      placeholder="URL изображения или путь"
+                  />
+                </div>
+              </div>
             </FormGroup>
 
             <FormGroup label="Минимальный уровень">
@@ -295,6 +322,53 @@ const showTaskModal = ref(false);
 const filterType = ref('all');
 const filterStatus = ref('all');
 
+const fileInput = ref(null);
+const imagePreview = ref(null);
+const uploadedFile = ref(null);
+
+
+// Обработка загрузки файла
+const handleFileUpload = (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Проверка типа файла
+  if (!file.type.match('image.*')) {
+    notifications.addNotification({
+      message: 'Пожалуйста, выберите изображение',
+      type: 'error'
+    });
+    return;
+  }
+
+  // Проверка размера файла (макс. 2МБ)
+  if (file.size > 2 * 1024 * 1024) {
+    notifications.addNotification({
+      message: 'Размер изображения не должен превышать 2МБ',
+      type: 'error'
+    });
+    return;
+  }
+
+  // Сохраняем файл для последующей отправки
+  uploadedFile.value = file;
+
+  // Создаем URL для предпросмотра
+  imagePreview.value = URL.createObjectURL(file);
+
+  // Очищаем поле URL
+  currentTask.value.icon = '';
+};
+
+// Удаление выбранного изображения
+const removeImage = () => {
+  imagePreview.value = null;
+  uploadedFile.value = null;
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+};
+
 // Модель задания
 const defaultTask = {
   title: '',
@@ -354,7 +428,11 @@ const loadTasks = async () => {
   try {
     loading.value = true;
     const response = await ApiService.getTasks();
-    tasks.value = response.data || [];
+    // Преобразуем _id в id для совместимости с фронтендом
+    tasks.value = (response.data || []).map(task => ({
+      ...task,
+      id: task._id // Добавляем id для совместимости
+    }));
   } catch (error) {
     console.error('Error loading tasks:', error);
     notifications.addNotification({
@@ -367,45 +445,79 @@ const loadTasks = async () => {
 };
 
 const openTaskModal = (task = null) => {
+  imagePreview.value = null;
+  uploadedFile.value = null;
+
   if (task) {
     currentTask.value = {
       ...task,
       requirements: task.requirements || { level: 1, income: 0 }
     };
+
+    // Если у задания есть иконка и она не URL, загружаем предпросмотр
+    if (task.icon && !task.icon.startsWith('http') && !task.icon.startsWith('data:')) {
+      // Предполагается, что изображения хранятся по пути /uploads/
+      imagePreview.value = `${ApiService.API_URL}/uploads/${task.icon}`;
+    }
   } else {
     currentTask.value = { ...defaultTask };
   }
   showTaskModal.value = true;
 };
 
+// В методе saveTask компонента TasksSection.vue
+
 const saveTask = async () => {
   try {
     saving.value = true;
 
-    let response;
-    if (currentTask.value.id) {
-      response = await ApiService.updateTask(
-          currentTask.value.id,
-          currentTask.value
-      );
-      notifications.addNotification({
-        message: 'Задание успешно обновлено',
-        type: 'success'
-      });
-    } else {
-      response = await ApiService.createTask(currentTask.value);
-      notifications.addNotification({
-        message: 'Задание успешно создано',
-        type: 'success'
-      });
+    const formData = new FormData();
+
+    // Явно добавляем текстовые поля по одному
+    formData.append('title', currentTask.value.title || '');
+    formData.append('description', currentTask.value.description || '');
+    formData.append('type', currentTask.value.type || 'daily');
+    formData.append('reward', currentTask.value.reward || 100);
+
+    // Преобразуем boolean в строку 'true' или 'false'
+    formData.append('active', currentTask.value.active ? 'true' : 'false');
+
+    // Преобразуем объект requirements в строку JSON
+    if (currentTask.value.requirements) {
+      formData.append('requirements', JSON.stringify(currentTask.value.requirements));
     }
+
+    // Добавляем файл, если он выбран
+    if (uploadedFile.value) {
+      formData.append('taskImage', uploadedFile.value);
+    } else if (currentTask.value.icon) {
+      // Сохраняем существующую иконку
+      formData.append('icon', currentTask.value.icon);
+    }
+
+    // Отладка - проверяем содержимое FormData
+    for (let pair of formData.entries()) {
+      console.log(pair[0] + ': ' + pair[1]);
+    }
+
+    let response;
+    if (currentTask.value._id) {
+      response = await ApiService.updateTaskWithImage(currentTask.value._id, formData);
+    } else {
+      response = await ApiService.createTaskWithImage(formData);
+    }
+
+    notifications.addNotification({
+      message: currentTask.value._id ? 'Задание успешно обновлено' : 'Задание успешно создано',
+      type: 'success'
+    });
 
     showTaskModal.value = false;
     await loadTasks();
   } catch (error) {
     console.error('Error saving task:', error);
     notifications.addNotification({
-      message: 'Ошибка при сохранении задания',
+      message: 'Ошибка при сохранении задания: ' + error.message,
       type: 'error'
     });
   } finally {
@@ -753,6 +865,86 @@ th {
   white-space: nowrap;
   border-radius: 4px;
   font-size: 14px;
+}
+
+.image-upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.image-preview {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  height: 150px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remove-image {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.8);
+  border: none;
+  color: #f44336;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-image:hover {
+  background-color: rgba(255, 255, 255, 1);
+  transform: scale(1.1);
+}
+
+.upload-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-input {
+  display: none;
+}
+
+.upload-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #f5f5f5;
+  border: 1px dashed #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.upload-button:hover {
+  background-color: #eee;
+  border-color: #ccc;
+}
+
+.or-text {
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+  margin: 4px 0;
 }
 
 .task-card-actions .action-btn.edit {
