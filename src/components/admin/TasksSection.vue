@@ -1,306 +1,212 @@
-  <!-- src/components/admin/TasksSection.vue - исправленный вывод заданий -->
-    <template>
-      <div class="section-container">
-      <div class="tasks-section">
-        <div class="section-header">
-          <h2>Управление заданиями</h2>
-          <BaseButton type="primary" @click="openTaskModal()">
-            Создать задание
-          </BaseButton>
-        </div>
+<!-- src/components/admin/TasksSection.vue -->
+<template>
+  <div class="section-container">
+    <div class="tasks-section">
+      <div class="section-header">
+        <h2>Управление заданиями</h2>
+        <BaseButton type="primary" @click="openTaskModal()">
+          Создать задание
+        </BaseButton>
+      </div>
 
-        <div class="tasks-layout">
+      <div class="tasks-layout">
 
-          <!-- Статистика заданий -->
-          <BaseCard class="tasks-stats">
-            <h3>Статистика заданий</h3>
+        <!-- Статистика заданий -->
+        <BaseCard class="tasks-stats">
+          <h3>Статистика заданий</h3>
 
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-value">{{ tasks.length }}</div>
-                <div class="stat-label">Всего заданий</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">{{ activeTasks }}</div>
-                <div class="stat-label">Активных заданий</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">{{ totalCompletions }}</div>
-                <div class="stat-label">Всего выполнений</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">{{ formatMoney(totalRewards) }}</div>
-                <div class="stat-label">Выдано наград</div>
-              </div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value">{{ tasks.length }}</div>
+              <div class="stat-label">Всего заданий</div>
             </div>
+            <div class="stat-card">
+              <div class="stat-value">{{ activeTasks }}</div>
+              <div class="stat-label">Активных заданий</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">{{ totalCompletions }}</div>
+              <div class="stat-label">Всего выполнений</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">{{ formatMoney(totalRewards) }}</div>
+              <div class="stat-label">Выдано наград</div>
+            </div>
+          </div>
 
-            <div class="task-type-chart">
-              <h4>Распределение по типам</h4>
-              <div class="type-bars">
-                <div
-                    v-for="(count, type) in typeCounts"
-                    :key="type"
-                    class="type-bar"
-                    :style="{
+          <div class="task-type-chart">
+            <h4>Распределение по типам</h4>
+            <div class="type-bars">
+              <div
+                  v-for="(count, type) in typeCounts"
+                  :key="type"
+                  class="type-bar"
+                  :style="{
                 width: `${(count / tasks.length) * 100}%`,
                 backgroundColor: getTypeColor(type)
               }"
-                >
-                  <span class="type-name">{{ getTaskType(type) }}</span>
-                  <span class="type-count">{{ count }}</span>
-                </div>
+              >
+                <span class="type-name">{{ getTaskType(type) }}</span>
+                <span class="type-count">{{ count }}</span>
               </div>
             </div>
-          </BaseCard>
+          </div>
+        </BaseCard>
 
-          <!-- Список заданий -->
-          <BaseCard class="tasks-list">
-            <div class="list-header">
-              <h3>Список заданий</h3>
-              <div class="filter-controls">
-                <select v-model="filterType" class="form-input">
-                  <option value="all">Все типы</option>
-                  <option value="daily">Ежедневные</option>
-                  <option value="achievement">Достижения</option>
-                  <option value="special">Особые</option>
-                </select>
-                <select v-model="filterStatus" class="form-input">
-                  <option value="all">Все статусы</option>
-                  <option value="active">Активные</option>
-                  <option value="inactive">Неактивные</option>
-                </select>
-              </div>
+        <!-- Список заданий -->
+        <BaseCard class="tasks-list">
+          <div class="list-header">
+            <h3>Список заданий</h3>
+            <div class="filter-controls">
+              <select v-model="filterType" class="form-input">
+                <option value="all">Все типы</option>
+                <option value="daily">Ежедневные</option>
+                <option value="achievement">Достижения</option>
+                <option value="special">Особые</option>
+              </select>
+              <select v-model="filterStatus" class="form-input">
+                <option value="all">Все статусы</option>
+                <option value="active">Активные</option>
+                <option value="inactive">Неактивные</option>
+              </select>
             </div>
+          </div>
 
-            <LoadingSpinner v-if="loading" />
+          <LoadingSpinner v-if="loading" />
 
-            <div v-else-if="filteredTasks.length === 0" class="empty-list">
-              <p>Задания не найдены</p>
-            </div>
+          <div v-else-if="filteredTasks.length === 0" class="empty-list">
+            <p>Задания не найдены</p>
+          </div>
 
-            <div v-else>
-              <!-- Таблица для десктопа -->
-              <div class="tasks-table desktop-only">
-                <table>
-                  <thead>
-                  <tr>
-                    <th>Название</th>
-                    <th>Тип</th>
-                    <th>Награда</th>
-                    <th>Требования</th>
-                    <th>Выполнено</th>
-                    <th>Статус</th>
-                    <th>Действия</th>
-                  </tr>
-                  </thead>
-                  <tbody>
-                  <tr v-for="task in filteredTasks" :key="'table-'+task.id">
-                    <td>{{ task.title }}</td>
-                    <td>{{ getTaskType(task.type) }}</td>
-                    <td>{{ formatMoney(task.reward) }}</td>
-                    <td>
-                      <div v-if="task.requirements?.level">Уровень: {{ task.requirements.level }}+</div>
-                      <div v-if="task.requirements?.income">Доход: {{ formatMoney(task.requirements.income) }}+</div>
-                    </td>
-                    <td>{{ task.completions || 0 }}</td>
-                    <td>
-                  <span :class="['status-badge', task.active ? 'active' : 'inactive']">
-                    {{ task.active ? 'Активно' : 'Неактивно' }}
-                  </span>
-                    </td>
-                    <td class="actions">
-                      <button class="action-btn edit" @click="openTaskModal(task)">
-                        <i class="fas fa-edit"></i>
-                      </button>
-                      <button class="action-btn delete" @click="deleteTask(task)">
-                        <i class="fas fa-trash"></i>
-                      </button>
-                      <button
-                          class="action-btn toggle"
-                          @click="toggleTaskStatus(task)"
-                          :title="task.active ? 'Деактивировать' : 'Активировать'"
-                      >
-                        <i :class="task.active ? 'fas fa-times-circle' : 'fas fa-check-circle'"></i>
-                      </button>
-                    </td>
-                  </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- Карточки для мобильной версии -->
-              <div class="task-cards mobile-only">
-                <div v-for="task in filteredTasks" :key="'card-'+task.id" class="task-card">
-                  <div class="task-card-header">
-                    <h4>{{ task.title }}</h4>
+          <div v-else>
+            <!-- Таблица для десктопа -->
+            <div class="tasks-table desktop-only">
+              <table>
+                <thead>
+                <tr>
+                  <th>Иконка</th>
+                  <th>Название</th>
+                  <th>Тип</th>
+                  <th>Награда</th>
+                  <th>Требования</th>
+                  <th>Выполнено</th>
+                  <th>Статус</th>
+                  <th>Действия</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="task in filteredTasks" :key="'table-'+task.id">
+                  <td>
+                    <div class="task-icon">
+                      <img
+                          :src="task.iconUrl || task.icon"
+                          alt="Иконка"
+                          @error="handleImageError"
+                          class="task-icon-img"
+                      />
+                    </div>
+                  </td>
+                  <td>{{ task.title }}</td>
+                  <td>{{ getTaskType(task.type) }}</td>
+                  <td>{{ formatMoney(task.reward) }}</td>
+                  <td>
+                    <div v-if="task.requirements?.level">Уровень: {{ task.requirements.level }}+</div>
+                    <div v-if="task.requirements?.income">Доход: {{ formatMoney(task.requirements.income) }}+</div>
+                  </td>
+                  <td>{{ task.completions || 0 }}</td>
+                  <td>
                     <span :class="['status-badge', task.active ? 'active' : 'inactive']">
-                  {{ task.active ? 'Активно' : 'Неактивно' }}
-                </span>
-                  </div>
-
-                  <div class="task-card-content">
-                    <div class="task-detail">
-                      <strong>Тип:</strong> {{ getTaskType(task.type) }}
-                    </div>
-                    <div class="task-detail">
-                      <strong>Награда:</strong> {{ formatMoney(task.reward) }}
-                    </div>
-                    <div class="task-detail" v-if="task.requirements?.level || task.requirements?.income">
-                      <strong>Требования:</strong>
-                      <div v-if="task.requirements?.level">Уровень: {{ task.requirements.level }}+</div>
-                      <div v-if="task.requirements?.income">Доход: {{ formatMoney(task.requirements.income) }}+</div>
-                    </div>
-                    <div class="task-detail">
-                      <strong>Выполнено:</strong> {{ task.completions || 0 }}
-                    </div>
-                  </div>
-
-                  <div class="task-card-actions">
+                      {{ task.active ? 'Активно' : 'Неактивно' }}
+                    </span>
+                  </td>
+                  <td class="actions">
                     <button class="action-btn edit" @click="openTaskModal(task)">
                       <i class="fas fa-edit"></i>
-                      <span>Редактировать</span>
                     </button>
                     <button class="action-btn delete" @click="deleteTask(task)">
                       <i class="fas fa-trash"></i>
-                      <span>Удалить</span>
                     </button>
                     <button
                         class="action-btn toggle"
                         @click="toggleTaskStatus(task)"
+                        :title="task.active ? 'Деактивировать' : 'Активировать'"
                     >
                       <i :class="task.active ? 'fas fa-times-circle' : 'fas fa-check-circle'"></i>
-                      <span>{{ task.active ? 'Деактивировать' : 'Активировать' }}</span>
                     </button>
+                  </td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Карточки для мобильной версии -->
+            <div class="task-cards mobile-only">
+              <div v-for="task in filteredTasks" :key="'card-'+task.id" class="task-card">
+                <div class="task-card-header">
+                  <div class="task-icon">
+                    <img
+                        :src="task.iconUrl || task.icon"
+                        alt="Иконка"
+                        @error="handleImageError"
+                        class="task-icon-img"
+                    />
+                  </div>
+                  <h4>{{ task.title }}</h4>
+                  <span :class="['status-badge', task.active ? 'active' : 'inactive']">
+                    {{ task.active ? 'Активно' : 'Неактивно' }}
+                  </span>
+                </div>
+
+                <div class="task-card-content">
+                  <div class="task-detail">
+                    <strong>Тип:</strong> {{ getTaskType(task.type) }}
+                  </div>
+                  <div class="task-detail">
+                    <strong>Награда:</strong> {{ formatMoney(task.reward) }}
+                  </div>
+                  <div class="task-detail" v-if="task.requirements?.level || task.requirements?.income">
+                    <strong>Требования:</strong>
+                    <div v-if="task.requirements?.level">Уровень: {{ task.requirements.level }}+</div>
+                    <div v-if="task.requirements?.income">Доход: {{ formatMoney(task.requirements.income) }}+</div>
+                  </div>
+                  <div class="task-detail">
+                    <strong>Выполнено:</strong> {{ task.completions || 0 }}
                   </div>
                 </div>
-              </div>
-            </div>
-          </BaseCard>
 
-
-        </div>
-
-        <!-- Модальное окно для создания/редактирования задания -->
-        <!-- Модальное окно для создания/редактирования задания -->
-        <BaseModal
-            v-if="showTaskModal"
-            :title="currentTask.id ? 'Редактирование задания' : 'Создание нового задания'"
-            @close="showTaskModal = false"
-        >
-          <BaseForm @submit="saveTask">
-            <FormGroup label="Название задания">
-              <input
-                  type="text"
-                  v-model="currentTask.title"
-                  class="form-input"
-                  required
-              />
-            </FormGroup>
-
-            <FormGroup label="Описание">
-      <textarea
-          v-model="currentTask.description"
-          class="form-input"
-          rows="4"
-          required
-      ></textarea>
-            </FormGroup>
-
-            <FormGroup label="Тип задания">
-              <select v-model="currentTask.type" class="form-input">
-                <option value="daily">Ежедневное</option>
-                <option value="achievement">Достижение</option>
-                <option value="special">Особое</option>
-              </select>
-            </FormGroup>
-
-            <FormGroup label="Награда">
-              <input
-                  type="number"
-                  v-model.number="currentTask.reward"
-                  class="form-input"
-                  min="1"
-                  step="1"
-                  required
-              />
-            </FormGroup>
-
-            <!-- Обновленная часть для формы в TasksSection -->
-            <FormGroup label="Иконка">
-              <div class="image-upload-container">
-                <div v-if="imagePreview" class="image-preview">
-                  <img :src="imagePreview" alt="Предпросмотр" />
-                  <button type="button" class="remove-image" @click="removeImage">
-                    <i class="fas fa-times"></i>
+                <div class="task-card-actions">
+                  <button class="action-btn edit" @click="openTaskModal(task)">
+                    <i class="fas fa-edit"></i>
+                    <span>Редактировать</span>
+                  </button>
+                  <button class="action-btn delete" @click="deleteTask(task)">
+                    <i class="fas fa-trash"></i>
+                    <span>Удалить</span>
+                  </button>
+                  <button
+                      class="action-btn toggle"
+                      @click="toggleTaskStatus(task)"
+                  >
+                    <i :class="task.active ? 'fas fa-times-circle' : 'fas fa-check-circle'"></i>
+                    <span>{{ task.active ? 'Деактивировать' : 'Активировать' }}</span>
                   </button>
                 </div>
-
-                <div class="upload-controls">
-                  <input
-                      type="file"
-                      id="icon-upload"
-                      ref="fileInput"
-                      @change="handleFileUpload"
-                      accept="image/*"
-                      class="file-input"
-                  />
-                  <label for="icon-upload" class="upload-button">
-                    <i class="fas fa-upload"></i>
-                    Выбрать изображение
-                  </label>
-
-                  <p class="or-text">или</p>
-
-                  <input
-                      type="text"
-                      v-model="currentTask.icon"
-                      class="form-input"
-                      placeholder="URL изображения или путь"
-                  />
-                </div>
               </div>
-            </FormGroup>
-
-            <FormGroup label="Минимальный уровень">
-              <input
-                  type="number"
-                  v-model.number="currentTask.requirements.level"
-                  class="form-input"
-                  min="1"
-                  step="1"
-              />
-            </FormGroup>
-
-            <FormGroup label="Минимальный доход">
-              <input
-                  type="number"
-                  v-model.number="currentTask.requirements.income"
-                  class="form-input"
-                  min="0"
-                  step="1000"
-              />
-            </FormGroup>
-
-            <FormGroup>
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="currentTask.active" />
-                Задание активно
-              </label>
-            </FormGroup>
-
-            <div class="form-actions">
-              <BaseButton type="secondary" @click="showTaskModal = false">
-                Отмена
-              </BaseButton>
-              <BaseButton type="primary" :disabled="saving">
-                {{ saving ? 'Сохранение...' : 'Сохранить' }}
-              </BaseButton>
             </div>
-          </BaseForm>
-        </BaseModal>
+          </div>
+        </BaseCard>
       </div>
-      </div>
-    </template>
+
+      <!-- Модальное окно для создания/редактирования задания -->
+      <TaskModal
+          v-if="showTaskModal"
+          :task="currentTask"
+          @close="showTaskModal = false"
+          @save="saveTask"
+      />
+    </div>
+  </div>
+</template>
 
 <script setup>
 import { ref, computed, onMounted, inject } from 'vue';
@@ -311,6 +217,7 @@ import BaseForm from '../ui/BaseForm.vue';
 import FormGroup from '../ui/FormGroup.vue';
 import BaseModal from '../ui/BaseModal.vue';
 import LoadingSpinner from '../ui/LoadingSpinner.vue';
+import TaskModal from '../admin/modals/TaskModal.vue';
 
 const notifications = inject('notifications');
 
@@ -321,53 +228,6 @@ const tasks = ref([]);
 const showTaskModal = ref(false);
 const filterType = ref('all');
 const filterStatus = ref('all');
-
-const fileInput = ref(null);
-const imagePreview = ref(null);
-const uploadedFile = ref(null);
-
-
-// Обработка загрузки файла
-const handleFileUpload = (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  // Проверка типа файла
-  if (!file.type.match('image.*')) {
-    notifications.addNotification({
-      message: 'Пожалуйста, выберите изображение',
-      type: 'error'
-    });
-    return;
-  }
-
-  // Проверка размера файла (макс. 2МБ)
-  if (file.size > 2 * 1024 * 1024) {
-    notifications.addNotification({
-      message: 'Размер изображения не должен превышать 2МБ',
-      type: 'error'
-    });
-    return;
-  }
-
-  // Сохраняем файл для последующей отправки
-  uploadedFile.value = file;
-
-  // Создаем URL для предпросмотра
-  imagePreview.value = URL.createObjectURL(file);
-
-  // Очищаем поле URL
-  currentTask.value.icon = '';
-};
-
-// Удаление выбранного изображения
-const removeImage = () => {
-  imagePreview.value = null;
-  uploadedFile.value = null;
-  if (fileInput.value) {
-    fileInput.value.value = '';
-  }
-};
 
 // Модель задания
 const defaultTask = {
@@ -424,100 +284,127 @@ const typeCounts = computed(() => {
 });
 
 // Методы
+// Обработка ошибок изображений
+const handleImageError = (e) => {
+  console.error('Ошибка загрузки изображения');
+  // Заменяем на изображение-заглушку
+  e.target.src = 'https://via.placeholder.com/40x40?text=No+Icon';
+};
+
+// Загрузка заданий
 const loadTasks = async () => {
   try {
     loading.value = true;
+    console.log('Загрузка заданий...');
+
     const response = await ApiService.getTasks();
-    // Преобразуем _id в id для совместимости с фронтендом
-    tasks.value = (response.data || []).map(task => ({
-      ...task,
-      id: task._id // Добавляем id для совместимости
-    }));
+    console.log('Ответ от сервера:', response);
+
+    if (response && response.success && response.data) {
+      // Сервер возвращает { success: true, data: [...] }
+      tasks.value = response.data.map(task => {
+        // Проверяем, если иконка не содержит полный URL или путь с /uploads/
+        if (task.icon && !task.icon.startsWith('http')) {
+          // Добавляем полный путь к иконке
+          task.iconUrl = `${ApiService.API_URL}${task.icon}?t=${new Date().getTime()}`;
+        } else {
+          task.iconUrl = task.icon;
+        }
+
+        return {
+          ...task,
+          id: task._id // Добавляем id для совместимости с фронтендом
+        };
+      });
+    } else {
+      console.error('Неожиданный формат ответа:', response);
+      tasks.value = [];
+    }
   } catch (error) {
-    console.error('Error loading tasks:', error);
+    console.error('Ошибка загрузки заданий:', error);
     notifications.addNotification({
-      message: 'Ошибка при загрузке заданий',
+      message: `Ошибка загрузки заданий: ${error.message}`,
       type: 'error'
     });
+    tasks.value = [];
   } finally {
     loading.value = false;
   }
 };
 
+// Открытие модального окна задания
 const openTaskModal = (task = null) => {
-  imagePreview.value = null;
-  uploadedFile.value = null;
-
   if (task) {
     currentTask.value = {
       ...task,
       requirements: task.requirements || { level: 1, income: 0 }
     };
-
-    // Если у задания есть иконка и она не URL, загружаем предпросмотр
-    if (task.icon && !task.icon.startsWith('http') && !task.icon.startsWith('data:')) {
-      // Предполагается, что изображения хранятся по пути /uploads/
-      imagePreview.value = `${ApiService.API_URL}/uploads/${task.icon}`;
-    }
   } else {
     currentTask.value = { ...defaultTask };
   }
   showTaskModal.value = true;
 };
 
-// В методе saveTask компонента TasksSection.vue
-
-const saveTask = async () => {
+// Сохранение задания
+const saveTask = async (taskData, isFormData = false) => {
   try {
     saving.value = true;
 
-    const formData = new FormData();
-
-    // Явно добавляем текстовые поля по одному
-    formData.append('title', currentTask.value.title || '');
-    formData.append('description', currentTask.value.description || '');
-    formData.append('type', currentTask.value.type || 'daily');
-    formData.append('reward', currentTask.value.reward || 100);
-
-    // Преобразуем boolean в строку 'true' или 'false'
-    formData.append('active', currentTask.value.active ? 'true' : 'false');
-
-    // Преобразуем объект requirements в строку JSON
-    if (currentTask.value.requirements) {
-      formData.append('requirements', JSON.stringify(currentTask.value.requirements));
-    }
-
-    // Добавляем файл, если он выбран
-    if (uploadedFile.value) {
-      formData.append('taskImage', uploadedFile.value);
-    } else if (currentTask.value.icon) {
-      // Сохраняем существующую иконку
-      formData.append('icon', currentTask.value.icon);
-    }
-
-    // Отладка - проверяем содержимое FormData
-    for (let pair of formData.entries()) {
-      console.log(pair[0] + ': ' + pair[1]);
+    // Проверка обязательных полей для обычного объекта
+    if (!isFormData && (!taskData.title || !taskData.description)) {
+      notifications.addNotification({
+        message: 'Название и описание задания обязательны',
+        type: 'warning'
+      });
+      return;
     }
 
     let response;
-    if (currentTask.value._id) {
-      response = await ApiService.updateTaskWithImage(currentTask.value._id, formData);
+
+    if (isFormData) {
+      // Загрузка с файлом
+      if (currentTask.value._id) {
+        // Обновление существующего задания с файлом
+        response = await ApiService.updateTaskWithImage(
+            currentTask.value._id,
+            taskData
+        );
+      } else {
+        // Создание нового задания с файлом
+        response = await ApiService.createTaskWithImage(taskData);
+      }
     } else {
-      response = await ApiService.createTaskWithImage(formData);
+      // Обычная загрузка без файла
+      if (currentTask.value._id) {
+        // Обновление существующего задания
+        response = await ApiService.updateTask(
+            currentTask.value._id,
+            taskData
+        );
+      } else {
+        // Создание нового задания
+        response = await ApiService.createTask(taskData);
+      }
     }
 
-    notifications.addNotification({
-      message: currentTask.value._id ? 'Задание успешно обновлено' : 'Задание успешно создано',
-      type: 'success'
-    });
+    console.log('Ответ от сервера:', response);
 
-    showTaskModal.value = false;
-    await loadTasks();
+    if (response && response.success) {
+      // Успешное создание/обновление
+      notifications.addNotification({
+        message: currentTask.value._id ? 'Задание успешно обновлено' : 'Задание успешно создано',
+        type: 'success'
+      });
+
+      showTaskModal.value = false;
+      await loadTasks(); // Перезагрузка списка заданий
+    } else {
+      throw new Error('Не удалось сохранить задание');
+    }
   } catch (error) {
-    console.error('Error saving task:', error);
+    console.error('Ошибка сохранения задания:', error);
     notifications.addNotification({
-      message: 'Ошибка при сохранении задания: ' + error.message,
+      message: `Ошибка при сохранении задания: ${error.message}`,
       type: 'error'
     });
   } finally {
@@ -604,6 +491,22 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.task-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f5f5f5;
+}
+
+.task-icon-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
 
 .section-container {
   width: 100%;
@@ -611,12 +514,10 @@ onMounted(async () => {
   overflow-y: scroll;
   display: flex;
   flex-direction: column;
-
 }
 
 .tasks-section {
   padding: 20px;
-
 }
 
 .section-header {
@@ -834,6 +735,7 @@ th {
   margin: 0;
   font-size: 16px;
   flex: 1;
+  margin-left: 12px;
 }
 
 .task-card-content {
@@ -865,86 +767,6 @@ th {
   white-space: nowrap;
   border-radius: 4px;
   font-size: 14px;
-}
-
-.image-upload-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.image-preview {
-  position: relative;
-  width: 100%;
-  max-width: 300px;
-  height: 150px;
-  border-radius: 4px;
-  overflow: hidden;
-  margin: 0 auto;
-}
-
-.image-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.remove-image {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.8);
-  border: none;
-  color: #f44336;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.remove-image:hover {
-  background-color: rgba(255, 255, 255, 1);
-  transform: scale(1.1);
-}
-
-.upload-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.file-input {
-  display: none;
-}
-
-.upload-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background-color: #f5f5f5;
-  border: 1px dashed #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
-}
-
-.upload-button:hover {
-  background-color: #eee;
-  border-color: #ccc;
-}
-
-.or-text {
-  text-align: center;
-  font-size: 12px;
-  color: #666;
-  margin: 4px 0;
 }
 
 .task-card-actions .action-btn.edit {

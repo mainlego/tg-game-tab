@@ -367,9 +367,11 @@ const loadProducts = async () => {
       // Сервер возвращает { success: true, data: [...] }
       products.value = response.data.map(product => {
         // Проверяем, если изображение не содержит полный URL или путь с /uploads/
-        if (product.image && !product.image.startsWith('http') && !product.image.startsWith('/')) {
+        if (product.image && !product.image.startsWith('http')) {
           // Добавляем префикс /uploads/ к имени файла
-          product.image = `/uploads/${product.image}`;
+          product.imageUrl = `${ApiService.API_URL}${product.image}`;
+        }else {
+          product.imageUrl = product.image;
         }
 
         return {

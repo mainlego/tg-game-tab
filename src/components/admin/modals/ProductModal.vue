@@ -94,7 +94,7 @@
           </div>
           <div class="image-preview" v-if="imagePreview || form.image">
             <img
-                :src="imagePreview || form.image"
+                :src="imagePreview || getFullImagePath(form.image)"
                 alt="Preview"
                 @error="handleImageError"
             >
@@ -151,7 +151,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted } from 'vue';
+import { ApiService } from '../../../services/apiService';
 
 const props = defineProps({
   product: {
@@ -200,12 +201,6 @@ const handleFileChange = (event) => {
   }
 }
 
-const handleImageError = (e) => {
-  // При ошибке загрузки изображения можно заменить его на заглушку
-  e.target.src = '/path/to/default/image.png';
-  console.error('Ошибка загрузки изображения:', form.value.image);
-};
-
 const getDefaultGradient = (index) => {
   const gradients = [
     'linear-gradient(140.83deg, rgb(111, 95, 242) 0%, rgb(73, 51, 131) 100%)',
@@ -218,6 +213,24 @@ const getDefaultGradient = (index) => {
 
   const idx = typeof index === 'number' ? index % gradients.length : 0;
   return gradients[idx];
+};
+
+// Функция для получения полного пути к изображению
+const getFullImagePath = (imagePath) => {
+  // Если путь уже начинается с http/https, оставляем как есть
+  if (imagePath && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
+    return imagePath;
+  }
+
+  // В противном случае добавляем базовый URL сервера
+  return imagePath ? `${ApiService.API_URL}${imagePath}` : '';
+};
+
+// Функция для обработки ошибок загрузки изображений
+const handleImageError = (e) => {
+  console.error('Ошибка загрузки изображения:', form.value.image);
+  // Заменяем на изображение-заглушку
+  e.target.src = 'https://www.shutterstock.com/image-vector/default-ui-image-placeholder-wireframes-600nw-1037719192.jpg';
 };
 
 const handleSubmit = () => {

@@ -83,14 +83,46 @@
         </div>
 
         <div class="form-group">
-          <label for="icon">Иконка</label>
-          <input
-              type="text"
-              id="icon"
-              v-model="form.icon"
-              class="form-input"
-              placeholder="URL иконки или название файла"
-          >
+          <label for="taskImage">Иконка</label>
+          <div class="image-upload">
+            <div class="file-input-wrapper">
+              <input
+                  type="file"
+                  id="taskImage"
+                  ref="fileInput"
+                  @change="handleFileChange"
+                  accept="image/*"
+                  class="file-input"
+              >
+              <div class="file-input-button">
+                <span>Выбрать файл</span>
+              </div>
+              <div class="file-name" v-if="selectedFile">
+                {{ selectedFile.name }}
+              </div>
+              <div class="file-name" v-else-if="form.icon">
+                Текущее изображение
+              </div>
+              <div class="file-name empty" v-else>
+                Файл не выбран
+              </div>
+            </div>
+            <div class="or-separator">ИЛИ</div>
+            <input
+                type="text"
+                id="icon"
+                v-model="form.icon"
+                class="form-input"
+                placeholder="URL иконки или название файла"
+            >
+          </div>
+          <div class="image-preview" v-if="imagePreview || form.icon">
+            <img
+                :src="imagePreview || getFullImagePath(form.icon)"
+                alt="Preview"
+                @error="handleImageError"
+            >
+          </div>
         </div>
 
         <div class="form-group">
@@ -118,6 +150,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { ApiService } from '../../../services/apiService';
 
 const props = defineProps({
   task: {
@@ -137,9 +170,13 @@ const form = ref({
     level: 1,
     income: 0
   },
-  icon: 'default.png',
+  icon: '',
   active: true
 })
+
+const selectedFile = ref(null)
+const fileInput = ref(null)
+const imagePreview = ref(null)
 
 onMounted(() => {
   if (props.task) {
@@ -154,8 +191,86 @@ onMounted(() => {
   }
 })
 
+const handleFileChange = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    selectedFile.value = file
+
+    // Очищаем URL изображения, если выбран файл
+    form.value.icon = '' // Важно очистить текущую иконку
+
+    // Создаем превью изображения
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      imagePreview.value = e.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+// Функция для получения полного пути к изображению
+const getFullImagePath = (iconPath) => {
+  if (!iconPath) return '';
+
+  // Если путь уже начинается с http/https, оставляем как есть
+  if (iconPath.startsWith('http://') || iconPath.startsWith('https://')) {
+    return iconPath;
+  }
+
+  // Обрабатываем случай с поврежденным путем
+  let cleanPath = iconPath;
+  if (iconPath.includes('file:/')) {
+    // Извлекаем только часть пути с /uploads/...
+    const match = iconPath.match(/\/uploads\/[^"]+/);
+    if (match) {
+      cleanPath = match[0];
+    }
+  }
+
+  // Добавляем базовый URL сервера
+  return `${ApiService.API_URL}${cleanPath.startsWith('/') ? '' : '/'}${cleanPath}`;
+};
+
+// Функция для обработки ошибок загрузки изображений
+const handleImageError = (e) => {
+  console.error('Ошибка загрузки изображения:', form.value.icon);
+  // Заменяем на изображение-заглушку
+  e.target.src = 'https://www.shutterstock.com/image-vector/default-ui-image-placeholder-wireframes-600nw-1037719192.jpg';
+};
+
 const handleSubmit = () => {
-  emit('save', { ...form.value })
+  // Если выбран файл, сообщаем родителю, что нужно использовать FormData
+  if (selectedFile.value) {
+
+    console.log("Selected file info:", {
+      name: selectedFile.value.name,
+      type: selectedFile.value.type,
+      size: selectedFile.value.size
+    });
+
+    const formData = new FormData()
+
+    // Добавляем основные данные задания
+    formData.append('title', form.value.title)
+    formData.append('description', form.value.description)
+    formData.append('type', form.value.type)
+    formData.append('reward', form.value.reward)
+    formData.append('active', form.value.active)
+
+    // Добавляем требования как JSON строку
+    formData.append('requirements', JSON.stringify({
+      level: form.value.requirements.level,
+      income: form.value.requirements.income
+    }))
+
+    // Добавляем файл изображения
+    formData.append('taskImage', selectedFile.value)
+
+    emit('save', formData, true) // Второй параметр указывает, что это FormData
+  } else {
+    // Если файл не выбран, отправляем обычный объект
+    emit('save', { ...form.value }, false)
+  }
 }
 </script>
 
@@ -228,6 +343,72 @@ const handleSubmit = () => {
   font-size: 14px;
 }
 
+.image-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.file-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.file-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.file-input-button {
+  padding: 8px 16px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.file-name {
+  margin-left: 10px;
+  font-size: 14px;
+  color: #333;
+}
+
+.file-name.empty {
+  color: #999;
+}
+
+.or-separator {
+  text-align: center;
+  margin: 10px 0;
+  font-size: 12px;
+  color: #666;
+}
+
+.image-preview {
+  width: 100%;
+  max-height: 100px;
+  overflow: hidden;
+  border-radius: 4px;
+  margin-top: 8px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+.image-preview img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
 textarea.form-input {
   resize: vertical;
   min-height: 80px;
@@ -259,7 +440,7 @@ textarea.form-input {
 }
 
 .btn-primary {
-  background: var(--primary-color);
+  background: var(--primary-color, #8C60E3);
   color: white;
 }
 

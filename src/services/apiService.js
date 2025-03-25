@@ -108,6 +108,21 @@ export const ApiService = {
 
 
     /**
+     * Получение полного URL изображения
+     * @param {string} imagePath - относительный путь к изображению
+     * @returns {string} - полный URL изображения
+     */
+    getImageUrl(imagePath) {
+        if (!imagePath) return '';
+
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+            return imagePath;
+        }
+
+        return `${this.API_URL}${imagePath}`;
+    },
+
+    /**
      * Создание нового продукта с изображением
      * @param {FormData} formData - данные продукта с файлом
      * @returns {Promise<Object>} - созданный продукт
@@ -129,6 +144,9 @@ export const ApiService = {
         });
     },
 
+
+
+
     /**
      * Обновление продукта с изображением
      * @param {string} productId - ID продукта
@@ -137,13 +155,8 @@ export const ApiService = {
      */
     async updateProductWithImage(productId, formData) {
         return request(`/api/admin/products/${productId}/upload`, 'PUT', null, {
-            headers: {
-                // Убираем Content-Type, чтобы браузер мог автоматически установить
-                // правильный Content-Type с boundary для FormData
-                'Content-Type': undefined,
-                'Accept': 'application/json'
-            },
-            body: formData // Передаем FormData напрямую
+            // Убираем настройки headers полностью, пусть браузер сам установит нужные заголовки
+            body: formData
         });
     },
 
@@ -178,14 +191,9 @@ export const ApiService = {
      * @returns {Promise<Object>} - обновленное задание
      */
     async updateTaskWithImage(taskId, formData) {
+        // Убираем настройки headers полностью, пусть браузер сам установит нужные заголовки
         return request(`/api/admin/tasks/${taskId}/upload`, 'PUT', null, {
-            headers: {
-                // Убираем Content-Type, чтобы браузер мог автоматически установить
-                // правильный Content-Type с boundary для FormData
-                'Content-Type': undefined,
-                'Accept': 'application/json'
-            },
-            body: formData // Передаем FormData напрямую
+            body: formData
         });
     },
 
