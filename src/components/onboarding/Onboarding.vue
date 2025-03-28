@@ -1,4 +1,4 @@
-<!-- src/App.vue (с исправленными путями импорта) -->
+<!-- src/App.vue (обновленный) -->
 <template>
   <NotificationsProvider>
     <div class="app">
@@ -7,7 +7,7 @@
       </button>
 
       <!-- Компонент загрузки -->
-      <Loading v-if="isLoading" @loading-complete="finishLoading" :duration="3000" />
+      <Loading v-if="isLoading" @loading-complete="finishLoading" />
 
       <!-- Компонент онбординга -->
       <Onboarding v-else-if="showOnboarding" @finish="finishOnboarding" />
@@ -27,13 +27,13 @@
 <script setup>
 import { onMounted, provide, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useGameStore } from '@/stores/gameStore';
-import { useTelegram } from '@/composables/useTelegram';
-import { ApiService } from '@/services/apiService';
-import { GameSettingsService } from '@/services/GameSettingsService';
-import NotificationsProvider from '@/components/NotificationsProvider.vue';
-import Loading from '@/components/Loading.vue';
-import Onboarding from '@/components/onboarding/Onboarding.vue';
+import { useGameStore } from '../../stores/gameStore';
+import { useTelegram } from '../../composables/useTelegram';
+import { ApiService } from '../../services/apiService.js';
+import { GameSettingsService } from '../../services/GameSettingsService.js';
+import NotificationsProvider from '../../components/NotificationsProvider.vue';
+import Loading from '../../components/Loading.vue';
+import Onboarding from '../../components/onboarding/Onboarding.vue';
 
 // Состояния для загрузки и онбординга
 const isLoading = ref(true);
@@ -56,18 +56,13 @@ function resetProgress() {
 }
 
 function finishLoading() {
-  console.log('Получено событие loading-complete, завершаем загрузку');
   isLoading.value = false;
 
   // Проверяем, видел ли пользователь онбординг
   const onboardingCompleted = localStorage.getItem('onboardingCompleted') === 'true';
-  console.log('onboardingCompleted:', onboardingCompleted);
 
   if (!onboardingCompleted) {
     showOnboarding.value = true;
-    console.log('Показываем онбординг');
-  } else {
-    console.log('Онбординг уже пройден, показываем основной контент');
   }
 }
 
@@ -102,8 +97,6 @@ provide('logger', logger);
 
 // Инициализация приложения
 onMounted(async () => {
-  console.log('App.vue mounted');
-
   // Предзагрузка ресурсов и изображений
   const preloadImages = () => {
     return new Promise((resolve) => {
@@ -219,10 +212,7 @@ onMounted(async () => {
   // После всех инициализаций через 1.5 секунды завершаем загрузку
   // Это имитация минимального времени загрузки, чтобы пользователь успел увидеть анимацию
   setTimeout(() => {
-    console.log('Минимальное время загрузки прошло, вызываем finishLoading');
-    // Эту строку можно закомментировать, чтобы дать Loading компоненту
-    // самостоятельно завершить загрузку через свою анимацию
-    // finishLoading();
+    finishLoading();
   }, 1500);
 });
 </script>

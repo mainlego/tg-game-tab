@@ -11,7 +11,8 @@ import Growth from './pages/Growth.vue'
 import AdminLayout from './layouts/AdminLayout.vue'
 import Admin from './pages/Admin.vue'
 import AdminLogin from './pages/AdminLogin.vue'
-import Friends from './pages/Friends.vue'  // Добавляем импорт
+import Friends from './pages/Friends.vue'
+import Onboarding from './components/onboarding/Onboarding.vue'
 
 // Создаем маршруты
 const routes = [
@@ -23,6 +24,10 @@ const routes = [
     {
         path: '/products',
         component: () => import('@/pages/Products.vue')
+    },
+    {
+        path: '/onboarding',
+        component: Onboarding
     },
     {
         path: '/admin',
