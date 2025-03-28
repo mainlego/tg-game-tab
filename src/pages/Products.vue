@@ -35,6 +35,61 @@
       </div>
     </div>
 
+    <!-- Модальное окно -->
+    <div class="modal-overlay" v-if="showModal" @click="closeModal">
+      <div class="modal-container" @click.stop>
+        <button class="modal-close" @click="closeModal">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+
+        <div v-if="selectedProduct" class="modal-content">
+          <img :src="selectedProduct.image" :alt="selectedProduct.title" class="modal-image">
+
+          <h2 class="modal-title">{{ selectedProduct.title }}</h2>
+
+          <div class="modal-description">
+            <!-- Динамическое описание в зависимости от продукта -->
+            <p v-if="selectedProduct.id === 1">
+              Хочешь в путешествие мечты? Мы дарим шанс
+              выиграть незабываемую поездку в Дубай! 🏙️🌴 ☀️
+              Билеты туда и обратно + 5-звездочный отель на 5
+              дней! ☀️ Для того чтобы наслаждаться пляжами,
+              шопингом и лучшими достопримечательностями
+              Дубая. ☀️✨ Уровень счастья для участия в
+              розыгрыше {{ formatMoney(selectedProduct.requiredIncome) }} единиц.
+            </p>
+            <p v-else-if="selectedProduct.id === 2">
+              Хочешь новый iPhone? Участвуй в нашем розыгрыше и получи шанс
+              выиграть новейшую модель! 📱✨ Уровень счастья для участия в
+              розыгрыше {{ formatMoney(selectedProduct.requiredIncome) }} единиц.
+            </p>
+            <!-- Для других продуктов -->
+            <p v-else>
+              Для получения доступа к "{{ selectedProduct.title }}" необходим
+              пассивный доход {{ formatMoney(selectedProduct.requiredIncome) }} единиц.
+            </p>
+          </div>
+
+          <div class="modal-income">
+            <span class="income-label">💰 {{ formatMoney(selectedProduct.requiredIncome) }}</span>
+          </div>
+
+          <button
+              class="modal-button"
+              :disabled="!isProductAvailable(selectedProduct) || selectedProduct.claimed"
+              @click="activateProduct"
+          >
+            <span v-if="selectedProduct.claimed">Уже активировано</span>
+            <span v-else-if="isProductAvailable(selectedProduct)">Активировать</span>
+            <span v-else>Недоступно</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <Navigation />
   </div>
 </template>
@@ -50,6 +105,10 @@ import Navigation from '@/components/layout/Navigation.vue'
 const store = useGameStore()
 const { user } = useTelegram()
 const notifications = inject('notifications')
+
+// Состояние модального окна
+const showModal = ref(false)
+const selectedProduct = ref(null)
 
 const products = ref([
   {
@@ -107,6 +166,21 @@ const isProductAvailable = (product) => {
 }
 
 const handleProductClick = (product) => {
+  // Вместо уведомления открываем модальное окно
+  selectedProduct.value = product
+  showModal.value = true
+}
+
+const closeModal = () => {
+  showModal.value = false
+  selectedProduct.value = null
+}
+
+const activateProduct = () => {
+  if (!selectedProduct.value) return
+
+  const product = selectedProduct.value
+
   if (product.claimed) {
     notifications.addNotification({
       message: 'Вы уже активировали этот продукт',
@@ -141,7 +215,11 @@ const handleProductClick = (product) => {
   })
 
   // Помечаем продукт как активированный
-  product.claimed = true
+  const productIndex = products.value.findIndex(p => p.id === product.id)
+  if (productIndex !== -1) {
+    products.value[productIndex].claimed = true
+    selectedProduct.value = products.value[productIndex]
+  }
 
   // Показываем уведомление пользователю
   notifications.addNotification({
@@ -149,6 +227,11 @@ const handleProductClick = (product) => {
     type: 'success',
     duration: 5000
   })
+
+  // Закрываем модальное окно после активации
+  setTimeout(() => {
+    closeModal()
+  }, 1500)
 }
 
 const formatMoney = (num) => {
@@ -257,6 +340,122 @@ const formatMoney = (num) => {
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* Стили модального окна */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.modal-container {
+  width: 90%;
+  max-width: 400px;
+  background: linear-gradient(140.83deg, rgb(128, 0, 128) 0%, rgb(72, 0, 72) 100%);
+  border-radius: 24px 24px 0 0;
+  padding: 24px;
+  position: relative;
+  box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.3);
+  color: white;
+  animation: slideUp 0.4s ease;
+  margin-bottom: 0;
+}
+
+.modal-close {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.modal-image {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.modal-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.modal-description {
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.modal-income {
+  margin-bottom: 24px;
+}
+
+.income-label {
+  font-size: 24px;
+  font-weight: 700;
+  color: #FFD700;
+}
+
+.modal-button {
+  background: linear-gradient(140.83deg, rgb(255, 215, 0) 0%, rgb(218, 165, 32) 100%);
+  color: black;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.modal-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+}
+
+.modal-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (max-width: 480px) {
   .products-grid {
     gap: 12px;
@@ -272,6 +471,14 @@ const formatMoney = (num) => {
   }
 
   .income-amount {
+    font-size: 14px;
+  }
+
+  .modal-title {
+    font-size: 20px;
+  }
+
+  .modal-description {
     font-size: 14px;
   }
 }
