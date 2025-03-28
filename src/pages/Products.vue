@@ -37,7 +37,7 @@
 
     <!-- Модальное окно -->
     <div class="modal-overlay" v-if="showModal" @click="closeModal">
-      <div class="modal-container" @click.stop>
+      <div class="modal-container" @click.stop :style="{ background: selectedProduct ? selectedProduct.gradient : '' }">
         <button class="modal-close" @click="closeModal">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -367,7 +367,6 @@ const formatMoney = (num) => {
 
 .modal-container {
   width: 100%;
-  background: linear-gradient(140.83deg, rgb(128, 0, 128) 0%, rgb(72, 0, 72) 100%);
   border-radius: 24px 24px 0 0;
   padding: 24px;
   position: relative;
@@ -433,8 +432,8 @@ const formatMoney = (num) => {
 }
 
 .modal-button {
-  background: linear-gradient(140.83deg, rgb(255, 215, 0) 0%, rgb(218, 165, 32) 100%);
-  color: black;
+  background: linear-gradient(140.83deg, rgb(155, 105, 254) 0%, rgb(109, 67, 196) 100%);
+  color: white;
   border: none;
   border-radius: 12px;
   padding: 12px 24px;
