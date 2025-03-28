@@ -10,7 +10,7 @@
           :key="product.id"
           class="product-card"
           :class="{ 'product-available': isProductAvailable(product) }"
-          :style="{ '--card-gradient': product.gradient }"
+          :style="{ background: product.gradient }"
           @click="handleProductClick(product)"
       >
         <img :src="product.image" :alt="product.title" class="product-image">
@@ -270,7 +270,6 @@ const formatMoney = (num) => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: var(--card-gradient);
   padding: 12px;
   position: relative;
   opacity: 0.7;
@@ -367,8 +366,7 @@ const formatMoney = (num) => {
 }
 
 .modal-container {
-  width: 90%;
-  max-width: 400px;
+  width: 100%;
   background: linear-gradient(140.83deg, rgb(128, 0, 128) 0%, rgb(72, 0, 72) 100%);
   border-radius: 24px 24px 0 0;
   padding: 24px;
