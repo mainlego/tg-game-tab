@@ -2,41 +2,81 @@
 <template>
   <div class="onboarding-container">
     <div class="onboarding-slides" :style="{ transform: `translateX(-${currentSlide * 100}%)` }">
-      <div class="onboarding-slide" v-for="(slide, index) in slides" :key="index">
-        <img :src="slide.image" :alt="`Слайд ${index + 1}`" class="slide-image" />
+      <!-- Слайд 1: Кликайте на экран -->
+      <div class="slide">
+        <h2 class="slide-title">Кликайте на экран, зарабатывайте монеты и увеличивайте свой пассивных доход</h2>
         <div class="slide-content">
-          <h2 class="slide-title">{{ slide.title }}</h2>
-          <p class="slide-description">{{ slide.description }}</p>
+          <div class="screen-preview screen-1"></div>
+        </div>
+
+        <div class="next-button-container">
+          <button class="next-button" @click="nextSlide">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 18l6-6-6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
         </div>
       </div>
-    </div>
 
-    <div class="onboarding-controls">
-      <div class="dots">
-        <div
-            v-for="(slide, index) in slides"
-            :key="`dot-${index}`"
-            class="dot"
-            :class="{ active: currentSlide === index }"
-            @click="goToSlide(index)"
-        ></div>
+      <!-- Слайд 2: Прокачивайте персонажа -->
+      <div class="slide">
+        <h2 class="slide-title">Прокачивайте персонажа и выполняйте задания</h2>
+        <div class="slide-content">
+          <div class="screen-preview screen-2"></div>
+        </div>
+
+        <div class="next-button-container">
+          <button class="next-button" @click="nextSlide">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 18l6-6-6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <button
-          v-if="currentSlide < slides.length - 1"
-          class="next-button"
-          @click="nextSlide"
-      >
-        Далее
-      </button>
+      <!-- Слайд 3: Используйте карточки -->
+      <div class="slide">
+        <h2 class="slide-title">Используйте карточки, чтобы увеличить пассивный доход</h2>
+        <div class="slide-content">
+          <div class="screen-preview screen-3"></div>
+        </div>
 
-      <button
-          v-else
-          class="start-button"
-          @click="finishOnboarding"
-      >
-        Начать игру
-      </button>
+        <div class="next-button-container">
+          <button class="next-button" @click="nextSlide">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 18l6-6-6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Слайд 4: Используйте накопленный доход -->
+      <div class="slide">
+        <h2 class="slide-title">Используйте накопленный доход для получения реальных продуктов</h2>
+        <div class="slide-content">
+          <div class="screen-preview screen-4"></div>
+        </div>
+
+        <button class="play-button" @click="finishOnboarding">
+          Играть
+        </button>
+      </div>
+
+      <!-- Слайд 5: Приглашайте друзей -->
+      <div class="slide">
+        <h2 class="slide-title">Приглашайте друзей и получайте бонусы</h2>
+        <div class="slide-content">
+          <div class="screen-preview screen-5"></div>
+        </div>
+
+        <div class="next-button-container">
+          <button class="next-button" @click="nextSlide">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 18l6-6-6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -48,43 +88,26 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 const currentSlide = ref(0);
 
-const slides = [
-  {
-    image: '/images/onboarding/1.jpg',
-    title: 'Добро пожаловать!',
-    description: 'Начни свой путь к финансовой независимости в увлекательной игровой форме.'
-  },
-  {
-    image: '/images/onboarding/2.jpg',
-    title: 'Развивай свой бизнес',
-    description: 'Покупай активы, увеличивай пассивный доход и становись успешным.'
-  },
-  {
-    image: '/images/onboarding/3.jpg',
-    title: 'Выбирай свой стиль',
-    description: 'По мере роста дохода ты сможешь сменить свой стиль и стать настоящим миллиардером.'
-  },
-  {
-    image: '/images/onboarding/4.jpg',
-    title: 'Особые награды',
-    description: 'Разблокируй особые награды и участвуй в розыгрышах ценных призов.'
-  }
-];
-
 function nextSlide() {
-  if (currentSlide.value < slides.length - 1) {
+  if (currentSlide.value < 4) {
     currentSlide.value++;
+  } else {
+    currentSlide.value = 0;
   }
 }
 
 function prevSlide() {
   if (currentSlide.value > 0) {
     currentSlide.value--;
+  } else {
+    currentSlide.value = 4;
   }
 }
 
 function goToSlide(index) {
-  currentSlide.value = index;
+  if (index >= 0 && index < 5) {
+    currentSlide.value = index;
+  }
 }
 
 function finishOnboarding() {
@@ -93,8 +116,7 @@ function finishOnboarding() {
   // Отмечаем, что пользователь прошел онбординг
   localStorage.setItem('onboardingCompleted', 'true');
 
-  // Используем метод replace вместо push, чтобы заменить текущий маршрут
-  // и избежать ненужных записей в истории браузера
+  // Переходим на главную страницу
   router.replace('/');
 }
 </script>
@@ -106,11 +128,11 @@ function finishOnboarding() {
   left: 0;
   width: 100%;
   height: 100vh;
-  background: var(--background-color);
+  background: #000;
   z-index: 1000;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .onboarding-slides {
@@ -119,93 +141,139 @@ function finishOnboarding() {
   transition: transform 0.4s ease;
 }
 
-.onboarding-slide {
+.slide {
   min-width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 0 20px;
+  padding: 0;
   box-sizing: border-box;
-}
-
-.slide-image {
-  width: 100%;
-  max-width: 300px;
-  height: auto;
-  margin-bottom: 24px;
-  border-radius: 16px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-}
-
-.slide-content {
-  text-align: center;
-  max-width: 300px;
+  position: relative;
 }
 
 .slide-title {
-  font-size: 24px;
-  margin-bottom: 12px;
+  font-size: 22px;
+  line-height: 1.3;
+  text-align: center;
   color: white;
   font-weight: 600;
+  margin: 40px 0 20px;
 }
 
-.slide-description {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.8);
-  line-height: 1.4;
-}
-
-.onboarding-controls {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.dots {
+.slide-content {
+  flex: 1;
   display: flex;
   justify-content: center;
-  margin-bottom: 24px;
+  align-items: center;
+  position: relative;
 }
 
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  margin: 0 6px;
-  cursor: pointer;
+.screen-preview {
+  width: 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100%;
+  height: 120vh;
+  position: absolute;
+  top: -180px;
+  z-index: -1;
 }
 
-.dot.active {
-  background: var(--primary-color);
-  width: 20px;
-  border-radius: 4px;
+/* Фоновые изображения слайдов */
+.screen-1 {
+  background-image: url('/images/onboarding/1.jpg');
 }
 
-.next-button, .start-button {
-  padding: 12px 48px;
-  border-radius: 24px;
-  border: none;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.screen-2 {
+  background-image: url('/images/onboarding/2.jpg');
+}
+
+.screen-3 {
+  background-image: url('/images/onboarding/3.jpg');
+}
+
+.screen-4 {
+  background-image: url('/images/onboarding/4.jpg');
+}
+
+
+
+.next-button-container {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10;
 }
 
 .next-button {
-  background: var(--primary-color);
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: #8C60E3;
   color: white;
+  border: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
 }
 
-.start-button {
-  background: linear-gradient(140.83deg, rgb(155, 105, 254) 0%, rgb(109, 67, 196) 100%);
-  color: white;
+.next-button svg {
+  width: 24px;
+  height: 24px;
 }
 
-.next-button:hover, .start-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(140, 96, 227, 0.3);
+.play-button {
+  width: 80%;
+  height: 50px;
+  margin: 0 auto 20px auto;
+  border-radius: 8px;
+  background: #8C60E3;
+  color: white;
+  border: none;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+
+}
+
+/* Адаптивные стили */
+@media (max-height: 700px) {
+  .slide-title {
+    font-size: 20px;
+    margin: 30px 0 15px;
+  }
+
+  .screen-preview {
+    height: 120vh;
+  }
+}
+
+@media (max-height: 600px) {
+  .slide-title {
+    font-size: 18px;
+    margin: 20px 0 10px;
+  }
+
+  .screen-preview {
+    height: calc(100vh - 120px);
+  }
+
+  .next-button {
+    height: 40px;
+    width: 40px;
+  }
+
+  .play-button {
+    height: 45px;
+    margin-top: 15px;
+  }
+}
+
+/* Для компактных устройств */
+@media (max-width: 340px) {
+  .slide-title {
+    font-size: 16px;
+  }
 }
 </style>
