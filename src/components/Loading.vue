@@ -29,7 +29,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 const props = defineProps({
   duration: {
     type: Number,
-    default: 2000 // продолжительность анимации загрузки в миллисекундах
+    default: 3000
   }
 });
 
@@ -43,75 +43,59 @@ const loadingMessages = [
   'Создание капитала...'
 ];
 const loadingMessage = ref(loadingMessages[0]);
-let progressInterval;
+let animationTimer;
 let messageInterval;
-let completionTimeout;
-let loadingCompleted = false;
 
-// Функция завершения загрузки (вызывается только один раз)
-function completeLoading() {
-  if (loadingCompleted) return;
-
-  loadingCompleted = true;
-  console.log('Loading completed, emitting event');
-
-  // Остановка всех интервалов и таймаутов
-  clearInterval(progressInterval);
-  clearInterval(messageInterval);
-  clearTimeout(completionTimeout);
-
-  // Устанавливаем прогресс в 100%
-  progress.value = 100;
-
-  // Эмитим событие завершения
-  setTimeout(() => {
-    console.log('Emitting loading-complete event');
-    emit('loading-complete');
-  }, 300);
-}
-
+// Упрощенная версия с фиксированной анимацией загрузки
 onMounted(() => {
-  console.log('Loading component mounted');
-  startLoading();
+  console.log('[LOADING] Component mounted, fixed duration:', props.duration);
 
-  // Принудительное завершение загрузки по таймауту
-  // (на случай, если что-то пойдет не так с интервалами)
-  completionTimeout = setTimeout(() => {
-    console.log('Loading timeout reached, forcing completion');
-    completeLoading();
-  }, props.duration + 1000); // Добавляем 1 секунду к максимальному времени
+  // Запуск смены сообщений
+  messageInterval = setInterval(() => {
+    const nextIndex = (loadingMessages.indexOf(loadingMessage.value) + 1) % loadingMessages.length;
+    loadingMessage.value = loadingMessages[nextIndex];
+  }, 800);
+
+  // Простая анимация загрузки без интервалов
+  const startTime = Date.now();
+  const endTime = startTime + props.duration;
+
+  // Функция для обновления прогресса
+  const updateProgress = () => {
+    const now = Date.now();
+    const elapsed = now - startTime;
+    const percentage = Math.min(100, (elapsed / props.duration) * 100);
+
+    progress.value = Math.floor(percentage);
+
+    if (now < endTime) {
+      // Продолжаем анимацию
+      animationTimer = requestAnimationFrame(updateProgress);
+    } else {
+      // Загрузка завершена
+      progress.value = 100;
+      console.log('[LOADING] Animation complete, emitting event');
+      clearInterval(messageInterval);
+
+      // Фиксированная задержка перед эмитом события
+      setTimeout(() => {
+        console.log('[LOADING] Emitting loading-complete event');
+        emit('loading-complete');
+      }, 500);
+    }
+  };
+
+  // Запускаем анимацию
+  animationTimer = requestAnimationFrame(updateProgress);
 });
 
 onUnmounted(() => {
-  console.log('Loading component unmounted');
-  clearInterval(progressInterval);
+  console.log('[LOADING] Component unmounted, cleaning up');
   clearInterval(messageInterval);
-  clearTimeout(completionTimeout);
+  if (animationTimer) {
+    cancelAnimationFrame(animationTimer);
+  }
 });
-
-function startLoading() {
-  // Гарантированное количество шагов для достижения 100%
-  const totalSteps = props.duration / 50;
-  const step = 100 / totalSteps;
-
-  console.log(`Starting loading with step: ${step}, total steps: ${totalSteps}`);
-
-  // Обновление прогресса
-  progressInterval = setInterval(() => {
-    progress.value = Math.min(100, progress.value + step);
-
-    if (progress.value >= 100) {
-      completeLoading();
-    }
-  }, 50);
-
-  // Обновление сообщения каждые 0.8 секунды
-  let messageIndex = 0;
-  messageInterval = setInterval(() => {
-    messageIndex = (messageIndex + 1) % loadingMessages.length;
-    loadingMessage.value = loadingMessages[messageIndex];
-  }, 800);
-}
 </script>
 
 <style scoped>

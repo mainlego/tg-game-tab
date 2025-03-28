@@ -12,22 +12,32 @@ import AdminLayout from './layouts/AdminLayout.vue'
 import Admin from './pages/Admin.vue'
 import AdminLogin from './pages/AdminLogin.vue'
 import Friends from './pages/Friends.vue'
-import Onboarding from './components/onboarding/Onboarding.vue'
+import Loading from './pages/LoadingPage.vue'
+import Onboarding from './pages/OnboardingPage.vue'
 
 // Создаем маршруты
 const routes = [
-    { path: '/', component: Home },
-    { path: '/boost', component: Boost },
-    { path: '/growth', component: Growth },
-    { path: '/friends', component: Friends },
-    { path: '/tasks', component: () => import('@/pages/Tasks.vue') },
     {
-        path: '/products',
-        component: () => import('@/pages/Products.vue')
+        path: '/',
+        component: Home,
+        meta: { requiresOnboarding: true }
+    },
+    {
+        path: '/loading',
+        component: Loading
     },
     {
         path: '/onboarding',
         component: Onboarding
+    },
+    { path: '/boost', component: Boost, meta: { requiresOnboarding: true } },
+    { path: '/growth', component: Growth, meta: { requiresOnboarding: true } },
+    { path: '/friends', component: Friends, meta: { requiresOnboarding: true } },
+    { path: '/tasks', component: () => import('@/pages/Tasks.vue'), meta: { requiresOnboarding: true } },
+    {
+        path: '/products',
+        component: () => import('@/pages/Products.vue'),
+        meta: { requiresOnboarding: true }
     },
     {
         path: '/admin',
@@ -48,16 +58,54 @@ const router = createRouter({
 
 // Добавляем защиту роутов
 router.beforeEach((to, from, next) => {
-    if (to.matched.some(record => record.meta.requiresAuth)) {
-        const isAdmin = localStorage.getItem('isAdmin')
-        if (!isAdmin && to.path !== '/admin/login') {
-            next('/admin/login')
-        } else {
-            next()
-        }
-    } else {
-        next()
+    // Проверяем, не зациклилось ли приложение
+    const MAX_REDIRECTS = 10;
+    const redirectCount = localStorage.getItem('redirectCount') ? parseInt(localStorage.getItem('redirectCount')) : 0;
+
+    if (redirectCount > MAX_REDIRECTS) {
+        console.error('Обнаружен бесконечный цикл перенаправлений. Сбрасываем счетчик и идем на главную.');
+        localStorage.removeItem('redirectCount');
+        localStorage.setItem('onboardingCompleted', 'true'); // Форсируем завершение онбординга
+        return next('/');
     }
+
+    // Для всех маршрутов, кроме /loading
+    if (to.path !== '/loading') {
+        localStorage.setItem('redirectCount', redirectCount + 1);
+    }
+
+    // Проверка, загружено ли приложение
+    const isAppLoaded = localStorage.getItem('appLoaded') === 'true';
+
+    // Если приложение еще не загружено и пользователь не на странице загрузки, перенаправляем
+    if (!isAppLoaded && to.path !== '/loading') {
+        console.log('Приложение еще не загружено, перенаправляем на /loading');
+        return next('/loading');
+    }
+
+    // Проверка требований авторизации админа
+    if (to.matched.some(record => record.meta.requiresAuth)) {
+        const isAdmin = localStorage.getItem('isAdmin');
+        if (!isAdmin && to.path !== '/admin/login') {
+            return next('/admin/login');
+        }
+    }
+
+    // Проверка требований онбординга
+    if (to.matched.some(record => record.meta.requiresOnboarding)) {
+        const onboardingCompleted = localStorage.getItem('onboardingCompleted') === 'true';
+        if (!onboardingCompleted && to.path !== '/onboarding') {
+            console.log('Онбординг не завершен, перенаправляем на /onboarding');
+            return next('/onboarding');
+        }
+    }
+
+    // Сбрасываем счетчик перенаправлений при успешном переходе
+    if (to.path !== '/loading') {
+        localStorage.setItem('redirectCount', '0');
+    }
+
+    next();
 })
 
 const pinia = createPinia()
