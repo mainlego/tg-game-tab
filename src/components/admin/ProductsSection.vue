@@ -36,7 +36,7 @@
 
           <div class="recent-claims" v-if="recentClaims.length > 0">
             <h4>Последние заявки</h4>
-            <div class="claim-item" v-for="claim in recentClaims" :key="claim.id">
+            <div class="claim-item" v-for="claim in recentClaims" :key="claim._id">
               <div class="claim-user">{{ claim.userData?.first_name || 'Пользователь' }}</div>
               <div class="claim-product">{{ claim.productId?.name || 'Продукт' }}</div>
               <div class="claim-date">{{ formatDate(claim.createdAt) }}</div>
@@ -100,8 +100,8 @@
               </tr>
               </thead>
               <tbody>
-              <tr v-for="product in filteredProducts" :key="product.id" :class="{'dragging': draggingProduct === product}">
-                <td>{{ product.id }}</td>
+              <tr v-for="product in filteredProducts" :key="product._id" :class="{'dragging': draggingProduct === product}">
+                <td>{{ product._id }}</td>
                 <td>{{ product.name }}</td>
                 <td>{{ formatMoney(product.requiredIncome) }}</td>
                 <td>{{ getProductType(product.type) }}</td>
@@ -175,7 +175,7 @@
         <div class="claims-list">
           <div
               v-for="claim in filteredClaims"
-              :key="claim.id"
+              :key="claim._id"
               class="claim-card"
           >
             <div class="claim-header">
@@ -332,14 +332,17 @@ const activeProductsCount = computed(() => {
 });
 
 const totalClaims = computed(() => {
-  return products.value.reduce((sum, product) => sum + (product.claims?.length || 0), 0);
+  return products.value.reduce((sum, product) => sum + (product.stats?.claims || 0), 0);
 });
 
 const pendingClaims = computed(() => {
   let count = 0;
   products.value.forEach(product => {
-    if (product.claims) {
-      count += product.claims.filter(claim => claim.status === 'pending').length;
+    if (product.stats) {
+      const pendingCount = product.stats.claims -
+          (product.stats.completedClaims || 0) -
+          (product.stats.cancelledClaims || 0);
+      count += Math.max(0, pendingCount);
     }
   });
   return count;
@@ -370,7 +373,7 @@ const loadProducts = async () => {
         if (product.image && !product.image.startsWith('http')) {
           // Добавляем префикс /uploads/ к имени файла
           product.imageUrl = `${ApiService.API_URL}${product.image}`;
-        }else {
+        } else {
           product.imageUrl = product.image;
         }
 
@@ -379,6 +382,9 @@ const loadProducts = async () => {
           id: product._id // Добавляем id для совместимости с фронтендом
         };
       });
+
+      // После загрузки продуктов, загружаем заявки
+      loadRecentClaims();
     } else {
       console.error('Неожиданный формат ответа:', response);
       products.value = [];
@@ -397,21 +403,27 @@ const loadProducts = async () => {
 
 const loadRecentClaims = async () => {
   try {
+    console.log('Загрузка последних заявок...');
     const response = await ApiService.getRecentClaims();
+    console.log('Ответ по заявкам от сервера:', response);
 
-    if (response && response.success && response.data) {
+    if (response && response.success && Array.isArray(response.data)) {
       recentClaims.value = response.data;
-      console.log('Полученные заявки:', recentClaims.value); // Для отладки
+      console.log('Загружены заявки:', recentClaims.value);
+    } else if (response && Array.isArray(response)) {
+      recentClaims.value = response;
+      console.log('Загружены заявки (формат массива):', recentClaims.value);
     } else {
-      console.error('Unexpected claims response format:', response);
+      console.error('Неожиданный формат ответа по заявкам:', response);
       recentClaims.value = [];
     }
   } catch (error) {
-    console.error('Error loading recent claims:', error);
+    console.error('Ошибка загрузки последних заявок:', error);
     notifications.addNotification({
       message: 'Ошибка при загрузке последних заявок',
       type: 'error'
     });
+    recentClaims.value = [];
   }
 };
 
@@ -497,7 +509,8 @@ const deleteProduct = async (product) => {
   if (confirm(`Вы действительно хотите удалить продукт "${product.name}"?`)) {
     try {
       loading.value = true;
-      await ApiService.deleteProduct(product.id);
+      const productId = product._id || product.id;
+      await ApiService.deleteProduct(productId);
       notifications.addNotification({
         message: 'Продукт успешно удален',
         type: 'success'
@@ -518,7 +531,8 @@ const deleteProduct = async (product) => {
 const toggleProductStatus = async (product) => {
   try {
     loading.value = true;
-    await ApiService.updateProduct(product.id, {
+    const productId = product._id || product.id;
+    await ApiService.updateProduct(productId, {
       active: !product.active
     });
 
@@ -543,16 +557,19 @@ const viewProductClaims = async (product) => {
   try {
     loading.value = true;
     selectedProduct.value = product;
+    const productId = product._id || product.id;
 
+    console.log('Загрузка заявок для продукта:', productId);
     // Загрузка заявок для выбранного продукта
-    const response = await ApiService.getProductClaims(product.id);
+    const response = await ApiService.getProductClaims(productId);
+    console.log('Ответ заявок для продукта:', response);
 
-    if (response && Array.isArray(response)) {
+    if (response && response.success && Array.isArray(response.data)) {
+      productClaims.value = response.data;
+    } else if (response && Array.isArray(response)) {
       productClaims.value = response;
-    } else if (response && response.claims) {
-      productClaims.value = response.claims;
     } else {
-      console.error('Unexpected claims response format:', response);
+      console.error('Неожиданный формат ответа по заявкам продукта:', response);
       productClaims.value = [];
     }
 
@@ -563,6 +580,7 @@ const viewProductClaims = async (product) => {
       message: 'Ошибка при загрузке заявок на продукт',
       type: 'error'
     });
+    productClaims.value = [];
   } finally {
     loading.value = false;
   }
@@ -572,7 +590,14 @@ const updateClaimStatus = async (claim) => {
   try {
     loading.value = true;
     const claimId = claim._id || claim.id;
-    await ApiService.updateClaimStatus(claimId, claim.status);
+
+    if (!claimId) {
+      throw new Error('ID заявки не определен');
+    }
+
+    console.log('Обновление статуса заявки:', claimId, 'на', claim.status);
+
+    await ApiService.updateClaimStatus(claimId, claim.status, { note: claim.note || '' });
 
     notifications.addNotification({
       message: 'Статус заявки успешно обновлен',
@@ -581,10 +606,24 @@ const updateClaimStatus = async (claim) => {
 
     // Обновляем список заявок
     await loadRecentClaims();
+
+    // Если открыто модальное окно для заявок продукта, обновляем и их
+    if (showClaimsModal.value && selectedProduct.value) {
+      const productId = selectedProduct.value._id || selectedProduct.value.id;
+      const productResponse = await ApiService.getProductClaims(productId);
+      if (productResponse && productResponse.success && Array.isArray(productResponse.data)) {
+        productClaims.value = productResponse.data;
+      } else if (productResponse && Array.isArray(productResponse)) {
+        productClaims.value = productResponse;
+      }
+    }
+
+    // Обновляем статистику продуктов
+    await loadProducts();
   } catch (error) {
     console.error('Error updating claim status:', error);
     notifications.addNotification({
-      message: 'Ошибка при обновлении статуса заявки',
+      message: 'Ошибка при обновлении статуса заявки: ' + error.message,
       type: 'error'
     });
   } finally {
@@ -603,12 +642,26 @@ const saveClaimNote = async () => {
 
   try {
     loading.value = true;
-    await ApiService.updateClaimStatus(selectedClaim.value.id, selectedClaim.value.status, {
+    const claimId = selectedClaim.value._id || selectedClaim.value.id;
+
+    await ApiService.updateClaimStatus(claimId, selectedClaim.value.status, {
       note: currentNote.value
     });
 
     // Обновляем локальную копию заявки
     selectedClaim.value.note = currentNote.value;
+
+    // Обновляем заявку в массиве recentClaims
+    const claimIndex = recentClaims.value.findIndex(c => (c._id || c.id) === claimId);
+    if (claimIndex !== -1) {
+      recentClaims.value[claimIndex].note = currentNote.value;
+    }
+
+    // Обновляем заявку в массиве productClaims
+    const productClaimIndex = productClaims.value.findIndex(c => (c._id || c.id) === claimId);
+    if (productClaimIndex !== -1) {
+      productClaims.value[productClaimIndex].note = currentNote.value;
+    }
 
     notifications.addNotification({
       message: 'Примечание к заявке сохранено',
@@ -628,7 +681,7 @@ const saveClaimNote = async () => {
 };
 
 const openChat = (claim) => {
-  if (!claim.userData?.telegramId) {
+  if (!claim.userData?.telegramId && !claim.userId) {
     notifications.addNotification({
       message: 'Невозможно открыть чат, ID пользователя недоступен',
       type: 'error'
@@ -637,12 +690,20 @@ const openChat = (claim) => {
   }
 
   // Открытие чата в Telegram
-  const telegramUrl = `https://t.me/${claim.userData.username || claim.userData.telegramId}`;
+  const userId = claim.userData?.telegramId || claim.userId;
+  const username = claim.userData?.username;
+
+  const telegramUrl = username
+      ? `https://t.me/${username}`
+      : `https://t.me/${userId}`;
+
   window.open(telegramUrl, '_blank');
 };
 
 // Вспомогательные функции
 const formatMoney = (num) => {
+  if (!num && num !== 0) return '0';
+
   if (num >= 1000000000) {
     return (num / 1000000000).toFixed(1) + 'B';
   }
@@ -696,7 +757,6 @@ const getDefaultGradient = (index) => {
 // Загрузка данных при монтировании компонента
 onMounted(async () => {
   await loadProducts();
-  await loadRecentClaims(); // Добавляем загрузку заявок
 });
 </script>
 

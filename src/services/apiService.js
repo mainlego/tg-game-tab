@@ -497,24 +497,58 @@ export const ApiService = {
      * @returns {Promise<Array>} - список заявок
      */
     async getProductClaims(productId) {
-        return request(`/api/admin/products/${productId}/claims`);
+        try {
+            if (!productId) {
+                throw new Error('ID продукта не указан');
+            }
+
+            console.log(`Запрос заявок для продукта ${productId}`);
+            const response = await request(`/api/admin/products/${productId}/claims`);
+
+            // Для отладки выводим полный ответ
+            console.log(`Полный ответ API при загрузке заявок для продукта ${productId}:`, response);
+
+            if (response && response.success && response.data) {
+                return response;
+            } else if (Array.isArray(response)) {
+                return { success: true, data: response };
+            }
+
+            console.warn('Неожиданный формат ответа при загрузке заявок продукта:', response);
+            return { success: false, data: [] };
+        } catch (error) {
+            console.error(`Ошибка при получении заявок для продукта ${productId}:`, error);
+            throw error;
+        }
     },
 
     /**
      * Получение последних заявок на продукты
      * @returns {Promise<Array>} - список последних заявок
      */
+    /**
+     * Получение последних заявок на продукты
+     * @returns {Promise<Array>} - список последних заявок
+     */
     async getRecentClaims() {
-        const response = await request('/api/admin/products/claims/recent');
+        try {
+            const response = await request('/api/admin/products/claims/recent');
 
-        // Для отладки выводим данные ответа
-        console.log('Ответ API при загрузке последних заявок:', response);
+            // Для отладки выводим полный ответ
+            console.log('Полный ответ API при загрузке последних заявок:', response);
 
-        if (response && response.success) {
-            return response.data;
+            if (response && response.success && response.data) {
+                return response;
+            } else if (Array.isArray(response)) {
+                return { success: true, data: response };
+            }
+
+            console.warn('Неожиданный формат ответа при загрузке заявок:', response);
+            return { success: false, data: [] };
+        } catch (error) {
+            console.error('Ошибка при получении последних заявок:', error);
+            throw error;
         }
-
-        return [];
     },
 
     /**
@@ -525,10 +559,26 @@ export const ApiService = {
      * @returns {Promise<Object>} - обновленные данные заявки
      */
     async updateClaimStatus(claimId, status, additionalData = {}) {
-        return request(`/api/admin/products/claims/${claimId}`, 'PUT', {
-            status,
-            ...additionalData
-        });
+        try {
+            if (!claimId) {
+                throw new Error('ID заявки не указан');
+            }
+
+            console.log(`Обновление статуса заявки ${claimId} на ${status}`, additionalData);
+
+            const response = await request(`/api/admin/products/claims/${claimId}`, 'PUT', {
+                status,
+                ...additionalData
+            });
+
+            // Для отладки выводим полный ответ
+            console.log(`Ответ API при обновлении статуса заявки ${claimId}:`, response);
+
+            return response;
+        } catch (error) {
+            console.error(`Ошибка при обновлении статуса заявки ${claimId}:`, error);
+            throw error;
+        }
     },
 
     // УВЕДОМЛЕНИЯ
