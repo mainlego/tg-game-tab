@@ -696,6 +696,7 @@ const getDefaultGradient = (index) => {
 // Загрузка данных при монтировании компонента
 onMounted(async () => {
   await loadProducts();
+  await loadRecentClaims(); // Добавляем загрузку заявок
 });
 </script>
 

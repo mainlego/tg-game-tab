@@ -505,7 +505,16 @@ export const ApiService = {
      * @returns {Promise<Array>} - список последних заявок
      */
     async getRecentClaims() {
-        return request('/api/admin/products/claims/recent');
+        const response = await request('/api/admin/products/claims/recent');
+
+        // Для отладки выводим данные ответа
+        console.log('Ответ API при загрузке последних заявок:', response);
+
+        if (response && response.success) {
+            return response.data;
+        }
+
+        return [];
     },
 
     /**
