@@ -164,14 +164,16 @@ export const ApiService = {
 
     /**
      * Создание нового задания с изображением
-     * @param {FormData} formData - данные задания с файлом
+     * @param {FormData} formData - данные задания с файлом (включая title, description, link, type, reward, active, requirements)
      * @returns {Promise<Object>} - созданное задание
      */
     async createTaskWithImage(formData) {
         // Добавляем отладочный вывод
         console.log('Creating task with image, formData entries:');
         for (let pair of formData.entries()) {
-            console.log(pair[0] + ': ' + (pair[0] === 'taskImage' ? '[File]' : pair[1]));
+            // Скрываем содержимое файла и показываем для других полей
+            const value = ['taskImage'].includes(pair[0]) ? '[File]' : pair[1];
+            console.log(`${pair[0]}: ${value}`);
         }
 
         return request('/api/admin/tasks/upload', 'POST', null, {
@@ -187,10 +189,18 @@ export const ApiService = {
     /**
      * Обновление задания с изображением
      * @param {string} taskId - ID задания
-     * @param {FormData} formData - данные задания с файлом
+     * @param {FormData} formData - данные задания с файлом (включая link для реферальной/переходной ссылки)
      * @returns {Promise<Object>} - обновленное задание
      */
     async updateTaskWithImage(taskId, formData) {
+        // Добавляем отладочный вывод для помощи в диагностике
+        console.log(`Updating task ${taskId} with image, formData entries:`);
+        for (let pair of formData.entries()) {
+            // Скрываем содержимое файла и показываем для других полей
+            const value = ['taskImage'].includes(pair[0]) ? '[File]' : pair[1];
+            console.log(`${pair[0]}: ${value}`);
+        }
+
         // Убираем настройки headers полностью, пусть браузер сам установит нужные заголовки
         return request(`/api/admin/tasks/${taskId}/upload`, 'PUT', null, {
             body: formData
@@ -581,7 +591,7 @@ export const ApiService = {
 
     /**
      * Создание нового задания
-     * @param {Object} taskData - данные задания
+     * @param {Object} taskData - данные задания (включает title, description, type, reward, link для реферальной ссылки)
      * @returns {Promise<Object>} - созданное задание
      */
     async createTask(taskData) {
@@ -600,7 +610,7 @@ export const ApiService = {
     /**
      * Обновление задания
      * @param {string} taskId - ID задания
-     * @param {Object} taskData - данные для обновления
+     * @param {Object} taskData - данные для обновления (может включать link для реферальной ссылки)
      * @returns {Promise<Object>} - обновленные данные задания
      */
     async updateTask(taskId, taskData) {

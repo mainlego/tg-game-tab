@@ -30,6 +30,19 @@
           ></textarea>
         </div>
 
+        <!-- Новое поле для ссылки -->
+        <div class="form-group">
+          <label for="link">Ссылка на задание</label>
+          <input
+              type="url"
+              id="link"
+              v-model="form.link"
+              class="form-input"
+              placeholder="https://example.com/ref=123"
+          >
+          <div class="field-hint">Ссылка для перехода при нажатии на задание (например, реферальная)</div>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
             <label for="type">Тип задания</label>
@@ -42,6 +55,7 @@
               <option value="daily">Ежедневное</option>
               <option value="achievement">Достижение</option>
               <option value="special">Специальное</option>
+              <option value="platform">Платформа</option>
             </select>
           </div>
 
@@ -166,6 +180,7 @@ const form = ref({
   description: '',
   type: 'daily',
   reward: 100,
+  link: '', // Добавлено новое поле для ссылки
   requirements: {
     level: 1,
     income: 0
@@ -183,6 +198,7 @@ onMounted(() => {
     // Если редактируем существующее задание
     form.value = {
       ...props.task,
+      link: props.task.link || '', // Добавляем поле link с дефолтным значением
       requirements: {
         level: props.task.requirements?.level || 1,
         income: props.task.requirements?.income || 0
@@ -256,6 +272,7 @@ const handleSubmit = () => {
     formData.append('type', form.value.type)
     formData.append('reward', form.value.reward)
     formData.append('active', form.value.active)
+    formData.append('link', form.value.link) // Добавляем поле ссылки в FormData
 
     // Добавляем требования как JSON строку
     formData.append('requirements', JSON.stringify({
@@ -447,6 +464,13 @@ textarea.form-input {
 .btn-secondary {
   background: #f5f5f5;
   color: #333;
+}
+
+/* Стиль для текста подсказки */
+.field-hint {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
 }
 
 @media (max-width: 768px) {

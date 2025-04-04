@@ -235,6 +235,7 @@ const defaultTask = {
   description: '',
   type: 'daily',
   reward: 100,
+  link: '', // Добавленное поле для ссылки
   icon: 'default.png',
   requirements: {
     level: 1,
