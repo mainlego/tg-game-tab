@@ -1,33 +1,45 @@
 <!-- src/components/NotificationsProvider.vue -->
 <template>
   <div class="notifications-wrapper">
-    <Transition name="fade" mode="out-in">
-      <div v-if="notifications.length > 0" class="notifications-container">
-        <div
-            v-for="(notification, index) in notifications"
-            :key="index"
-            class="notification"
-            :class="notification.type"
-        >
-          <div class="notification-content">
-            <div class="notification-icon">
-              <i :class="getNotificationIcon(notification.type)"></i>
-            </div>
-            <div class="notification-message">{{ notification.message }}</div>
+    <TransitionGroup
+        name="game-notification"
+        tag="div"
+        class="notifications-container"
+    >
+      <div
+          v-for="(notification, index) in visibleNotifications"
+          :key="notification.id"
+          class="notification"
+          :class="notification.type"
+          @click="removeNotification(index)"
+      >
+        <div class="notification-content">
+          <div class="notification-icon">
+            <span :class="getNotificationIcon(notification.type)"></span>
           </div>
-          <button class="notification-close" @click="removeNotification(index)">&times;</button>
+          <div class="notification-message">{{ notification.message }}</div>
         </div>
       </div>
-    </Transition>
+    </TransitionGroup>
     <slot></slot>
   </div>
 </template>
 
 <script setup>
-import { ref, provide, inject } from 'vue';
+import { ref, provide, inject, computed } from 'vue';
 
 const notifications = ref([]);
 const logger = inject('logger', console);
+const MAX_NOTIFICATIONS = 3;
+
+// Генератор уникальных ID
+let notificationIdCounter = 0;
+const generateId = () => `notification-${notificationIdCounter++}`;
+
+// Только видимые уведомления (максимум MAX_NOTIFICATIONS)
+const visibleNotifications = computed(() => {
+  return notifications.value.slice(-MAX_NOTIFICATIONS);
+});
 
 const addNotification = (notification) => {
   // Устанавливаем тип по умолчанию, если не указан
@@ -35,20 +47,40 @@ const addNotification = (notification) => {
     notification.type = 'info';
   }
 
-  logger.log('Adding notification:', notification);
+  // Добавляем уникальный ID и время создания
+  const notificationWithId = {
+    ...notification,
+    id: generateId(),
+    createdAt: Date.now()
+  };
+
+  logger.log('Adding notification:', notificationWithId);
+
+  // Если превышен лимит, удаляем самое старое уведомление
+  if (notifications.value.length >= MAX_NOTIFICATIONS) {
+    notifications.value.shift();
+  }
 
   // Добавляем уведомление в массив
-  notifications.value.push(notification);
+  notifications.value.push(notificationWithId);
 
-  // Автоматическое удаление через 5 секунд (если не error)
-  if (notification.type !== 'error') {
+  // Автоматическое удаление через duration миллисекунд или 4000мс по умолчанию
+  const duration = notification.duration || 3000;
+  if (notification.type !== 'error' || duration > 0) {
     setTimeout(() => {
-      removeNotification(notifications.value.indexOf(notification));
-    }, 5000);
+      removeNotificationById(notificationWithId.id);
+    }, duration);
   }
 };
 
 const removeNotification = (index) => {
+  if (index > -1 && index < notifications.value.length) {
+    notifications.value.splice(index, 1);
+  }
+};
+
+const removeNotificationById = (id) => {
+  const index = notifications.value.findIndex(n => n.id === id);
   if (index > -1) {
     notifications.value.splice(index, 1);
   }
@@ -57,13 +89,15 @@ const removeNotification = (index) => {
 const getNotificationIcon = (type) => {
   switch (type) {
     case 'success':
-      return 'fas fa-check-circle';
+      return '🎯';
     case 'error':
-      return 'fas fa-exclamation-circle';
+      return '⚠️';
     case 'warning':
-      return 'fas fa-exclamation-triangle';
+      return '⚡';
+    case 'reward':
+      return '💰';
     default:
-      return 'fas fa-info-circle';
+      return 'ℹ️';
   }
 };
 
@@ -83,35 +117,50 @@ provide('notifications', {
 
 .notifications-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 9999;
-  max-width: 350px;
-  width: 100%;
+  max-width: 90%;
+  width: 320px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  pointer-events: none;
 }
 
 .notification {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   padding: 12px 16px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  animation: slideIn 0.3s ease;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(140.83deg, rgba(111, 95, 242, 0.8) 0%, rgba(73, 51, 131, 0.8) 100%);
+  backdrop-filter: blur(8px);
+  color: white;
+  font-weight: 500;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.notification:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.6);
 }
 
 .notification-content {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+  width: 100%;
 }
 
 .notification-icon {
   font-size: 20px;
-  margin-top: 2px;
+  flex-shrink: 0;
 }
 
 .notification-message {
@@ -120,83 +169,65 @@ provide('notifications', {
   line-height: 1.5;
 }
 
-.notification-close {
-  background: none;
-  border: none;
-  color: currentColor;
-  opacity: 0.6;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 0;
-  margin-left: 10px;
-}
-
-.notification-close:hover {
-  opacity: 1;
-}
-
 .notification.success {
-  background-color: #e3f8e6;
-  color: #1f9d55;
-  border-left: 4px solid #1f9d55;
+  background: linear-gradient(140.83deg, rgba(72, 187, 120, 0.8) 0%, rgba(56, 161, 105, 0.8) 100%);
 }
 
 .notification.error {
-  background-color: #fcebea;
-  color: #e3342f;
-  border-left: 4px solid #e3342f;
+  background: linear-gradient(140.83deg, rgba(245, 101, 101, 0.8) 0%, rgba(229, 62, 62, 0.8) 100%);
 }
 
 .notification.warning {
-  background-color: #fff9e6;
-  color: #f2d024;
-  border-left: 4px solid #f2d024;
+  background: linear-gradient(140.83deg, rgba(246, 173, 85, 0.8) 0%, rgba(237, 137, 54, 0.8) 100%);
 }
 
-.notification.info {
-  background-color: #e6f7ff;
-  color: #2196f3;
-  border-left: 4px solid #2196f3;
+.notification.reward {
+  background: linear-gradient(140.83deg, rgba(246, 213, 92, 0.8) 0%, rgba(237, 185, 46, 0.8) 100%);
 }
 
 /* Анимации */
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
+.game-notification-enter-active {
+  animation: bounceIn 0.5s cubic-bezier(0.215, 0.610, 0.355, 1.000);
+}
+
+.game-notification-leave-active {
+  animation: fadeOut 0.3s ease forwards;
+  position: absolute;
+  width: 100%;
+}
+
+@keyframes bounceIn {
+  0% {
     opacity: 0;
+    transform: scale(0.8) translateY(-20px);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05) translateY(0);
+  }
+  70% {
+    transform: scale(0.95) translateY(0);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
   }
   to {
-    transform: translateX(0);
-    opacity: 1;
+    opacity: 0;
+    transform: translateY(-20px);
   }
 }
 
 @media (max-width: 768px) {
   .notifications-container {
-    max-width: 90%;
-    top: 10px;
-    right: 10px;
+    width: 90%;
+    max-width: 300px;
   }
-}
-
-/* Темная тема */
-:global(.dark-theme) .notification.success {
-  background-color: rgba(31, 157, 85, 0.2);
-  color: #4ade80;
-}
-
-:global(.dark-theme) .notification.error {
-  background-color: rgba(227, 52, 47, 0.2);
-  color: #f87171;
-}
-
-:global(.dark-theme) .notification.warning {
-  background-color: rgba(242, 208, 36, 0.2);
-  color: #fde047;
-}
-
-:global(.dark-theme) .notification.info {
-  background-color: rgba(33, 150, 243, 0.2);
-  color: #60a5fa;
 }
 </style>
