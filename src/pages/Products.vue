@@ -4,17 +4,17 @@
     <Header />
     <Balance />
 
-    <div class="products-grid">
+    <div class="products-grid" v-if="!loading">
       <div
           v-for="product in products"
-          :key="product.id"
+          :key="product._id"
           class="product-card"
           :class="{ 'product-available': isProductAvailable(product) }"
           :style="{ background: product.gradient }"
           @click="handleProductClick(product)"
       >
-        <img :src="product.image" :alt="product.title" class="product-image">
-        <div class="product-title">{{ product.title }}</div>
+        <img :src="product.image" :alt="product.name" class="product-image">
+        <div class="product-title">{{ product.name }}</div>
         <div class="product-income">
           <span>Необходимый доход</span>
           <div class="income-amount">
@@ -35,6 +35,11 @@
       </div>
     </div>
 
+    <div v-else class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>Загрузка продуктов...</p>
+    </div>
+
     <!-- Модальное окно -->
     <div class="modal-overlay" v-if="showModal" @click="closeModal">
       <div class="modal-container" @click.stop :style="{ background: selectedProduct ? selectedProduct.gradient : '' }">
@@ -46,31 +51,12 @@
         </button>
 
         <div v-if="selectedProduct" class="modal-content">
-          <img :src="selectedProduct.image" :alt="selectedProduct.title" class="modal-image">
+          <img :src="selectedProduct.image" :alt="selectedProduct.name" class="modal-image">
 
-          <h2 class="modal-title">{{ selectedProduct.title }}</h2>
+          <h2 class="modal-title">{{ selectedProduct.name }}</h2>
 
           <div class="modal-description">
-            <!-- Динамическое описание в зависимости от продукта -->
-            <p v-if="selectedProduct.id === 1">
-              Хочешь в путешествие мечты? Мы дарим шанс
-              выиграть незабываемую поездку в Дубай! 🏙️🌴 ☀️
-              Билеты туда и обратно + 5-звездочный отель на 5
-              дней! ☀️ Для того чтобы наслаждаться пляжами,
-              шопингом и лучшими достопримечательностями
-              Дубая. ☀️✨ Уровень счастья для участия в
-              розыгрыше {{ formatMoney(selectedProduct.requiredIncome) }} единиц.
-            </p>
-            <p v-else-if="selectedProduct.id === 2">
-              Хочешь новый iPhone? Участвуй в нашем розыгрыше и получи шанс
-              выиграть новейшую модель! 📱✨ Уровень счастья для участия в
-              розыгрыше {{ formatMoney(selectedProduct.requiredIncome) }} единиц.
-            </p>
-            <!-- Для других продуктов -->
-            <p v-else>
-              Для получения доступа к "{{ selectedProduct.title }}" необходим
-              пассивный доход {{ formatMoney(selectedProduct.requiredIncome) }} единиц.
-            </p>
+            <p>{{ selectedProduct.description }}</p>
           </div>
 
           <div class="modal-income">
@@ -95,78 +81,103 @@
 </template>
 
 <script setup>
-import { ref, inject } from 'vue'
+import { ref, inject, onMounted, computed } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useTelegram } from '@/composables/useTelegram'
 import Header from '@/components/layout/Header.vue'
 import Balance from '@/components/game/Balance.vue'
 import Navigation from '@/components/layout/Navigation.vue'
+import axios from 'axios'
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://tg-game-tab-server.onrender.com/api'
+const BASE_URL = 'https://tg-game-tab-server.onrender.com'
 
 const store = useGameStore()
 const { user } = useTelegram()
 const notifications = inject('notifications')
 
+// Состояние загрузки
+const loading = ref(true)
+const error = ref(null)
+
 // Состояние модального окна
 const showModal = ref(false)
 const selectedProduct = ref(null)
 
-const products = ref([
-  {
-    id: 1,
-    title: 'Участие в розыгрыше BMW M5',
-    image: '/images/products/1.png',
-    requiredIncome: 1000000000,
-    gradient: 'linear-gradient(140.83deg, rgb(111, 95, 242) 0%, rgb(73, 51, 131) 100%)',
-    claimed: false
-  },
-  {
-    id: 2,
-    title: 'Участие в розыгрыше iPhone',
-    image: '/images/products/2.png',
-    requiredIncome: 100000000,
-    gradient: 'linear-gradient(140.83deg, rgb(242, 95, 95) 0%, rgb(131, 51, 51) 100%)',
-    claimed: false
-  },
-  {
-    id: 3,
-    title: 'Финансовая диагностика',
-    image: '/images/products/3.png',
-    requiredIncome: 10000000,
-    gradient: 'linear-gradient(140.83deg, rgb(95, 135, 242) 0%, rgb(51, 71, 131) 100%)',
-    claimed: false
-  },
-  {
-    id: 4,
-    title: 'Денежный марафон',
-    image: '/images/products/4.png',
-    requiredIncome: 1000000,
-    gradient: 'linear-gradient(140.83deg, rgb(95, 242, 169) 0%, rgb(51, 131, 94) 100%)',
-    claimed: false
-  },
-  {
-    id: 5,
-    title: 'Вебинар о пассивном доходе',
-    image: '/images/products/5.png',
-    requiredIncome: 500000,
-    gradient: 'linear-gradient(140.83deg, rgb(242, 95, 156) 0%, rgb(131, 51, 87) 100%)',
-    claimed: false
-  },
-  {
-    id: 6,
-    title: 'Инвест клуб по подписке',
-    image: '/images/products/6.png',
-    requiredIncome: 200000,
-    gradient: 'linear-gradient(140.83deg, rgb(242, 162, 95) 0%, rgb(131, 90, 51) 100%)',
-    claimed: false
+// Продукты из базы данных
+const products = ref([])
+// Заявки пользователя на активацию продуктов
+const userClaims = ref([])
+
+// Загрузка продуктов
+const fetchProducts = async () => {
+  try {
+    loading.value = true
+    const response = await axios.get(`${API_URL}/admin/products`)
+
+    if (response.data.success) {
+      const productsData = response.data.data
+
+      // Если у нас есть активный пользователь, получаем его заявки на продукты
+      if (user.value?.id) {
+        await fetchUserClaims(user.value.id)
+      }
+
+      // Объединяем информацию о продуктах с информацией о заявках
+      // И добавляем полный путь к изображениям
+      products.value = productsData.map(product => {
+        const userClaim = userClaims.value.find(claim => claim.productId === product._id)
+        return {
+          ...product,
+          claimed: !!userClaim,
+          image: getFullImageUrl(product.image)
+        }
+      }).filter(product => product.active)
+    } else {
+      error.value = 'Не удалось загрузить продукты'
+      notifications.addNotification({
+        message: 'Ошибка загрузки продуктов',
+        type: 'error'
+      })
+    }
+  } catch (err) {
+    console.error('Ошибка загрузки продуктов:', err)
+    error.value = 'Не удалось загрузить продукты'
+    notifications.addNotification({
+      message: 'Ошибка загрузки продуктов',
+      type: 'error'
+    })
+  } finally {
+    loading.value = false
   }
-])
+}
+
+// Загрузка заявок пользователя
+const fetchUserClaims = async (userId) => {
+  try {
+    // Запрос на получение заявок пользователя
+    const response = await axios.get(`${API_URL}/products/claims/user/${userId}`)
+
+    if (response.data.success) {
+      userClaims.value = response.data.data
+    }
+  } catch (err) {
+    console.error('Ошибка загрузки заявок пользователя:', err)
+    // Просто логируем ошибку, но не прерываем работу
+  }
+}
+
+// Загрузка данных при монтировании компонента
+onMounted(() => {
+  fetchProducts()
+})
 
 const isProductAvailable = (product) => {
   return store.passiveIncome >= product.requiredIncome
 }
 
 const handleProductClick = (product) => {
-  // Вместо уведомления открываем модальное окно
+  // Открываем модальное окно с выбранным продуктом
   selectedProduct.value = product
   showModal.value = true
 }
@@ -176,7 +187,7 @@ const closeModal = () => {
   selectedProduct.value = null
 }
 
-const activateProduct = () => {
+const activateProduct = async () => {
   if (!selectedProduct.value) return
 
   const product = selectedProduct.value
@@ -197,7 +208,7 @@ const activateProduct = () => {
     return
   }
 
-  // Получаем данные пользователя для уведомления
+  // Получаем данные пользователя для заявки
   const userData = user.value ? {
     telegramId: user.value.id,
     username: user.value.username,
@@ -205,33 +216,77 @@ const activateProduct = () => {
     lastName: user.value.last_name
   } : null
 
-  // Здесь будет отправка данных в админку
-  console.log('Активация продукта:', {
-    productId: product.id,
-    productTitle: product.title,
-    user: userData,
-    passiveIncome: store.passiveIncome,
-    timestamp: new Date()
-  })
-
-  // Помечаем продукт как активированный
-  const productIndex = products.value.findIndex(p => p.id === product.id)
-  if (productIndex !== -1) {
-    products.value[productIndex].claimed = true
-    selectedProduct.value = products.value[productIndex]
+  if (!userData) {
+    notifications.addNotification({
+      message: 'Ошибка: не удалось получить данные пользователя',
+      type: 'error'
+    })
+    return
   }
 
-  // Показываем уведомление пользователю
-  notifications.addNotification({
-    message: 'Продукт активирован! Наши менеджеры свяжутся с вами в ближайшее время.',
-    type: 'success',
-    duration: 5000
-  })
+  try {
+    // Отправка заявки на сервер
+    const response = await axios.post(`${API_URL}/products/claim`, {
+      userId: userData.telegramId,
+      userData: {
+        first_name: userData.firstName,
+        last_name: userData.lastName,
+        username: userData.username
+      },
+      productId: product._id
+    })
 
-  // Закрываем модальное окно после активации
-  setTimeout(() => {
-    closeModal()
-  }, 1500)
+    if (response.data.success) {
+      // Помечаем продукт как активированный
+      product.claimed = true
+
+      // Обновляем состояние в интерфейсе
+      const productIndex = products.value.findIndex(p => p._id === product._id)
+      if (productIndex !== -1) {
+        products.value[productIndex].claimed = true
+        selectedProduct.value = products.value[productIndex]
+      }
+
+      // Показываем уведомление пользователю
+      notifications.addNotification({
+        message: 'Продукт активирован! Наши менеджеры свяжутся с вами в ближайшее время.',
+        type: 'success',
+        duration: 5000
+      })
+
+      // Закрываем модальное окно после активации
+      setTimeout(() => {
+        closeModal()
+      }, 1500)
+    } else {
+      notifications.addNotification({
+        message: 'Ошибка активации продукта',
+        type: 'error'
+      })
+    }
+  } catch (error) {
+    console.error('Ошибка активации продукта:', error)
+    notifications.addNotification({
+      message: 'Не удалось отправить заявку на активацию продукта',
+      type: 'error'
+    })
+  }
+}
+
+// Преобразование относительных URL изображений в абсолютные
+const getFullImageUrl = (imageUrl) => {
+  if (!imageUrl) return '/images/products/default.png';
+
+  // Если URL уже полный, возвращаем как есть
+  if (imageUrl.startsWith('http')) return imageUrl;
+
+  // Если URL начинается с /, это локальный URL
+  if (imageUrl.startsWith('/')) {
+    return `${BASE_URL}${imageUrl}`;
+  }
+
+  // Добавляем / если его нет
+  return `${BASE_URL}/${imageUrl}`;
 }
 
 const formatMoney = (num) => {
@@ -451,6 +506,30 @@ const formatMoney = (num) => {
 .modal-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Стили для отображения загрузки */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 50vh;
+  color: white;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 480px) {

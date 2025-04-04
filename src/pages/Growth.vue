@@ -5,23 +5,23 @@
 
 
     <div class="main__container">
-    <Balance />
+      <Balance />
 
-    <div class="investments-container">
-      <!-- Табы категорий -->
-      <div class="investment-tabs">
-        <button
-            v-for="category in categories"
-            :key="category.id"
-            class="tab"
-            :class="{ active: currentCategory === category.id }"
-            @click="currentCategory = category.id"
-        >
-          {{ category.title }}
-        </button>
-      </div>
+      <div class="investments-container">
+        <!-- Табы категорий -->
+        <div class="investment-tabs">
+          <button
+              v-for="category in categories"
+              :key="category.id"
+              class="tab"
+              :class="{ active: currentCategory === category.id }"
+              @click="currentCategory = category.id"
+          >
+            {{ category.title }}
+          </button>
+        </div>
 
-      <!-- Сетка инвестиций -->
+        <!-- Сетка инвестиций -->
 
         <div class="investment-grid">
           <div
@@ -48,7 +48,7 @@
             </div>
 
             <div class="card-footer">
-              <div class="level">lvl {{ investment.level }}</div>
+              <div class="level">lvl {{ getInvestmentLevel(investment) }}</div>
               <div class="price">
                 <img src="../assets/images/coin.png" class="price_cart" alt="coin">
                 <span>{{ formatMoney(investment.cost) }}</span>
@@ -57,7 +57,7 @@
           </div>
         </div>
 
-    </div>
+      </div>
     </div>
 
     <Navigation />
@@ -65,7 +65,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject } from 'vue'
+import { ref, computed, inject, onMounted } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import Header from '@/components/layout/Header.vue'
 import Balance from '@/components/game/Balance.vue'
@@ -75,6 +75,18 @@ import { investmentsData } from '@/data/investmentsData'
 const store = useGameStore()
 const notifications = inject('notifications')
 const currentCategory = ref('finances')
+const purchasedInvestments = ref({}) // Локальное отслеживание купленных инвестиций
+
+// Загрузка уровней инвестиций из хранилища
+onMounted(() => {
+  // Преобразуем массив купленных инвестиций в объект для быстрого доступа
+  if (store.investments && store.investments.purchased) {
+    store.investments.purchased.forEach(investment => {
+      const key = `${investment.type}_${investment.id}`
+      purchasedInvestments.value[key] = investment.level
+    })
+  }
+})
 
 // Категории инвестиций
 const categories = [
@@ -84,25 +96,31 @@ const categories = [
   { id: 'realestate', title: 'Недвижимость' }
 ]
 
-// Текущие инвестиции
+// Текущие инвестиции - показываем все без фильтрации по уровню
 const currentInvestments = computed(() => {
   const categoryData = investmentsData[currentCategory.value]
   if (!categoryData) return []
 
-  return categoryData.items.filter(item =>
-      store.level.current >= checkRequiredLevel(item.required_level)
-  )
+  // Возвращаем все инвестиции без фильтрации по уровню
+  return categoryData.items
 })
+
+// Получение текущего уровня инвестиции
+const getInvestmentLevel = (investment) => {
+  const key = `${currentCategory.value}_${investment.id}`
+  // Возвращаем уровень из локального отслеживания или базовый уровень из данных
+  return purchasedInvestments.value[key] || investment.level
+}
 
 // Проверка возможности покупки
 const canBuyInvestment = (investment) => {
   return store.balance >= investment.cost
 }
 
-// Расчет дохода от инвестиции
+// Расчет дохода от инвестиции с учетом актуального уровня
 const calculateIncome = (investment) => {
   const baseIncome = investment.baseIncome
-  const level = investment.level
+  const level = getInvestmentLevel(investment) // Используем актуальный уровень
   const type = investment.type || investmentsData[currentCategory.value].type
 
   let calculatedIncome
@@ -138,33 +156,35 @@ const handleInvestment = (investment) => {
     return
   }
 
-  const income = calculateIncome(investment)
-  const success = store.purchaseInvestment(investment, income)
+  // Создаем копию инвестиции для возможного увеличения уровня
+  const investmentCopy = { ...investment }
+  const key = `${currentCategory.value}_${investment.id}`
+
+  // Если инвестиция уже куплена, увеличиваем уровень
+  if (purchasedInvestments.value[key]) {
+    investmentCopy.level = purchasedInvestments.value[key] + 1
+  } else {
+    investmentCopy.level = investment.level + 1
+  }
+
+  // Рассчитываем доход для нового уровня
+  const income = calculateIncome(investmentCopy)
+
+  // Добавляем тип категории к инвестиции для сохранения
+  investmentCopy.type = currentCategory.value
+
+  // Покупаем инвестицию через хранилище
+  const success = store.purchaseInvestment(investmentCopy, income)
 
   if (success) {
+    // Обновляем локальное отслеживание уровней
+    purchasedInvestments.value[key] = investmentCopy.level
+
     notifications.addNotification({
-      message: `Вы приобрели ${investment.name}`,
+      message: `Вы приобрели ${investment.name} (Уровень ${investmentCopy.level})`,
       type: 'success'
     })
   }
-}
-
-// Проверка требуемого уровня
-const checkRequiredLevel = (requiredLevel) => {
-  if (typeof requiredLevel === 'number') {
-    return requiredLevel
-  }
-
-  if (typeof requiredLevel === 'string') {
-    try {
-      return new Function(`return ${requiredLevel.replace('n', store.level.current)}`)()
-    } catch (error) {
-      console.error('Ошибка вычисления уровня:', error)
-      return Infinity
-    }
-  }
-
-  return Infinity
 }
 
 // Форматирование чисел

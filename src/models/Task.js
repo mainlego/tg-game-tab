@@ -16,8 +16,12 @@ const TaskSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['daily', 'achievement', 'special'],
+        enum: ['daily', 'achievement', 'special', 'platform'],
         default: 'daily'
+    },
+    link: {
+        type: String,
+        default: '' // Добавляем поле ссылки для партнерских сайтов
     },
     requirements: {
         level: {
