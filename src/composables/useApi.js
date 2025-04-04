@@ -1,56 +1,51 @@
-// src/composables/useApi.js (создайте этот файл)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://v0-new-project-dqi1l3eck6k.vercel.app';
+// Добавить в composables/useApi.js если такой файл у вас есть,
+// или создать новый
 
 export const useApi = () => {
+    const API_URL = import.meta.env.VITE_API_URL || 'https://tg-game-tab-server.onrender.com/api';
 
-    const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_API_KEY}`
-    };
-
-    // src/composables/useApi.js
+    // Получение рефералов для указанного пользователя
     const getReferrals = async (userId) => {
         try {
-            console.log('DEBUG: Making API call to:', `${API_BASE_URL}/api/referrals/${userId}`);
+            console.log('Запрос рефералов для пользователя:', userId);
+            const response = await fetch(`${API_URL}/referrals?userId=${userId}`);
 
-            const response = await fetch(`${API_BASE_URL}/api/referrals/${userId}`);
-            console.log('DEBUG: API Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP ошибка: ${response.status}`);
+            }
 
-            const responseText = await response.text();
-            console.log('DEBUG: Raw response:', responseText);
-
-            // Пробуем распарсить JSON только если есть данные
-            const data = responseText ? JSON.parse(responseText) : [];
-            console.log('DEBUG: Parsed referrals data:', data);
-
-            return data;
+            return await response.json();
         } catch (error) {
-            console.error('DEBUG: Error in getReferrals:', error);
-            return [];
+            console.error('Ошибка при получении рефералов:', error);
+            throw error;
         }
     };
 
-
-
-
-
-    const saveReferral = async (referralData) => {
+    // Обновление статуса реферала (для отметки получения награды)
+    const updateReferral = async (referralId, data) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/referrals`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(referralData)
+            const response = await fetch(`${API_URL}/referrals/${referralId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
             });
-            if (!response.ok) throw new Error('Failed to save referral');
+
+            if (!response.ok) {
+                throw new Error(`HTTP ошибка: ${response.status}`);
+            }
+
             return await response.json();
         } catch (error) {
-            console.error('Error saving referral:', error);
-            return null;
+            console.error('Ошибка при обновлении реферала:', error);
+            throw error;
         }
     };
 
     return {
         getReferrals,
-        saveReferral
+        updateReferral
+        // Здесь могут быть другие API методы
     };
 };
