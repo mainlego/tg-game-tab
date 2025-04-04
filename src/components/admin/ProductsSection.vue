@@ -38,7 +38,7 @@
             <h4>Последние заявки</h4>
             <div class="claim-item" v-for="claim in recentClaims" :key="claim.id">
               <div class="claim-user">{{ claim.userData?.first_name || 'Пользователь' }}</div>
-              <div class="claim-product">{{ claim.product?.name || 'Продукт' }}</div>
+              <div class="claim-product">{{ claim.productId?.name || 'Продукт' }}</div>
               <div class="claim-date">{{ formatDate(claim.createdAt) }}</div>
               <div class="claim-status">
                 <select
@@ -105,7 +105,7 @@
                 <td>{{ product.name }}</td>
                 <td>{{ formatMoney(product.requiredIncome) }}</td>
                 <td>{{ getProductType(product.type) }}</td>
-                <td>{{ product.claims?.length || 0 }}</td>
+                <td>{{ product.stats?.claims || 0 }}</td>
                 <td>
                     <span :class="['status-badge', product.active ? 'active' : 'inactive']">
                       {{ product.active ? 'Активен' : 'Неактивен' }}
@@ -399,10 +399,9 @@ const loadRecentClaims = async () => {
   try {
     const response = await ApiService.getRecentClaims();
 
-    if (response && Array.isArray(response)) {
-      recentClaims.value = response;
-    } else if (response && response.claims) {
-      recentClaims.value = response.claims;
+    if (response && response.success && response.data) {
+      recentClaims.value = response.data;
+      console.log('Полученные заявки:', recentClaims.value); // Для отладки
     } else {
       console.error('Unexpected claims response format:', response);
       recentClaims.value = [];
@@ -572,7 +571,8 @@ const viewProductClaims = async (product) => {
 const updateClaimStatus = async (claim) => {
   try {
     loading.value = true;
-    await ApiService.updateClaimStatus(claim.id, claim.status);
+    const claimId = claim._id || claim.id;
+    await ApiService.updateClaimStatus(claimId, claim.status);
 
     notifications.addNotification({
       message: 'Статус заявки успешно обновлен',
