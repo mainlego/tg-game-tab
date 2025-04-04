@@ -1,4 +1,4 @@
-<!-- src/App.vue (упрощенный) -->
+<!-- src/App.vue -->
 <template>
   <NotificationsProvider>
     <div class="app">
@@ -15,19 +15,49 @@
           <component :is="Component" />
         </transition>
       </router-view>
+
+      <ProductNotification />
+
+      <!-- Модальное окно для продуктов -->
+      <ProductModal
+          :show="showProductModal"
+          :product="selectedProduct"
+          @close="closeProductModal"
+          @activate="handleProductActivation"
+      />
+
+      <!-- Модальное окно для заданий -->
+      <TaskModal
+          v-if="showTaskModal"
+          :show="showTaskModal"
+          :task="selectedTask"
+          @close="closeTaskModal"
+          @complete="handleTaskCompletion"
+      />
     </div>
   </NotificationsProvider>
 </template>
 
 <script setup>
-import { onMounted, provide, computed } from 'vue';
+import { onMounted, provide, computed, ref, inject } from 'vue';
 import { useRoute } from 'vue-router';
 import { useGameStore } from '@/stores/gameStore';
 import NotificationsProvider from '@/components/NotificationsProvider.vue';
+import ProductNotification from '@/components/notifications/ProductNotification.vue';
+import ProductModal from '@/components/modals/ProductModal.vue';
+import TaskModal from '@/components/modals/TaskModal.vue';
 
 // Получение экземпляра хранилища
 const store = useGameStore();
 const route = useRoute();
+
+// Состояние для модального окна продуктов (уже должно быть в вашем коде)
+const showProductModal = ref(false);
+const selectedProduct = ref(null);
+
+// Состояние для модального окна заданий (новое)
+const showTaskModal = ref(false);
+const selectedTask = ref(null);
 
 // Предоставляем логгер для отладки
 const logger = {
@@ -42,6 +72,60 @@ const logger = {
 };
 
 provide('logger', logger);
+
+// Методы для управления модальным окном задания (новые)
+const openTaskModal = (task) => {
+  logger.log('Opening task modal for:', task);
+  selectedTask.value = task;
+  showTaskModal.value = true;
+};
+
+const closeTaskModal = () => {
+  logger.log('Closing task modal');
+  showTaskModal.value = false;
+  setTimeout(() => {
+    selectedTask.value = null;
+  }, 300); // Даем время на анимацию закрытия
+};
+
+const handleTaskCompletion = (completedTask) => {
+  logger.log('Task completed:', completedTask);
+
+  // Увеличиваем баланс пользователя
+  if (completedTask?.reward) {
+    store.balance += completedTask.reward;
+  }
+};
+
+// Методы для управления модальным окном продукта (если их еще нет)
+const openProductModal = (product) => {
+  logger.log('Opening product modal for:', product);
+  selectedProduct.value = product;
+  showProductModal.value = true;
+};
+
+const closeProductModal = () => {
+  logger.log('Closing product modal');
+  showProductModal.value = false;
+  setTimeout(() => {
+    selectedProduct.value = null;
+  }, 300);
+};
+
+const handleProductActivation = (activatedProduct) => {
+  logger.log('Product activated:', activatedProduct);
+};
+
+// Предоставляем методы модальных окон через контекст
+provide('productModal', {
+  open: openProductModal,
+  close: closeProductModal
+});
+
+provide('taskModal', {
+  open: openTaskModal,
+  close: closeTaskModal
+});
 
 // Показываем кнопку сброса только на основных страницах (не на загрузке и онбординге)
 const showResetButton = computed(() => {

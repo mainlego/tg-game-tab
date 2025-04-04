@@ -130,6 +130,8 @@ const BASE_URL = 'https://tg-game-tab-server.onrender.com'
 const store = useGameStore()
 const { user } = useTelegram()
 const notifications = inject('notifications')
+const taskModal = inject('taskModal') // Используем инъекцию API модального окна
+const logger = inject('logger', console) // Инъекция логгера
 
 // Состояние загрузки
 const loading = ref(true)
@@ -147,6 +149,7 @@ const platformTasks = ref([])
 const fetchTasks = async () => {
   try {
     loading.value = true
+    logger.log('Загрузка заданий...')
 
     // Загружаем все задания
     const response = await axios.get(`${API_URL}/admin/tasks`)
@@ -168,6 +171,8 @@ const fetchTasks = async () => {
           console.error('Ошибка загрузки завершенных заданий пользователя:', err)
         }
       }
+
+      logger.log('Найдено завершенных заданий:', completedTaskIds.length)
 
       // Разделяем задания по типам и отмечаем выполненные
       dailyTasks.value = tasksData
@@ -193,6 +198,12 @@ const fetchTasks = async () => {
 
       // Обновляем прогресс платформы
       platformProgress.value = platformTasks.value.filter(task => task.completed).length
+
+      logger.log('Загружено заданий:', {
+        daily: dailyTasks.value.length,
+        regular: regularTasks.value.length,
+        platform: platformTasks.value.length
+      })
     } else {
       error.value = 'Не удалось загрузить задания'
       notifications.addNotification({
@@ -214,7 +225,7 @@ const fetchTasks = async () => {
 
 // Получение полного URL для иконки задания
 const getTaskIcon = (task) => {
-  if (!task.icon) return '@/assets/images/tasks/default.png'
+  if (!task.icon) return '/images/tasks/default.png'
 
   // Если это относительный путь к иконке
   if (task.icon.startsWith('/')) {
@@ -235,8 +246,10 @@ const getTaskIcon = (task) => {
   return `${BASE_URL}/${task.icon}`
 }
 
-// Обработка клика по заданию
-const handleTaskClick = async (task) => {
+// Обработка клика по заданию - вместо прямого выполнения открываем модальное окно
+const handleTaskClick = (task) => {
+  logger.log('Клик по заданию:', task.title)
+
   if (task.completed) {
     notifications.addNotification({
       message: 'Задание уже выполнено',
@@ -245,65 +258,28 @@ const handleTaskClick = async (task) => {
     return
   }
 
-  // Если есть ссылка, открываем ее
-  if (task.link) {
-    // Открываем ссылку в новом окне
-    window.open(task.link, '_blank')
+  // Используем глобальное модальное окно для отображения задания
+  taskModal.open(task)
+}
 
-    // Отмечаем задание как выполненное (можно добавить проверку успешного выполнения)
-    try {
-      // Отправляем запрос на сервер о выполнении задания
-      if (user.value?.id) {
-        const response = await axios.post(`${API_URL}/tasks/complete`, {
-          userId: user.value.id,
-          taskId: task._id
-        })
-
-        if (response.data.success) {
-          // Отмечаем задание как выполненное
-          task.completed = true
-
-          // Обновляем баланс пользователя
-          store.balance += task.reward
-
-          // Показываем уведомление
-          notifications.addNotification({
-            message: `Получено ${task.reward} монет!`,
-            type: 'success'
-          })
-
-          // Обновляем прогресс платформы, если это задание платформы
-          if (task.type === 'platform') {
-            platformProgress.value += 1
-          }
-        } else {
-          notifications.addNotification({
-            message: 'Ошибка выполнения задания',
-            type: 'error'
-          })
-        }
+// Обработчик выполнения задания (больше не нужен, выполняется в TaskModal)
+const updateTaskStatus = (taskId, completed) => {
+  // Обновляем статус задания во всех списках
+  const updateTaskInList = (taskList) => {
+    return taskList.map(task => {
+      if (task._id === taskId) {
+        return { ...task, completed }
       }
-    } catch (err) {
-      console.error('Ошибка выполнения задания:', err)
-      notifications.addNotification({
-        message: 'Ошибка выполнения задания',
-        type: 'error'
-      })
-    }
-  } else {
-    // Если нет ссылки, просто отмечаем задание как выполненное
-    task.completed = true
-    store.balance += task.reward
-    notifications.addNotification({
-      message: `Получено ${task.reward} монет!`,
-      type: 'success'
+      return task
     })
-
-    // Обновляем прогресс платформы, если это задание платформы
-    if (task.type === 'platform') {
-      platformProgress.value += 1
-    }
   }
+
+  dailyTasks.value = updateTaskInList(dailyTasks.value)
+  regularTasks.value = updateTaskInList(regularTasks.value)
+  platformTasks.value = updateTaskInList(platformTasks.value)
+
+  // Обновляем прогресс платформы
+  platformProgress.value = platformTasks.value.filter(task => task.completed).length
 }
 
 // Загрузка данных при монтировании компонента

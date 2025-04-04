@@ -3,7 +3,6 @@
   <div class="growth-page">
     <Header />
 
-
     <div class="main__container">
       <Balance />
 
@@ -22,7 +21,6 @@
         </div>
 
         <!-- Сетка инвестиций -->
-
         <div class="investment-grid">
           <div
               v-for="investment in currentInvestments"
@@ -51,7 +49,7 @@
               <div class="level">lvl {{ getInvestmentLevel(investment) }}</div>
               <div class="price">
                 <img src="../assets/images/coin.png" class="price_cart" alt="coin">
-                <span>{{ formatMoney(investment.cost) }}</span>
+                <span>{{ formatMoney(getInvestmentCost(investment)) }}</span>
               </div>
             </div>
           </div>
@@ -74,19 +72,64 @@ import { investmentsData } from '@/data/investmentsData'
 
 const store = useGameStore()
 const notifications = inject('notifications')
+const logger = inject('logger', {
+  log: (...args) => console.log('[Growth]', ...args),
+  error: (...args) => console.error('[Growth Error]', ...args)
+})
+
 const currentCategory = ref('finances')
 const purchasedInvestments = ref({}) // Локальное отслеживание купленных инвестиций
+const investmentCosts = ref({}) // Локальное отслеживание стоимости инвестиций
 
 // Загрузка уровней инвестиций из хранилища
 onMounted(() => {
+  logger.log('Growth component mounted')
+  logger.log('Current store investments:', store.investments)
+
+  // Проверяем наличие метода purchaseInvestment в store
+  if (typeof store.purchaseInvestment !== 'function') {
+    logger.error('purchaseInvestment is not a function in store!')
+  }
+
+  // Проверяем наличие системы уведомлений
+  if (!notifications || typeof notifications.addNotification !== 'function') {
+    logger.error('Notifications system not available or addNotification is not a function!')
+  }
+
   // Преобразуем массив купленных инвестиций в объект для быстрого доступа
   if (store.investments && store.investments.purchased) {
+    logger.log('Loading purchased investments:', store.investments.purchased.length)
+
     store.investments.purchased.forEach(investment => {
       const key = `${investment.type}_${investment.id}`
       purchasedInvestments.value[key] = investment.level
+      logger.log(`Setting level for ${key}: ${investment.level}`)
+
+      // Если есть сохраненная стоимость, используем её
+      if (investment.cost) {
+        investmentCosts.value[key] = investment.cost
+        logger.log(`Setting cost for ${key}: ${investment.cost}`)
+      } else {
+        // Иначе рассчитываем стоимость на основе базовой цены и уровня
+        const baseInvestment = findBaseInvestment(investment.type, investment.id)
+        if (baseInvestment) {
+          investmentCosts.value[key] = calculateCostForLevel(baseInvestment, investment.level)
+          logger.log(`Calculated cost for ${key}: ${investmentCosts.value[key]}`)
+        }
+      }
     })
+  } else {
+    logger.log('No purchased investments found in store')
   }
 })
+
+// Поиск базовой инвестиции по типу и id
+const findBaseInvestment = (type, id) => {
+  if (investmentsData[type] && investmentsData[type].items) {
+    return investmentsData[type].items.find(item => item.id === id)
+  }
+  return null
+}
 
 // Категории инвестиций
 const categories = [
@@ -112,9 +155,47 @@ const getInvestmentLevel = (investment) => {
   return purchasedInvestments.value[key] || investment.level
 }
 
+// Получение текущей стоимости инвестиции
+const getInvestmentCost = (investment) => {
+  const key = `${currentCategory.value}_${investment.id}`
+
+  // Если инвестиция уже куплена, возвращаем сохраненную стоимость или рассчитываем новую
+  if (purchasedInvestments.value[key]) {
+    // Если есть сохраненная стоимость
+    if (investmentCosts.value[key]) {
+      return investmentCosts.value[key]
+    } else {
+      // Рассчитываем стоимость для текущего уровня
+      return calculateCostForLevel(investment, purchasedInvestments.value[key])
+    }
+  }
+
+  // Иначе возвращаем базовую стоимость
+  return investment.cost
+}
+
+// Расчет стоимости для определенного уровня
+const calculateCostForLevel = (investment, level) => {
+  // Базовая стоимость
+  const baseCost = investment.cost || 0
+  // Коэффициент роста цены (можно настроить)
+  const costMultiplier = investment.costMultiplier || 1.5
+
+  // Рассчитываем стоимость: базовая стоимость * (множитель ^ (уровень - базовый уровень))
+  const baseLevel = investment.level || 1
+  const levelDifference = level - baseLevel
+
+  if (levelDifference <= 0) {
+    return baseCost
+  }
+
+  return Math.round(baseCost * Math.pow(costMultiplier, levelDifference))
+}
+
 // Проверка возможности покупки
 const canBuyInvestment = (investment) => {
-  return store.balance >= investment.cost
+  const cost = getInvestmentCost(investment)
+  return store.balance >= cost
 }
 
 // Расчет дохода от инвестиции с учетом актуального уровня
@@ -148,42 +229,139 @@ const calculateIncome = (investment) => {
 
 // Обработка покупки инвестиции
 const handleInvestment = (investment) => {
-  if (!canBuyInvestment(investment)) {
-    notifications.addNotification({
-      message: 'Недостаточно монет',
-      type: 'error'
-    })
-    return
-  }
+  logger.log('handleInvestment called for:', investment.name)
 
-  // Создаем копию инвестиции для возможного увеличения уровня
-  const investmentCopy = { ...investment }
-  const key = `${currentCategory.value}_${investment.id}`
+  try {
+    // Получаем текущую стоимость инвестиции
+    const currentCost = getInvestmentCost(investment)
+    logger.log('Current cost:', currentCost, 'Current balance:', store.balance)
 
-  // Если инвестиция уже куплена, увеличиваем уровень
-  if (purchasedInvestments.value[key]) {
-    investmentCopy.level = purchasedInvestments.value[key] + 1
-  } else {
-    investmentCopy.level = investment.level + 1
-  }
+    if (!canBuyInvestment(investment)) {
+      logger.log('Not enough balance to buy investment')
+      if (notifications && typeof notifications.addNotification === 'function') {
+        notifications.addNotification({
+          message: 'Недостаточно монет',
+          type: 'error'
+        })
+      } else {
+        alert('Недостаточно монет')
+      }
+      return
+    }
 
-  // Рассчитываем доход для нового уровня
-  const income = calculateIncome(investmentCopy)
+    // Создаем копию инвестиции для возможного увеличения уровня
+    const investmentCopy = { ...investment }
+    const key = `${currentCategory.value}_${investment.id}`
 
-  // Добавляем тип категории к инвестиции для сохранения
-  investmentCopy.type = currentCategory.value
+    // Текущий уровень инвестиции
+    const currentLevel = purchasedInvestments.value[key] || investment.level
+    logger.log('Current level:', currentLevel)
 
-  // Покупаем инвестицию через хранилище
-  const success = store.purchaseInvestment(investmentCopy, income)
+    // Увеличиваем уровень
+    const newLevel = currentLevel + 1
+    investmentCopy.level = newLevel
+    logger.log('New level:', newLevel)
 
-  if (success) {
-    // Обновляем локальное отслеживание уровней
-    purchasedInvestments.value[key] = investmentCopy.level
+    // Рассчитываем доход для нового уровня
+    const income = calculateIncome(investmentCopy)
+    logger.log('Calculated income:', income)
 
-    notifications.addNotification({
-      message: `Вы приобрели ${investment.name} (Уровень ${investmentCopy.level})`,
-      type: 'success'
-    })
+    // Рассчитываем новую стоимость для следующего уровня
+    const newCost = calculateCostForLevel(investment, newLevel + 1)
+    logger.log('New cost for next level:', newCost)
+
+    // Устанавливаем текущую стоимость (которую заплатит игрок)
+    investmentCopy.cost = currentCost
+
+    // Добавляем тип категории к инвестиции для сохранения
+    investmentCopy.type = currentCategory.value
+
+    // Запасной вариант, если purchaseInvestment не существует
+    let success = false;
+
+    if (typeof store.purchaseInvestment === 'function') {
+      // Покупаем инвестицию через хранилище
+      logger.log('Calling store.purchaseInvestment with:', investmentCopy, income)
+      success = store.purchaseInvestment(investmentCopy, income)
+      logger.log('Purchase result:', success)
+    } else {
+      // Резервный метод, если оригинальный метод не найден
+      logger.error('store.purchaseInvestment is not a function, using fallback')
+
+      // Проверяем баланс
+      if (store.balance >= currentCost) {
+        // Уменьшаем баланс
+        store.balance -= currentCost;
+
+        // Обновляем купленные инвестиции
+        if (!store.investments) {
+          store.investments = { purchased: [] };
+        }
+        if (!store.investments.purchased) {
+          store.investments.purchased = [];
+        }
+
+        // Ищем существующую инвестицию
+        const index = store.investments.purchased.findIndex(
+            item => item.type === investmentCopy.type && item.id === investmentCopy.id
+        );
+
+        if (index >= 0) {
+          // Обновляем существующую
+          store.investments.purchased[index] = {
+            ...investmentCopy,
+            cost: newCost
+          };
+        } else {
+          // Добавляем новую
+          store.investments.purchased.push({
+            ...investmentCopy,
+            cost: newCost
+          });
+        }
+
+        // Обновляем доход
+        if (!store.passiveIncome) store.passiveIncome = 0;
+        store.passiveIncome += income;
+
+        success = true;
+      }
+    }
+
+    if (success) {
+      // Обновляем локальное отслеживание уровней
+      purchasedInvestments.value[key] = newLevel
+      logger.log('Updated local level tracking for', key, 'to', newLevel)
+
+      // Обновляем стоимость для следующей покупки
+      investmentCosts.value[key] = newCost
+      logger.log('Updated local cost tracking for', key, 'to', newCost)
+
+      // Обновляем стоимость в копии инвестиции для правильного сохранения в хранилище
+      investmentCopy.nextCost = newCost
+
+      // Отправляем уведомление
+      if (notifications && typeof notifications.addNotification === 'function') {
+        notifications.addNotification({
+          message: `Вы приобрели ${investment.name} (Уровень ${newLevel})`,
+          type: 'success'
+        })
+      } else {
+        alert(`Вы приобрели ${investment.name} (Уровень ${newLevel})`)
+      }
+    } else {
+      logger.error('Failed to purchase investment')
+    }
+  } catch (error) {
+    logger.error('Error in handleInvestment:', error)
+    if (notifications && typeof notifications.addNotification === 'function') {
+      notifications.addNotification({
+        message: `Ошибка покупки: ${error.message}`,
+        type: 'error'
+      })
+    } else {
+      alert(`Ошибка покупки: ${error.message}`)
+    }
   }
 }
 
