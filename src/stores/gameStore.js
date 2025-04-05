@@ -221,8 +221,8 @@ export const useGameStore = defineStore('game', {
             console.log('Прогресс сброшен');
         },
 
-        // Обновленный метод saveState
-        async saveState() {
+        // Обновленный метод saveState с принудительным режимом
+        async saveState(force = false) {
             if (!this.currentUser) {
                 console.warn('Невозможно сохранить состояние: пользователь не определен');
                 return false;
@@ -230,10 +230,13 @@ export const useGameStore = defineStore('game', {
 
             // Экономим трафик и предотвращаем частые запросы
             const now = Date.now();
-            if (this._lastSaveTime && now - this._lastSaveTime < 5000) { // Увеличим интервал до 5 секунд
+
+            // Если не принудительный режим, ограничиваем частоту запросов
+            if (!force && this._lastSaveTime && now - this._lastSaveTime < 5000) {
                 console.log('Сохранение пропущено: слишком частый вызов');
                 return false;
             }
+
             this._lastSaveTime = now;
 
             console.log('Сохранение состояния. Текущий баланс:', this.balance, 'Пассивный доход:', this.passiveIncome);
@@ -252,7 +255,9 @@ export const useGameStore = defineStore('game', {
                     stats: {
                         totalClicks: Number(this.stats.totalClicks) || 0,
                         totalEarned: Number(this.stats.totalEarned) || 0
-                    }
+                    },
+                    // Добавляем timestamp для отслеживания последнего обновления
+                    lastUpdate: new Date().toISOString()
                 },
                 lastLogin: new Date().toISOString()
             };
@@ -290,7 +295,7 @@ export const useGameStore = defineStore('game', {
             const localSaved = StorageService.saveState(localStorageData);
             console.log('Сохранение в localStorage:', localSaved ? 'успешно' : 'ошибка', 'Баланс:', localStorageData.balance);
 
-            // Сохраняем только самое необходимое на сервер
+            // Сохраняем на сервер
             try {
                 // Используем прямой подход для простоты отладки
                 const API_URL = 'https://tg-game-tab-server.onrender.com';
@@ -586,21 +591,36 @@ export const useGameStore = defineStore('game', {
                 // Начисляем доход (10 раз в секунду)
                 this.balance += (incomePerSecond / 10);
 
-                // Периодически обновляем уровень, но не каждый тик для производительности
-                // Обновляем каждые 5 секунд или при значительном изменении баланса
+                // Периодически обновляем уровень и сохраняем состояние
                 const now = Date.now();
-                if (!this._lastPassiveUpdate ||
-                    now - this._lastPassiveUpdate > 5000 ||
-                    Math.abs(this.balance - previousBalance) > 1000) {
+                const significantChange = Math.abs(this.balance - previousBalance) > 100;
+                const timeToUpdate = !this._lastPassiveUpdate || now - this._lastPassiveUpdate > 5000;
 
+                if (timeToUpdate || significantChange) {
                     this.updateLevel();
                     this._lastPassiveUpdate = now;
+
+                    // Периодически сохраняем состояние
+                    if (!this._lastPassiveSave || now - this._lastPassiveSave > 10000) {
+                        console.log('Сохранение после накопления пассивного дохода');
+                        this.saveState();
+                        this._lastPassiveSave = now;
+                    }
+                }
+
+                // Полное сохранение каждые 30 секунд
+                if (!this._lastFullSave || now - this._lastFullSave > 30000) {
+                    console.log('Полное сохранение после накопления пассивного дохода');
+                    this.fullSave();
+                    this._lastFullSave = now;
                 }
             }
         },
 
-        // Улучшенный метод startPassiveIncomeTimer
+        // Улучшенный метод startPassiveIncomeTimer с автосохранением
         startPassiveIncomeTimer() {
+            console.log('Запуск таймера пассивного дохода и автосохранения');
+
             // Сразу вызываем updateLevel при запуске таймера
             this.updateLevel();
 
@@ -614,8 +634,21 @@ export const useGameStore = defineStore('game', {
             setInterval(() => {
                 this.updateLevel();
             }, 10000);
+
+            // Регулярное сохранение состояния каждые 15 секунд
+            setInterval(() => {
+                console.log('Регулярное автосохранение (каждые 15 секунд)');
+                this.saveState();
+            }, 15000);
+
+            // Полное сохранение данных каждую минуту
+            setInterval(() => {
+                console.log('Регулярное полное автосохранение (каждую минуту)');
+                this.fullSave();
+            }, 60000);
         },
 
+        // Улучшенный метод handleTap
         handleTap() {
             if (this.canTap) {
                 this.energy.current -= 1;
@@ -628,8 +661,16 @@ export const useGameStore = defineStore('game', {
                 this.stats.totalClicks++;
                 this.stats.totalEarned += reward;
 
-                // Сохраняем состояние
+                // Сохраняем состояние немедленно
                 this.saveState();
+
+                // Дополнительно запланируем полное сохранение через некоторое время
+                if (!this._tapSaveTimeout) {
+                    this._tapSaveTimeout = setTimeout(() => {
+                        this.fullSave();
+                        this._tapSaveTimeout = null;
+                    }, 5000);
+                }
 
                 return reward;
             }
@@ -937,35 +978,61 @@ export const useGameStore = defineStore('game', {
 
 
         processOfflineProgress() {
-            const now = Date.now()
-            const lastUpdate = this.investments.lastCalculation
-            const offlineTime = (now - lastUpdate) / 1000
+            const now = Date.now();
+            const lastUpdate = this.investments.lastCalculation || now;
+            const offlineTime = Math.max(0, now - lastUpdate) / 1000; // в секундах
+
+            console.log(`Обработка офлайн-прогресса. Время: ${offlineTime} сек, доход: ${this.passiveIncome}/мес`);
 
             // Начисляем офлайн доход
-            const offlineIncome = Math.floor((this.passiveIncome / (30 * 24 * 60 * 60)) * offlineTime)
-            if (offlineIncome > 0) {
-                this.balance += offlineIncome
+            let offlineIncome = 0;
+            if (this.passiveIncome > 0 && offlineTime > 0) {
+                // Рассчитываем доход на основе месячного дохода
+                const monthInSeconds = 30 * 24 * 60 * 60;
+                offlineIncome = Math.floor((this.passiveIncome / monthInSeconds) * offlineTime);
+
+                if (offlineIncome > 0) {
+                    console.log(`Начисляем офлайн-доход: ${offlineIncome}`);
+                    this.balance += offlineIncome;
+
+                    // Обновляем статистику
+                    if (!this.stats.totalOfflineEarned) {
+                        this.stats.totalOfflineEarned = 0;
+                    }
+                    this.stats.totalOfflineEarned += offlineIncome;
+                    this.stats.totalEarned = (this.stats.totalEarned || 0) + offlineIncome;
+                }
             }
 
             // Восстанавливаем энергию
-            this.energy.current = this.energy.max
-            this.energy.lastRegenTime = now
+            this.energy.current = this.energy.max;
+            this.energy.lastRegenTime = now;
 
             // Проверяем бусты
             Object.keys(this.boosts).forEach(boostKey => {
-                const boost = this.boosts[boostKey]
+                const boost = this.boosts[boostKey];
                 if (boost.active && boost.endTime < now) {
-                    this.removeBoost(boostKey)
+                    this.removeBoost(boostKey);
                 }
-            })
+            });
 
-            this.investments.lastCalculation = now
-            this.saveState()
+            this.investments.lastCalculation = now;
+
+            // Обновляем уровень с учетом нового дохода
+            this.updateLevel();
+
+            // Принудительно сохраняем полное состояние
+            this.saveState(true);
+
+            // Также делаем полное сохранение для надежности
+            setTimeout(() => {
+                this.fullSave();
+            }, 2000);
 
             return {
                 time: Math.floor(offlineTime),
                 income: offlineIncome
-            }
+            };
         },
 
         // Улучшенный метод resetGame() для обеспечения полной очистки данных
