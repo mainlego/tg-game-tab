@@ -220,7 +220,7 @@ export const useGameStore = defineStore('game', {
             console.log('Прогресс сброшен');
         },
 
-        // Обновленный метод saveState
+        // Метод saveState (не изменяем, так как он работает корректно)
         async saveState() {
             if (!this.currentUser) {
                 console.warn('Невозможно сохранить состояние: пользователь не определен');
@@ -383,7 +383,7 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        // Добавьте эту функцию в файл gameStore.js
+        // Метод для прямого сохранения базовых данных
         async directSaveBasics() {
             if (!this.currentUser) {
                 console.warn('Невозможно сохранить данные: пользователь не определен');
@@ -430,6 +430,19 @@ export const useGameStore = defineStore('game', {
                 console.error('Критическая ошибка при прямом сохранении:', error);
                 return false;
             }
+        },
+
+        // Добавляем метод saveGameData для совместимости с нашими предыдущими изменениями
+        async saveGameData() {
+            // Первым делом сохраняем текущее состояние
+            await this.saveState();
+
+            // Затем делаем полное сохранение с небольшой задержкой
+            setTimeout(() => {
+                this.fullSave();
+            }, 300);
+
+            return true;
         },
 
         loadFromState(state) {
@@ -573,7 +586,7 @@ export const useGameStore = defineStore('game', {
             return Math.floor(num).toString()
         },
 
-        // Улучшенный метод processPassiveIncome для gameStore.js
+        // Метод обработки пассивного дохода
         processPassiveIncome() {
             if (this.passiveIncome > 0) {
                 const monthInSeconds = 30 * 24 * 60 * 60;
@@ -598,7 +611,7 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        // Улучшенный метод startPassiveIncomeTimer
+        // Метод запуска таймера пассивного дохода
         startPassiveIncomeTimer() {
             // Сразу вызываем updateLevel при запуске таймера
             this.updateLevel();
@@ -613,8 +626,14 @@ export const useGameStore = defineStore('game', {
             setInterval(() => {
                 this.updateLevel();
             }, 10000);
+
+            // Добавляем автосохранение каждые 30 секунд
+            setInterval(() => {
+                this.saveState();
+            }, 30000);
         },
 
+        // Метод обработки тапа (не меняем, так как работает корректно)
         handleTap() {
             if (this.canTap) {
                 this.energy.current -= 1;
@@ -635,6 +654,7 @@ export const useGameStore = defineStore('game', {
             return 0;
         },
 
+        // Метод регенерации энергии (не меняем, так как работает корректно)
         regenerateEnergy() {
             const now = Date.now()
             const deltaTime = (now - this.energy.lastRegenTime) / 1000
@@ -711,7 +731,19 @@ export const useGameStore = defineStore('game', {
             return 0
         },
 
-        // Улучшенный метод purchaseInvestment
+        // Функция для расчета следующей стоимости инвестиции (добавляем, но не используем в покупке)
+        calculateNextCost(investment) {
+            // Базовая стоимость
+            const baseCost = investment.cost || 0;
+            // Коэффициент роста цены (можно настроить)
+            const costMultiplier = investment.costMultiplier || 1.5;
+            // Текущий уровень
+            const currentLevel = investment.level || 1;
+            // Рассчитываем стоимость для следующего уровня
+            return Math.round(baseCost * Math.pow(costMultiplier, 1));
+        },
+
+        // Используем рабочий метод покупки инвестиций
         purchaseInvestment(investment, calculatedIncome) {
             if (this.balance < investment.cost) {
                 return false;
@@ -723,13 +755,33 @@ export const useGameStore = defineStore('game', {
             const incomeMultiplier = this.multipliers.incomeBoost || 1;
             const adjustedIncome = calculatedIncome * incomeMultiplier;
 
-            this.investments.purchased.push({
-                id: investment.id,
-                level: investment.level,
-                income: adjustedIncome,
-                purchaseDate: Date.now(),
-                type: investment.type
-            });
+            // Проверяем существование инвестиции с таким же типом и ID
+            const existingIndex = this.investments.purchased.findIndex(
+                item => item.type === investment.type && item.id === investment.id
+            );
+
+            if (existingIndex >= 0) {
+                // Обновляем существующую инвестицию
+                const existingInvestment = this.investments.purchased[existingIndex];
+
+                // Обновляем уровень и доход
+                this.investments.purchased[existingIndex] = {
+                    ...existingInvestment,
+                    level: (existingInvestment.level || 1) + 1,
+                    income: adjustedIncome,
+                    // Обновляем дату последнего обновления
+                    lastUpdate: Date.now()
+                };
+            } else {
+                // Добавляем новую инвестицию
+                this.investments.purchased.push({
+                    id: investment.id,
+                    level: investment.level,
+                    income: adjustedIncome,
+                    purchaseDate: Date.now(),
+                    type: investment.type
+                });
+            }
 
             const previousPassiveIncome = this.passiveIncome;
             this.passiveIncome += adjustedIncome;
@@ -753,9 +805,13 @@ export const useGameStore = defineStore('game', {
 
             // Пересчитываем доход
             let totalIncome = 0;
-            this.investments.purchased.forEach(investment => {
-                totalIncome += investment.income;
-            });
+            if (this.investments && Array.isArray(this.investments.purchased)) {
+                this.investments.purchased.forEach(investment => {
+                    if (investment && typeof investment.income === 'number') {
+                        totalIncome += investment.income;
+                    }
+                });
+            }
 
             this.passiveIncome = totalIncome;
 
@@ -774,9 +830,7 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        // Исправленный метод updateLevel()
-        // Проблема может быть здесь, в методе updateLevel
-        // Улучшенный метод updateLevel для gameStore.js
+        // Используем рабочий метод updateLevel
         updateLevel() {
             try {
                 // Проверка на наличие данных об уровнях
@@ -885,7 +939,7 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-
+        // Используем рабочий метод обработки оффлайн-прогресса
         processOfflineProgress() {
             const now = Date.now()
             const lastUpdate = this.investments.lastCalculation
@@ -918,7 +972,7 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        // Улучшенный метод resetGame() для обеспечения полной очистки данных
+        // Метод сброса игры
         resetGame() {
             console.log('Запуск полного сброса прогресса...');
 
@@ -951,4 +1005,4 @@ export const useGameStore = defineStore('game', {
             window.location.reload();
         }
     }
-})
+});
