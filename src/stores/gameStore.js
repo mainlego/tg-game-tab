@@ -5,7 +5,6 @@ import { StorageService } from '@/services/storage'
 import { ApiService } from '@/services/apiService'
 import { GameSettingsService } from '@/services/GameSettingsService'
 
-
 export const useGameStore = defineStore('game', {
     state: () => {
         const currentUser = ref(null)
@@ -221,7 +220,7 @@ export const useGameStore = defineStore('game', {
             console.log('Прогресс сброшен');
         },
 
-        // Оригинальный метод saveState
+        // Обновленный метод saveState
         async saveState() {
             if (!this.currentUser) {
                 console.warn('Невозможно сохранить состояние: пользователь не определен');
@@ -314,15 +313,6 @@ export const useGameStore = defineStore('game', {
                 console.error('Критическая ошибка при сохранении:', error);
                 return false;
             }
-        },
-
-        // Добавляем метод saveGameData, который вызывается в purchaseInvestment
-        async saveGameData() {
-            // Сначала сохраняем в localStorage для надежности
-            this.saveState();
-
-            // Затем выполняем полное сохранение, которое включает данные инвестиций
-            return this.fullSave();
         },
 
         async fullSave() {
@@ -583,7 +573,7 @@ export const useGameStore = defineStore('game', {
             return Math.floor(num).toString()
         },
 
-        // Оригинальный метод processPassiveIncome
+        // Улучшенный метод processPassiveIncome для gameStore.js
         processPassiveIncome() {
             if (this.passiveIncome > 0) {
                 const monthInSeconds = 30 * 24 * 60 * 60;
@@ -608,7 +598,7 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        // Оригинальный метод startPassiveIncomeTimer
+        // Улучшенный метод startPassiveIncomeTimer
         startPassiveIncomeTimer() {
             // Сразу вызываем updateLevel при запуске таймера
             this.updateLevel();
@@ -625,7 +615,6 @@ export const useGameStore = defineStore('game', {
             }, 10000);
         },
 
-        // Оригинальный метод handleTap
         handleTap() {
             if (this.canTap) {
                 this.energy.current -= 1;
@@ -646,7 +635,6 @@ export const useGameStore = defineStore('game', {
             return 0;
         },
 
-        // Оригинальный метод regenerateEnergy
         regenerateEnergy() {
             const now = Date.now()
             const deltaTime = (now - this.energy.lastRegenTime) / 1000
@@ -723,69 +711,40 @@ export const useGameStore = defineStore('game', {
             return 0
         },
 
-        // Функция для расчета следующей стоимости инвестиции
-        calculateNextCost(investment) {
-            // Базовая стоимость
-            const baseCost = investment.cost || 0;
-            // Коэффициент роста цены (можно настроить)
-            const costMultiplier = investment.costMultiplier || 1.5;
-            // Текущий уровень
-            const currentLevel = investment.level || 1;
-            // Рассчитываем стоимость для следующего уровня
-            return Math.round(baseCost * Math.pow(costMultiplier, 1));
-        },
-
-        // Исправленный метод purchaseInvestment с использованием saveGameData
-        purchaseInvestment(investment, income) {
-            try {
-                // Проверка наличия необходимой суммы на балансе
-                if (this.balance < investment.cost) {
-                    return false;
-                }
-
-                // Явно устанавливаем доход для инвестиции, если он передан
-                const calculatedIncome = income || investment.income || investment.baseIncome || 0;
-
-                // Создаем идентификатор инвестиции
-                const investmentKey = `${investment.type}_${investment.id}`;
-
-                // Проверяем, есть ли у нас уже такая инвестиция
-                const existingIndex = this.investments.purchased.findIndex(
-                    item => `${item.type}_${item.id}` === investmentKey
-                );
-
-                if (existingIndex >= 0) {
-                    // Обновляем существующую инвестицию
-                    this.investments.purchased[existingIndex] = {
-                        ...investment,
-                        income: calculatedIncome, // Устанавливаем доход явно
-                        // Сохраняем новую стоимость для следующего уровня
-                        cost: investment.nextCost || this.calculateNextCost(investment)
-                    };
-                } else {
-                    // Добавляем новую инвестицию
-                    this.investments.purchased.push({
-                        ...investment,
-                        income: calculatedIncome, // Устанавливаем доход явно
-                        // Сохраняем новую стоимость для следующего уровня
-                        cost: investment.nextCost || this.calculateNextCost(investment)
-                    });
-                }
-
-                // Обновляем общий пассивный доход
-                this.recalculateInvestmentIncome();
-
-                // Списываем средства с баланса
-                this.balance -= investment.cost;
-
-                // Сохраняем изменения используя метод saveGameData
-                this.saveGameData();
-
-                return true;
-            } catch (error) {
-                console.error('Ошибка при покупке инвестиции:', error);
+        // Улучшенный метод purchaseInvestment
+        purchaseInvestment(investment, calculatedIncome) {
+            if (this.balance < investment.cost) {
                 return false;
             }
+
+            this.balance -= investment.cost;
+
+            // Используем множитель дохода из настроек
+            const incomeMultiplier = this.multipliers.incomeBoost || 1;
+            const adjustedIncome = calculatedIncome * incomeMultiplier;
+
+            this.investments.purchased.push({
+                id: investment.id,
+                level: investment.level,
+                income: adjustedIncome,
+                purchaseDate: Date.now(),
+                type: investment.type
+            });
+
+            const previousPassiveIncome = this.passiveIncome;
+            this.passiveIncome += adjustedIncome;
+
+            console.log(`[purchaseInvestment] Пассивный доход изменен: ${previousPassiveIncome} -> ${this.passiveIncome}`);
+
+            // Пересчитываем инвестиции с актуальным доходом
+            this.recalculateInvestmentIncome();
+
+            // Принудительно обновляем уровень после изменения пассивного дохода
+            this.updateLevel();
+
+            // Сохраняем состояние
+            this.saveState();
+            return true;
         },
 
         recalculateInvestmentIncome() {
@@ -794,26 +753,16 @@ export const useGameStore = defineStore('game', {
 
             // Пересчитываем доход
             let totalIncome = 0;
-            if (this.investments && Array.isArray(this.investments.purchased)) {
-                this.investments.purchased.forEach(investment => {
-                    if (investment && typeof investment.income === 'number') {
-                        totalIncome += investment.income;
-                    } else if (investment && investment.baseIncome) {
-                        // Если нет поля income, но есть baseIncome
-                        totalIncome += investment.baseIncome;
-                    }
-                });
-            }
+            this.investments.purchased.forEach(investment => {
+                totalIncome += investment.income;
+            });
 
-            // Обновляем пассивный доход
             this.passiveIncome = totalIncome;
 
-            // Обновляем статистику
             if (totalIncome > this.stats.maxPassiveIncome) {
                 this.stats.maxPassiveIncome = totalIncome;
             }
 
-            // Обновляем данные инвестиций
             this.investments.activeIncome = totalIncome;
             this.investments.lastCalculation = Date.now();
 
@@ -822,11 +771,6 @@ export const useGameStore = defineStore('game', {
                 console.log(`[recalculateInvestmentIncome] Пассивный доход изменен: ${previousIncome} -> ${totalIncome}`);
                 // Если доход изменился, обновляем уровень
                 this.updateLevel();
-            }
-
-            // Принудительно вызываем сохранение, если доход изменился
-            if (previousIncome !== totalIncome) {
-                this.saveState();
             }
         },
 
