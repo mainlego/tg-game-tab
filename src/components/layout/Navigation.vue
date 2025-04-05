@@ -47,7 +47,7 @@ const customStrings = ref({
   growth: 'Развитие',
   friends: 'Друзья',
   tasks: 'Задания',
-  products: 'Продукты',
+  products: 'Подарки',
   admin: 'Админка'
 })
 
@@ -66,7 +66,7 @@ const defaultMenuItems = [
   { name: 'Развитие', path: '/growth', icon: 'growth' },
   { name: 'Друзья', path: '/friends', icon: 'friends' },
   { name: 'Задания', path: '/tasks', icon: 'tasks' },
-  { name: 'Продукты', path: '/products', icon: 'products' }
+  { name: 'Подарки', path: '/products', icon: 'products' }
 ]
 
 // Загрузка настроек навигации
@@ -169,8 +169,11 @@ const getItemIcon = (item) => {
 
   if (item.path === '/products') {
     return `<svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-      <path d="M18.3333 2.75H13.7499C13.2437 2.75 12.8333 3.16041 12.8333 3.66667V8.25C12.8333 8.75626 13.2437 9.16667 13.7499 9.16667H18.3333C18.8395 9.16667 19.2499 8.75626 19.2499 8.25V3.66667C19.2499 3.16041 18.8395 2.75 18.3333 2.75Z" stroke="currentColor" stroke-width="1.66667" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M9.16667 19.2498V7.33317C9.16667 7.09006 9.07009 6.8569 8.89818 6.68499C8.72627 6.51308 8.49311 6.4165 8.25 6.4165H3.66667C3.42355 6.4165 3.19039 6.51308 3.01849 6.68499C2.84658 6.8569 2.75 7.09006 2.75 7.33317V18.3332C2.75 18.5763 2.84658 18.8094 3.01849 18.9814C3.19039 19.1533 3.42355 19.2498 3.66667 19.2498H14.6667C14.9098 19.2498 15.1429 19.1533 15.3148 18.9814C15.4868 18.8094 15.5833 18.5763 15.5833 18.3332V13.7498C15.5833 13.5067 15.4868 13.2736 15.3148 13.1017C15.1429 12.9297 14.9098 12.8332 14.6667 12.8332H2.75" stroke="currentColor" stroke-width="1.66667" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M18 3.5H4C3.17157 3.5 2.5 4.17157 2.5 5V17C2.5 17.8284 3.17157 18.5 4 18.5H18C18.8284 18.5 19.5 17.8284 19.5 17V5C19.5 4.17157 18.8284 3.5 18 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M11 3.5V18.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M2.5 11H19.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M7.5 7.5C7.5 7.5 8.5 6.5 11 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M14.5 15.5C14.5 15.5 15.5 14.5 18 14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>`
   }
 
