@@ -5,6 +5,7 @@ import { StorageService } from '@/services/storage'
 import { ApiService } from '@/services/apiService'
 import { GameSettingsService } from '@/services/GameSettingsService'
 
+
 export const useGameStore = defineStore('game', {
     state: () => {
         const currentUser = ref(null)
@@ -711,40 +712,64 @@ export const useGameStore = defineStore('game', {
             return 0
         },
 
-        // Улучшенный метод purchaseInvestment
-        purchaseInvestment(investment, calculatedIncome) {
-            if (this.balance < investment.cost) {
+        // Функция для расчета следующей стоимости инвестиции
+        calculateNextCost(investment) {
+            // Базовая стоимость
+            const baseCost = investment.cost || 0;
+            // Коэффициент роста цены (можно настроить)
+            const costMultiplier = investment.costMultiplier || 1.5;
+            // Текущий уровень
+            const currentLevel = investment.level || 1;
+            // Рассчитываем стоимость для следующего уровня
+            return Math.round(baseCost * Math.pow(costMultiplier, 1));
+        },
+
+        // Исправленный метод purchaseInvestment
+        purchaseInvestment(investment, income) {
+            try {
+                // Проверка наличия необходимой суммы на балансе
+                if (this.balance < investment.cost) {
+                    return false;
+                }
+
+                // Создаем идентификатор инвестиции
+                const investmentKey = `${investment.type}_${investment.id}`;
+
+                // Проверяем, есть ли у нас уже такая инвестиция
+                const existingIndex = this.investments.purchased.findIndex(
+                    item => `${item.type}_${item.id}` === investmentKey
+                );
+
+                if (existingIndex >= 0) {
+                    // Обновляем существующую инвестицию
+                    this.investments.purchased[existingIndex] = {
+                        ...investment,
+                        // Сохраняем новую стоимость для следующего уровня если она есть
+                        cost: investment.nextCost || this.calculateNextCost(investment)
+                    };
+                } else {
+                    // Добавляем новую инвестицию
+                    this.investments.purchased.push({
+                        ...investment,
+                        // Сохраняем новую стоимость для следующего уровня если она есть
+                        cost: investment.nextCost || this.calculateNextCost(investment)
+                    });
+                }
+
+                // Обновляем общий пассивный доход
+                this.recalculateInvestmentIncome();
+
+                // Списываем средства с баланса
+                this.balance -= investment.cost;
+
+                // Сохраняем изменения полностью (включая инвестиции)
+                this.fullSave();
+
+                return true;
+            } catch (error) {
+                console.error('Ошибка при покупке инвестиции:', error);
                 return false;
             }
-
-            this.balance -= investment.cost;
-
-            // Используем множитель дохода из настроек
-            const incomeMultiplier = this.multipliers.incomeBoost || 1;
-            const adjustedIncome = calculatedIncome * incomeMultiplier;
-
-            this.investments.purchased.push({
-                id: investment.id,
-                level: investment.level,
-                income: adjustedIncome,
-                purchaseDate: Date.now(),
-                type: investment.type
-            });
-
-            const previousPassiveIncome = this.passiveIncome;
-            this.passiveIncome += adjustedIncome;
-
-            console.log(`[purchaseInvestment] Пассивный доход изменен: ${previousPassiveIncome} -> ${this.passiveIncome}`);
-
-            // Пересчитываем инвестиции с актуальным доходом
-            this.recalculateInvestmentIncome();
-
-            // Принудительно обновляем уровень после изменения пассивного дохода
-            this.updateLevel();
-
-            // Сохраняем состояние
-            this.saveState();
-            return true;
         },
 
         recalculateInvestmentIncome() {
