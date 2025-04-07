@@ -83,6 +83,13 @@ const openTaskModal = (task) => {
   showTaskModal.value = true;
 };
 
+setTimeout(() => {
+  if (store._energyRegenTimerId === null) {
+    console.log('Таймер регенерации энергии не запущен, запускаем...');
+    store.startPassiveIncomeTimer();
+  }
+}, 3000);
+
 const closeTaskModal = () => {
   logger.log('Closing task modal');
   showTaskModal.value = false;

@@ -123,6 +123,7 @@ export const useGameStore = defineStore('game', {
             _passiveIncomeTimerId: null,
             _updateLevelTimerId: null,
             _autoSaveTimerId: null,
+            _energyRegenTimerId: null, // Добавляем ID таймера регенерации энергии
             _lastEnergyUpdateSave: 0 // Время последнего сохранения энергии
         }
     },
@@ -919,24 +920,47 @@ export const useGameStore = defineStore('game', {
             const now = Date.now();
             const deltaTime = (now - this.energy.lastRegenTime) / 1000;
 
-            if (this.energy.current < this.energy.max) {
-                const oldEnergy = this.energy.current;
-                this.energy.current = Math.min(
-                    this.energy.max,
-                    this.energy.current + (this.energy.regenRate * deltaTime)
-                );
+            // Добавляем логирование для отладки (только при первом вызове и каждые 10 секунд)
+            const shouldLog = !this._lastEnergyLog || (now - this._lastEnergyLog > 10000);
+
+            if (shouldLog) {
+                console.log(`[regenerateEnergy] Текущая энергия: ${this.energy.current.toFixed(2)}/${this.energy.max}, 
+            скорость восстановления: ${this.energy.regenRate}/сек, 
+            время с последнего обновления: ${deltaTime.toFixed(2)} сек`);
+                this._lastEnergyLog = now;
+            }
+
+            // Всегда обновляем lastRegenTime, даже если энергия максимальная
+            if (this.energy.current >= this.energy.max) {
                 this.energy.lastRegenTime = now;
+                return;
+            }
 
-                // Ограничиваем сохранение - вызываем сохранение только если:
-                // 1. Прошло более 10 секунд с последнего сохранения энергии
-                // 2. ИЛИ энергия изменилась более чем на 5 единиц
-                if (!this._lastEnergyUpdateSave) this._lastEnergyUpdateSave = 0;
+            // Расчет восстановления энергии
+            const oldEnergy = this.energy.current;
+            const regenAmount = this.energy.regenRate * deltaTime;
 
-                const energyChange = this.energy.current - oldEnergy;
-                if (Math.abs(energyChange) > 5 || now - this._lastEnergyUpdateSave > 10000) {
-                    this._lastEnergyUpdateSave = now;
-                    this.saveState();
-                }
+            this.energy.current = Math.min(
+                this.energy.max,
+                this.energy.current + regenAmount
+            );
+            this.energy.lastRegenTime = now;
+
+            // Логируем только при существенном изменении
+            if (shouldLog || regenAmount > 1) {
+                console.log(`[regenerateEnergy] Восстановлено ${regenAmount.toFixed(2)} энергии, 
+            текущее значение: ${this.energy.current.toFixed(2)}/${this.energy.max}`);
+            }
+
+            // Ограничиваем сохранение - вызываем сохранение только если:
+            // 1. Прошло более 10 секунд с последнего сохранения энергии
+            // 2. ИЛИ энергия изменилась более чем на 5 единиц
+            if (!this._lastEnergyUpdateSave) this._lastEnergyUpdateSave = 0;
+
+            const energyChange = this.energy.current - oldEnergy;
+            if (Math.abs(energyChange) > 5 || now - this._lastEnergyUpdateSave > 10000) {
+                this._lastEnergyUpdateSave = now;
+                this.saveState();
             }
         },
 
