@@ -23,14 +23,25 @@
           </div>
         </div>
 
-        <div class="product-status" v-if="product.claimed">
-          Активировано
+        <!-- Статус с иконками -->
+        <div class="product-status" v-if="product.claimed" title="Активировано">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5"></path>
+          </svg>
         </div>
-        <div class="product-status" v-else-if="isProductAvailable(product)">
-          Доступно
+        <div class="product-status available" v-else-if="isProductAvailable(product)" title="Доступно">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+            <path d="M15 7h2"></path>
+            <path d="M16 7V4"></path>
+          </svg>
         </div>
-        <div class="product-status locked" v-else>
-          Заблокировано
+        <div class="product-status locked" v-else title="Заблокировано">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0110 0v4"></path>
+          </svg>
         </div>
       </div>
     </div>
@@ -307,7 +318,10 @@ const formatMoney = (num) => {
 .products-page {
   min-height: 100vh;
   padding: 78px 0  80px 0;
-  background: url('/images/bg-2.jpg') center top no-repeat;
+  /* Используем тот же фон что и на главной странице */
+  background: url('@/assets/images/bg.jpg') center top no-repeat;
+  background-attachment: fixed;
+  background-size: cover;
 }
 
 .products-grid {
@@ -379,19 +393,28 @@ const formatMoney = (num) => {
   height: 16px;
 }
 
+/* Обновленные стили для статусов с иконками */
 .product-status {
   position: absolute;
   top: 20px;
   right: 20px;
-  background: rgba(76, 175, 80, 0.9);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+  background: rgba(76, 175, 80, 0.9); /* Зелёный для активированных */
+  padding: 6px;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: white;
 }
 
+.product-status.available {
+  background: rgba(255, 193, 7, 0.9); /* Жёлтый для доступных */
+}
+
 .product-status.locked {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.3); /* Белый полупрозрачный для заблокированных */
 }
 
 /* Стили модального окна */
@@ -556,6 +579,13 @@ const formatMoney = (num) => {
 
   .modal-description {
     font-size: 14px;
+  }
+
+  .product-status {
+    top: 16px;
+    right: 16px;
+    width: 24px;
+    height: 24px;
   }
 }
 </style>
