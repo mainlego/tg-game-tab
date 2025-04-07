@@ -9,13 +9,15 @@
           v-for="product in products"
           :key="product._id"
           class="product-card"
-          :class="{ 'product-available': isProductAvailable(product) }"
+          :class="{ 'product-available': isProductAvailable(product), 'product-claimed': product.claimed }"
           :style="{ background: product.gradient }"
           @click="handleProductClick(product)"
       >
         <img :src="product.image" :alt="product.name" class="product-image">
         <div class="product-title">{{ product.name }}</div>
-        <div class="product-income">
+
+        <!-- Блок необходимого дохода - показываем только для неактивированных продуктов -->
+        <div class="product-income" v-if="!product.claimed">
           <span>Необходимый доход</span>
           <div class="income-amount">
             <img src="/images/coin.png" alt="coin" class="passive__income_cart">
@@ -23,21 +25,13 @@
           </div>
         </div>
 
-        <!-- Статус с иконками -->
-        <div class="product-status" v-if="product.claimed" title="Активировано">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 6L9 17l-5-5"></path>
-          </svg>
+        <!-- Для активированных продуктов показываем сообщение об активации -->
+        <div class="product-activated" v-if="product.claimed">
+          <span>✓ Активировано</span>
         </div>
-        <div class="product-status available" v-else-if="isProductAvailable(product)" title="Доступно">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-            <path d="M12 16v.01"></path>
-            <path d="M17 7H7"></path>
-            <path d="M12 7V3"></path>
-          </svg>
-        </div>
-        <div class="product-status locked" v-else title="Заблокировано">
+
+        <!-- Замочек только для заблокированных продуктов -->
+        <div class="product-status locked" v-if="!product.claimed && !isProductAvailable(product)" title="Заблокировано">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
@@ -71,7 +65,7 @@
             <p>{{ selectedProduct.description }}</p>
           </div>
 
-          <div class="modal-income">
+          <div class="modal-income" v-if="!selectedProduct.claimed">
             <span class="income-label">💰 {{ formatMoney(selectedProduct.requiredIncome) }}</span>
           </div>
 
@@ -80,7 +74,7 @@
               :disabled="!isProductAvailable(selectedProduct) || selectedProduct.claimed"
               @click="activateProduct"
           >
-            <span v-if="selectedProduct.claimed">Уже активировано</span>
+            <span v-if="selectedProduct.claimed">Активировано</span>
             <span v-else-if="isProductAvailable(selectedProduct)">Активировать</span>
             <span v-else>Недоступно</span>
           </button>
@@ -344,6 +338,8 @@ const formatMoney = (num) => {
   position: relative;
   opacity: 0.7;
   transition: all 0.3s ease;
+  /* Выравнивание текста по центру для всей карточки */
+  text-align: center;
 }
 
 .product-card.product-available {
@@ -351,7 +347,13 @@ const formatMoney = (num) => {
   cursor: pointer;
 }
 
-.product-card.product-available:hover {
+.product-card.product-claimed {
+  opacity: 1;
+  cursor: pointer;
+}
+
+.product-card.product-available:hover,
+.product-card.product-claimed:hover {
   transform: translateY(-2px);
 }
 
@@ -360,6 +362,8 @@ const formatMoney = (num) => {
   aspect-ratio: 16/9;
   object-fit: cover;
   border-radius: 8px;
+  /* Центрируем изображение */
+  margin: 0 auto;
 }
 
 .product-title {
@@ -367,6 +371,7 @@ const formatMoney = (num) => {
   font-size: 14px;
   font-weight: 500;
   color: white;
+  /* Исключаем выравнивание текста по центру, так как оно наследуется от родителя */
 }
 
 .product-income {
@@ -382,6 +387,8 @@ const formatMoney = (num) => {
 .income-amount {
   display: flex;
   align-items: center;
+  /* Центрируем блок */
+  justify-content: center;
   gap: 4px;
   color: white;
   font-size: 16px;
@@ -394,11 +401,20 @@ const formatMoney = (num) => {
   height: 16px;
 }
 
+/* Стиль для сообщения об активации */
+.product-activated {
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 14px;
+  color: #4CAF50;
+  font-weight: 500;
+}
+
 .product-status {
   position: absolute;
   top: 20px;
   right: 20px;
-  background: transparent; /* Прозрачный фон */
+  background: transparent;
   padding: 0;
   border-radius: 50%;
   width: 28px;
@@ -408,50 +424,8 @@ const formatMoney = (num) => {
   justify-content: center;
   color: white;
   z-index: 5;
-  /* Чтобы наследовать градиент родительского блока */
-  backdrop-filter: brightness(1.3) blur(1px);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.4);
-}
-
-.product-status:not(.available):not(.locked) {
-  background: rgba(76, 175, 80, 0.25); /* Полупрозрачный зеленый для галочки */
-  border: 1px solid rgba(76, 175, 80, 0.5);
-}
-
-.product-status:not(.available):not(.locked)::after {
-  content: "";
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 12px;
-  height: 12px;
-  background: rgba(76, 175, 80, 0.9); /* Зеленый для активированных */
-  border-radius: 50%;
-  border: 1px solid white;
-}
-
-.product-status.available {
-  background: rgba(255, 193, 7, 0.25); /* Полупрозрачный желтый для открытого замка */
-  border: 1px solid rgba(255, 193, 7, 0.5);
-}
-
-.product-status.locked {
-  /* Для заблокированных не добавляем дополнительный индикатор */
   backdrop-filter: brightness(0.7) blur(1px);
-}
-
-@media (max-width: 480px) {
-  .product-status {
-    top: 16px;
-    right: 16px;
-    width: 24px;
-    height: 24px;
-  }
-
-  .product-status::after {
-    width: 10px;
-    height: 10px;
-  }
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.4);
 }
 
 /* Стили модального окна */
