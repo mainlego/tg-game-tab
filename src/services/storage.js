@@ -10,17 +10,43 @@ export const StorageService = {
      */
     saveState(state) {
         try {
-            // Проверяем корректность данных энергии перед сохранением
-            if (state.energy && (!state.energy.lastRegenTime || isNaN(state.energy.lastRegenTime))) {
-                console.warn('Некорректное значение lastRegenTime, устанавливаем текущее время');
-                state.energy.lastRegenTime = Date.now();
-            }
+            // Проверяем и исправляем состояние перед сохранением
+            const validatedState = this._validateState(state);
 
-            const stateString = JSON.stringify(state);
+            const stateString = JSON.stringify(validatedState);
             localStorage.setItem('gameState', stateString);
+
+            // Создаем минимальную резервную копию
+            const fallbackState = {
+                balance: validatedState.balance || 0,
+                passiveIncome: validatedState.passiveIncome || 0,
+                energy: {
+                    current: validatedState.energy?.current || 0,
+                    max: validatedState.energy?.max || 1000,
+                    regenRate: validatedState.energy?.regenRate || 1,
+                    lastRegenTime: validatedState.energy?.lastRegenTime || Date.now()
+                },
+                userId: validatedState.userId || validatedState.currentUser,
+                lastSaved: new Date().toISOString()
+            };
+            localStorage.setItem('gameStateFallback', JSON.stringify(fallbackState));
+
             return true;
         } catch (error) {
             console.error('Error saving state to localStorage:', error);
+
+            // Пытаемся сохранить только минимальные данные в случае ошибки
+            try {
+                const minimalState = {
+                    balance: state?.balance || 0,
+                    userId: state?.userId || state?.currentUser,
+                    lastSaved: new Date().toISOString()
+                };
+                localStorage.setItem('gameStateFallback', JSON.stringify(minimalState));
+            } catch (e) {
+                console.error('Critical error saving minimal state:', e);
+            }
+
             return false;
         }
     },
@@ -36,29 +62,38 @@ export const StorageService = {
 
             const state = JSON.parse(stateString);
 
-            // Проверяем и фиксируем некорректные данные
-            if (state.energy && (!state.energy.lastRegenTime || isNaN(state.energy.lastRegenTime))) {
-                console.warn('Обнаружено некорректное значение lastRegenTime при загрузке, исправляем');
-                state.energy.lastRegenTime = Date.now();
+            // Проверяем корректность загруженных данных
+            if (typeof state !== 'object' || state === null) {
+                console.warn('Некорректные данные в localStorage:', state);
+                return this._loadFallbackState();
             }
 
-            return state;
+            // Проверяем и исправляем критические поля
+            return this._validateState(state);
+
         } catch (error) {
             console.error('Error loading state from localStorage:', error);
-
-            // Пробуем загрузить из резервной копии
-            try {
-                const fallbackString = localStorage.getItem('gameStateFallback');
-                if (fallbackString) {
-                    console.log('Попытка восстановления из резервной копии');
-                    return JSON.parse(fallbackString);
-                }
-            } catch (e) {
-                console.error('Ошибка загрузки из резервной копии:', e);
-            }
-
-            return null;
+            return this._loadFallbackState();
         }
+    },
+
+    /**
+     * Загрузка резервной копии состояния
+     * @returns {Object|null} - резервная копия состояния или null
+     * @private
+     */
+    _loadFallbackState() {
+        try {
+            const fallbackString = localStorage.getItem('gameStateFallback');
+            if (fallbackString) {
+                console.log('Попытка восстановления из резервной копии');
+                const fallbackState = JSON.parse(fallbackString);
+                return this._validateState(fallbackState);
+            }
+        } catch (e) {
+            console.error('Ошибка загрузки из резервной копии:', e);
+        }
+        return null;
     },
 
     /**
@@ -68,6 +103,7 @@ export const StorageService = {
         try {
             localStorage.removeItem('gameState');
             localStorage.removeItem('gameStateFallback');
+            console.log('Данные состояния игры успешно удалены');
             return true;
         } catch (error) {
             console.error('Error clearing state from localStorage:', error);
@@ -150,5 +186,89 @@ export const StorageService = {
             console.error('Error loading settings from localStorage:', error);
             return null;
         }
+    },
+
+    /**
+     * Проверяет и исправляет критические поля в состоянии
+     * @param {Object} state - состояние для проверки
+     * @returns {Object} - исправленное состояние
+     * @private
+     */
+    _validateState(state) {
+        if (!state) return {};
+
+        const validatedState = { ...state };
+
+        // Проверяем данные энергии
+        if (validatedState.energy) {
+            // Проверяем lastRegenTime на корректность
+            if (!validatedState.energy.lastRegenTime ||
+                isNaN(validatedState.energy.lastRegenTime) ||
+                validatedState.energy.lastRegenTime > Date.now() + 60000) { // Не более минуты в будущее
+                console.warn('Некорректное значение lastRegenTime, устанавливаем текущее время');
+                validatedState.energy.lastRegenTime = Date.now();
+            }
+
+            // Проверяем другие поля энергии
+            validatedState.energy.current = Number(validatedState.energy.current) || 0;
+            validatedState.energy.max = Number(validatedState.energy.max) || 1000;
+            validatedState.energy.regenRate = Number(validatedState.energy.regenRate) || 1;
+        } else {
+            validatedState.energy = {
+                current: 1000,
+                max: 1000,
+                regenRate: 1,
+                lastRegenTime: Date.now()
+            };
+        }
+
+        // Проверяем инвестиции
+        if (validatedState.investments) {
+            if (!Array.isArray(validatedState.investments.purchased)) {
+                validatedState.investments.purchased = [];
+            }
+
+            validatedState.investments.activeIncome = Number(validatedState.investments.activeIncome) || 0;
+
+            if (!validatedState.investments.lastCalculation ||
+                isNaN(validatedState.investments.lastCalculation)) {
+                validatedState.investments.lastCalculation = Date.now();
+            }
+        }
+
+        // Проверяем числовые значения
+        validatedState.balance = Number(validatedState.balance) || 0;
+        validatedState.passiveIncome = Number(validatedState.passiveIncome) || 0;
+
+        // Проверяем уровень
+        if (validatedState.level) {
+            validatedState.level.current = Number(validatedState.level.current) || 1;
+            validatedState.level.max = Number(validatedState.level.max) || 10;
+            validatedState.level.progress = Math.min(Math.max(Number(validatedState.level.progress) || 0, 0), 100);
+
+            if (!validatedState.level.title) {
+                validatedState.level.title = 'Пацан';
+            }
+
+            if (!Array.isArray(validatedState.level.levels)) {
+                validatedState.level.levels = [];
+            }
+        }
+
+        // Проверяем статистику
+        if (!validatedState.stats || typeof validatedState.stats !== 'object') {
+            validatedState.stats = {
+                totalClicks: 0,
+                totalEarned: 0,
+                maxPassiveIncome: 0
+            };
+        }
+
+        // Добавляем timestamp последнего сохранения, если отсутствует
+        if (!validatedState.lastSaved) {
+            validatedState.lastSaved = new Date().toISOString();
+        }
+
+        return validatedState;
     }
 };
