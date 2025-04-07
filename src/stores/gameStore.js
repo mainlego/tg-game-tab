@@ -220,6 +220,9 @@ export const useGameStore = defineStore('game', {
                     // Запускаем автосохранение
                     await this.saveState();
 
+                    // Очень важно - запускаем таймеры перед выходом из метода
+                    this.startPassiveIncomeTimer();
+
                     // Дополнительный запрос на синхронизацию с сервером (в фоне)
                     this.syncWithServer(userId).catch(error => {
                         console.error('Error syncing with server (continuing offline):', error);
@@ -848,11 +851,14 @@ export const useGameStore = defineStore('game', {
         },
 
         // Обновленный метод запуска таймера пассивного дохода
+        // Модифицируем метод startPassiveIncomeTimer в gameStore.js, добавив таймер для восстановления энергии
+
         startPassiveIncomeTimer() {
             // Очищаем предыдущие таймеры, если они были
             if (this._passiveIncomeTimerId) clearInterval(this._passiveIncomeTimerId);
             if (this._updateLevelTimerId) clearInterval(this._updateLevelTimerId);
             if (this._autoSaveTimerId) clearInterval(this._autoSaveTimerId);
+            if (this._energyRegenTimerId) clearInterval(this._energyRegenTimerId); // Добавляем очистку таймера энергии
 
             // Сразу вызываем updateLevel при запуске таймера
             this.updateLevel();
@@ -872,10 +878,17 @@ export const useGameStore = defineStore('game', {
                 this.saveState();
             }, 30000);
 
-            console.log('Запущены таймеры пассивного дохода');
+            // Добавляем таймер для восстановления энергии (каждую секунду)
+            this._energyRegenTimerId = setInterval(() => {
+                this.regenerateEnergy();
+            }, 1000);
+
+            console.log('Запущены таймеры пассивного дохода и восстановления энергии');
         },
 
         // Метод остановки таймеров
+        // Также нужно модифицировать метод stopPassiveIncomeTimer, чтобы он останавливал таймер энергии
+
         stopPassiveIncomeTimer() {
             if (this._passiveIncomeTimerId) {
                 clearInterval(this._passiveIncomeTimerId);
@@ -892,7 +905,13 @@ export const useGameStore = defineStore('game', {
                 this._autoSaveTimerId = null;
             }
 
-            console.log('Остановлены таймеры пассивного дохода');
+            // Добавляем остановку таймера энергии
+            if (this._energyRegenTimerId) {
+                clearInterval(this._energyRegenTimerId);
+                this._energyRegenTimerId = null;
+            }
+
+            console.log('Остановлены таймеры пассивного дохода и восстановления энергии');
         },
 
         // Обновленный метод regenerateEnergy
