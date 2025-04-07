@@ -10,6 +10,12 @@ export const StorageService = {
      */
     saveState(state) {
         try {
+            // Проверяем корректность данных энергии перед сохранением
+            if (state.energy && (!state.energy.lastRegenTime || isNaN(state.energy.lastRegenTime))) {
+                console.warn('Некорректное значение lastRegenTime, устанавливаем текущее время');
+                state.energy.lastRegenTime = Date.now();
+            }
+
             const stateString = JSON.stringify(state);
             localStorage.setItem('gameState', stateString);
             return true;
@@ -27,9 +33,30 @@ export const StorageService = {
         try {
             const stateString = localStorage.getItem('gameState');
             if (!stateString) return null;
-            return JSON.parse(stateString);
+
+            const state = JSON.parse(stateString);
+
+            // Проверяем и фиксируем некорректные данные
+            if (state.energy && (!state.energy.lastRegenTime || isNaN(state.energy.lastRegenTime))) {
+                console.warn('Обнаружено некорректное значение lastRegenTime при загрузке, исправляем');
+                state.energy.lastRegenTime = Date.now();
+            }
+
+            return state;
         } catch (error) {
             console.error('Error loading state from localStorage:', error);
+
+            // Пробуем загрузить из резервной копии
+            try {
+                const fallbackString = localStorage.getItem('gameStateFallback');
+                if (fallbackString) {
+                    console.log('Попытка восстановления из резервной копии');
+                    return JSON.parse(fallbackString);
+                }
+            } catch (e) {
+                console.error('Ошибка загрузки из резервной копии:', e);
+            }
+
             return null;
         }
     },
@@ -40,6 +67,7 @@ export const StorageService = {
     clearState() {
         try {
             localStorage.removeItem('gameState');
+            localStorage.removeItem('gameStateFallback');
             return true;
         } catch (error) {
             console.error('Error clearing state from localStorage:', error);

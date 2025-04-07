@@ -68,6 +68,9 @@ const logger = {
   },
   error: (...args) => {
     console.error('[APP ERROR]', ...args);
+  },
+  warn: (...args) => {
+    console.warn('[APP WARN]', ...args);
   }
 };
 
@@ -153,6 +156,44 @@ onMounted(() => {
   // Проверяем, есть ли хранимый счетчик перенаправлений
   if (!localStorage.getItem('redirectCount')) {
     localStorage.setItem('redirectCount', '0');
+  }
+
+  // Проверяем данные в localStorage на корректность
+  try {
+    const stateString = localStorage.getItem('gameState');
+    if (stateString) {
+      const state = JSON.parse(stateString);
+      logger.log('Проверка целостности данных:', {
+        hasEnergy: !!state.energy,
+        energyLastRegenTime: state.energy?.lastRegenTime ?
+            new Date(state.energy.lastRegenTime).toISOString() : 'отсутствует',
+        hasInvestments: !!state.investments,
+        lastSaved: state.lastSaved
+      });
+
+      // Восстановление из резервной копии при обнаружении проблем
+      if (!state.energy || !state.energy.lastRegenTime || isNaN(state.energy.lastRegenTime)) {
+        logger.warn('Обнаружены проблемы с данными энергии, проверяем резервную копию');
+
+        try {
+          const fallbackString = localStorage.getItem('gameStateFallback');
+          if (fallbackString) {
+            const fallbackState = JSON.parse(fallbackString);
+            if (fallbackState.energy && fallbackState.energy.lastRegenTime) {
+              state.energy = fallbackState.energy;
+              localStorage.setItem('gameState', JSON.stringify(state));
+              logger.log('Данные восстановлены из резервной копии');
+            }
+          }
+        } catch (e) {
+          logger.error('Ошибка восстановления из резервной копии:', e);
+        }
+      }
+    }
+  } catch (e) {
+    logger.error('Ошибка проверки данных из localStorage:', e);
+    // Сбрасываем повреждённые данные
+    localStorage.removeItem('gameState');
   }
 
   // Сбрасываем флаг загрузки при перезагрузке страницы

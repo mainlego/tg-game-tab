@@ -43,9 +43,15 @@ const loadingMessages = [
   'Создание капитала...'
 ];
 const loadingMessage = ref(loadingMessages[0]);
+
+// Переменные для хранения ID таймеров
 let animationTimer;
 let messageInterval;
 let loadingTimeout;
+let energyTimerId;
+let passiveIncomeTimerId;
+let saveStateTimerId;
+
 const loadingDuration = 3000; // 3 секунды
 
 // Инициализация приложения
@@ -126,8 +132,8 @@ async function initializeApp() {
         // Запускаем таймер для пассивного дохода
         store.startPassiveIncomeTimer();
 
-        // Запускаем обновление энергии
-        setInterval(() => {
+        // Запускаем обновление энергии с сохранением ID таймера
+        energyTimerId = setInterval(() => {
           store.regenerateEnergy();
         }, 1000); // Обновление каждую секунду
       }
@@ -171,7 +177,8 @@ async function initializeApp() {
           await store.initializeGame(testUserId);
           store.startPassiveIncomeTimer();
 
-          setInterval(() => {
+          // Запускаем обновление энергии с сохранением ID таймера
+          energyTimerId = setInterval(() => {
             store.regenerateEnergy();
           }, 1000);
         } catch (e) {
@@ -256,12 +263,21 @@ onMounted(async () => {
 
 onUnmounted(() => {
   console.log('[LOADING] Компонент загрузки размонтирован');
+
+  // Очищаем все таймеры
   clearInterval(messageInterval);
   clearTimeout(loadingTimeout);
 
   if (animationTimer) {
     cancelAnimationFrame(animationTimer);
   }
+
+  // Очищаем таймеры игры
+  if (energyTimerId) clearInterval(energyTimerId);
+  if (passiveIncomeTimerId) clearInterval(passiveIncomeTimerId);
+  if (saveStateTimerId) clearInterval(saveStateTimerId);
+
+  console.log('[LOADING] Все таймеры очищены');
 });
 </script>
 

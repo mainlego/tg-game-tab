@@ -109,7 +109,13 @@ export const useGameStore = defineStore('game', {
             // Данные пользователя и настройки игры
             currentUser,
             gameData,
-            gameSettings
+            gameSettings,
+
+            // Идентификаторы таймеров
+            _passiveIncomeTimerId: null,
+            _updateLevelTimerId: null,
+            _autoSaveTimerId: null,
+            _lastEnergyUpdateSave: 0 // Время последнего сохранения энергии
         }
     },
 
@@ -168,7 +174,16 @@ export const useGameStore = defineStore('game', {
 
                     // Всегда используем данные из базы как источник правды
                     this.loadFromState(userData.gameData);
-                    console.log('After loading from server - Balance:', this.balance, 'Passive Income:', this.passiveIncome);
+
+                    // Проверяем корректность lastRegenTime
+                    if (!this.energy?.lastRegenTime || isNaN(this.energy.lastRegenTime)) {
+                        console.warn('lastRegenTime некорректно, сбрасываем на текущее время');
+                        this.energy.lastRegenTime = Date.now();
+                    }
+
+                    console.log('After loading from server - Balance:', this.balance,
+                        'Passive Income:', this.passiveIncome,
+                        'Energy lastRegenTime:', new Date(this.energy.lastRegenTime).toISOString());
 
                     // Сохраняем в localStorage для офлайн доступа
                     const savedToLocal = StorageService.saveState({
@@ -220,97 +235,140 @@ export const useGameStore = defineStore('game', {
             console.log('Прогресс сброшен');
         },
 
-        // Метод saveState (не изменяем, так как он работает корректно)
+        // Обновленный метод saveState
         async saveState() {
             if (!this.currentUser) {
                 console.warn('Невозможно сохранить состояние: пользователь не определен');
                 return false;
             }
 
-            // Экономим трафик и предотвращаем частые запросы
-            const now = Date.now();
-            if (this._lastSaveTime && now - this._lastSaveTime < 5000) { // Увеличим интервал до 5 секунд
-                console.log('Сохранение пропущено: слишком частый вызов');
-                return false;
-            }
-            this._lastSaveTime = now;
+            try {
+                // Экономим трафик и предотвращаем частые запросы
+                const now = Date.now();
+                if (this._lastSaveTime && now - this._lastSaveTime < 3000) { // Уменьшаем до 3 секунд
+                    console.log('Сохранение пропущено: слишком частый вызов');
+                    return false;
+                }
+                this._lastSaveTime = now;
 
-            console.log('Сохранение состояния. Текущий баланс:', this.balance, 'Пассивный доход:', this.passiveIncome);
+                // Убедимся, что данные энергии корректны
+                if (!this.energy.lastRegenTime || isNaN(this.energy.lastRegenTime)) {
+                    this.energy.lastRegenTime = now;
+                }
 
-            // Создаем упрощенную структуру для сохранения в БД
-            const minimalData = {
-                gameData: {
+                console.log('Сохранение состояния. Текущий баланс:', this.balance,
+                    'Пассивный доход:', this.passiveIncome,
+                    'Энергия:', this.energy.current);
+
+                // Создаем упрощенную структуру для сохранения в БД
+                const minimalData = {
+                    gameData: {
+                        balance: Number(this.balance) || 0,
+                        passiveIncome: Number(this.passiveIncome) || 0,
+                        level: {
+                            current: Number(this.level.current) || 1,
+                            progress: Number(this.level.progress) || 0,
+                            title: String(this.level.title || 'Новичок')
+                        },
+                        // Включаем важные статистические данные
+                        stats: {
+                            totalClicks: Number(this.stats.totalClicks) || 0,
+                            totalEarned: Number(this.stats.totalEarned) || 0
+                        }
+                    },
+                    lastLogin: new Date().toISOString()
+                };
+
+                // Создаем структуру для сохранения в localStorage
+                const localStorageData = {
                     balance: Number(this.balance) || 0,
                     passiveIncome: Number(this.passiveIncome) || 0,
+                    energy: {
+                        current: Number(this.energy.current) || 0,
+                        max: Number(this.energy.max) || 1000,
+                        regenRate: Number(this.energy.regenRate) || 1,
+                        lastRegenTime: Number(this.energy.lastRegenTime) || Date.now()
+                    },
                     level: {
                         current: Number(this.level.current) || 1,
+                        max: Number(this.level.max) || 10,
                         progress: Number(this.level.progress) || 0,
-                        title: String(this.level.title || 'Новичок')
+                        title: String(this.level.title || 'Новичок'),
+                        levels: this.level.levels || []
                     },
-                    // Включаем важные статистические данные
-                    stats: {
-                        totalClicks: Number(this.stats.totalClicks) || 0,
-                        totalEarned: Number(this.stats.totalEarned) || 0
+                    multipliers: this.multipliers,
+                    boosts: this.boosts,
+                    investments: {
+                        purchased: JSON.parse(JSON.stringify(this.investments.purchased || [])),
+                        activeIncome: Number(this.investments.activeIncome) || 0,
+                        lastCalculation: Date.now()
+                    },
+                    stats: this.stats,
+                    userId: this.currentUser,
+                    lastSaved: new Date().toISOString()
+                };
+
+                // Сохраняем в localStorage с проверкой успешности
+                const localSaved = StorageService.saveState(localStorageData);
+                console.log('Сохранение в localStorage:', localSaved ? 'успешно' : 'ошибка', 'Баланс:', localStorageData.balance);
+
+                // Добавляем резервное сохранение на случай ошибки
+                if (!localSaved) {
+                    console.warn('Основное сохранение не удалось, используем резервное сохранение');
+                    try {
+                        localStorage.setItem('gameStateFallback', JSON.stringify({
+                            balance: this.balance,
+                            passiveIncome: this.passiveIncome,
+                            energy: this.energy,
+                            lastSaved: new Date().toISOString()
+                        }));
+                    } catch (e) {
+                        console.error('Ошибка резервного сохранения:', e);
                     }
-                },
-                lastLogin: new Date().toISOString()
-            };
+                }
 
-            // Создаем структуру для сохранения в localStorage
-            const localStorageData = {
-                balance: Number(this.balance) || 0,
-                passiveIncome: Number(this.passiveIncome) || 0,
-                energy: {
-                    current: Number(this.energy.current) || 0,
-                    max: Number(this.energy.max) || 1000,
-                    regenRate: Number(this.energy.regenRate) || 1,
-                    lastRegenTime: Number(this.energy.lastRegenTime) || Date.now()
-                },
-                level: {
-                    current: Number(this.level.current) || 1,
-                    max: Number(this.level.max) || 10,
-                    progress: Number(this.level.progress) || 0,
-                    title: String(this.level.title || 'Новичок'),
-                    levels: this.level.levels || []
-                },
-                multipliers: this.multipliers,
-                boosts: this.boosts,
-                investments: {
-                    purchased: this.investments.purchased,
-                    activeIncome: Number(this.investments.activeIncome) || 0,
-                    lastCalculation: Date.now()
-                },
-                stats: this.stats,
-                userId: this.currentUser,
-                lastSaved: new Date().toISOString()
-            };
+                // Сохраняем только самое необходимое на сервер
+                try {
+                    // Используем прямой подход для простоты отладки
+                    const API_URL = 'https://tg-game-tab-server.onrender.com';
+                    const response = await fetch(`${API_URL}/api/admin/users/${this.currentUser}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(minimalData)
+                    });
 
-            // Сохраняем в localStorage
-            const localSaved = StorageService.saveState(localStorageData);
-            console.log('Сохранение в localStorage:', localSaved ? 'успешно' : 'ошибка', 'Баланс:', localStorageData.balance);
-
-            // Сохраняем только самое необходимое на сервер
-            try {
-                // Используем прямой подход для простоты отладки
-                const API_URL = 'https://tg-game-tab-server.onrender.com';
-                const response = await fetch(`${API_URL}/api/admin/users/${this.currentUser}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(minimalData)
-                });
-
-                if (response.ok) {
-                    console.log('Базовые данные успешно сохранены на сервере. Баланс:', minimalData.gameData.balance);
-                    return true;
-                } else {
-                    const errorText = await response.text();
-                    console.error('Ошибка сохранения:', errorText);
+                    if (response.ok) {
+                        console.log('Базовые данные успешно сохранены на сервере. Баланс:', minimalData.gameData.balance);
+                        return true;
+                    } else {
+                        const errorText = await response.text();
+                        console.error('Ошибка сохранения:', errorText);
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Критическая ошибка при сохранении:', error);
                     return false;
                 }
             } catch (error) {
                 console.error('Критическая ошибка при сохранении:', error);
+// Пытаемся сохранить fallback данные при критической ошибке
+                try {
+                    localStorage.setItem('gameStateFallback', JSON.stringify({
+                        balance: this.balance,
+                        passiveIncome: this.passiveIncome,
+                        energy: {
+                            current: this.energy.current,
+                            max: this.energy.max,
+                            regenRate: this.energy.regenRate,
+                            lastRegenTime: Date.now()
+                        },
+                        lastSaved: new Date().toISOString()
+                    }));
+                } catch (e) {
+                    console.error('Ошибка резервного сохранения:', e);
+                }
                 return false;
             }
         },
@@ -338,7 +396,7 @@ export const useGameStore = defineStore('game', {
                             title: String(this.level.title || 'Новичок')
                         },
                         investments: {
-                            purchased: this.investments.purchased,
+                            purchased: JSON.parse(JSON.stringify(this.investments.purchased || [])),
                             activeIncome: Number(this.investments.activeIncome) || 0,
                             lastCalculation: Date.now()
                         },
@@ -355,7 +413,11 @@ export const useGameStore = defineStore('game', {
                     level: this.level,
                     multipliers: this.multipliers,
                     boosts: this.boosts,
-                    investments: this.investments,
+                    investments: {
+                        purchased: JSON.parse(JSON.stringify(this.investments.purchased || [])),
+                        activeIncome: Number(this.investments.activeIncome) || 0,
+                        lastCalculation: Date.now()
+                    },
                     stats: this.stats,
                     userId: this.currentUser,
                     lastSaved: new Date().toISOString()
@@ -445,39 +507,65 @@ export const useGameStore = defineStore('game', {
             return true;
         },
 
+        // Обновленный метод loadFromState
         loadFromState(state) {
             console.log('Loading state with data:', state);
 
-            // Устанавливаем значения с проверкой типов
-            this.balance = Number(state.balance) || 0;
-            this.passiveIncome = Number(state.passiveIncome) || 0;
+            try {
+                // Устанавливаем значения с проверкой типов
+                this.balance = Number(state.balance) || 0;
+                this.passiveIncome = Number(state.passiveIncome) || 0;
 
-            // Обновляем остальные данные, если они есть
-            if (state.energy) {
-                this.energy = {
-                    current: Number(state.energy.current) || this.energy.current,
-                    max: Number(state.energy.max) || this.energy.max,
-                    regenRate: Number(state.energy.regenRate) || this.energy.regenRate,
-                    lastRegenTime: Number(state.energy.lastRegenTime) || Date.now()
-                };
+                // Обновляем остальные данные, если они есть
+                if (state.energy) {
+                    // Проверяем lastRegenTime на корректность
+                    const lastRegenTime = Number(state.energy.lastRegenTime);
+
+                    this.energy = {
+                        current: Number(state.energy.current) || this.energy.current,
+                        max: Number(state.energy.max) || this.energy.max,
+                        regenRate: Number(state.energy.regenRate) || this.energy.regenRate,
+                        // Проверяем, что lastRegenTime - валидное число и не в будущем
+                        lastRegenTime: (!isNaN(lastRegenTime) && lastRegenTime <= Date.now())
+                            ? lastRegenTime : Date.now()
+                    };
+                }
+
+                if (state.level) {
+                    this.level = {
+                        current: Number(state.level.current) || this.level.current,
+                        max: Number(state.level.max) || this.level.max,
+                        progress: Number(state.level.progress) || this.level.progress,
+                        title: state.level.title || this.level.title,
+                        levels: state.level.levels || this.level.levels
+                    };
+                }
+
+                if (state.multipliers) this.multipliers = state.multipliers;
+                if (state.boosts) this.boosts = state.boosts;
+
+                // Глубокое копирование для инвестиций
+                if (state.investments) {
+                    this.investments = {
+                        purchased: state.investments.purchased ? JSON.parse(JSON.stringify(state.investments.purchased)) : [],
+                        activeIncome: Number(state.investments.activeIncome) || 0,
+                        lastCalculation: Number(state.investments.lastCalculation) || Date.now()
+                    };
+                }
+
+                if (state.stats) this.stats = state.stats;
+
+                console.log('State loaded successfully, balance:', this.balance,
+                    'passive income:', this.passiveIncome,
+                    'energy lastRegenTime:', new Date(this.energy.lastRegenTime).toISOString());
+            } catch (error) {
+                console.error('Error in loadFromState:', error);
+                // В случае ошибки обеспечиваем корректные значения по умолчанию
+                if (!this.energy || !this.energy.lastRegenTime) {
+                    this.energy = this.energy || {};
+                    this.energy.lastRegenTime = Date.now();
+                }
             }
-
-            if (state.level) {
-                this.level = {
-                    current: Number(state.level.current) || this.level.current,
-                    max: Number(state.level.max) || this.level.max,
-                    progress: Number(state.level.progress) || this.level.progress,
-                    title: state.level.title || this.level.title,
-                    levels: state.level.levels || this.level.levels
-                };
-            }
-
-            if (state.multipliers) this.multipliers = state.multipliers;
-            if (state.boosts) this.boosts = state.boosts;
-            if (state.investments) this.investments = state.investments;
-            if (state.stats) this.stats = state.stats;
-
-            console.log('State loaded successfully, balance:', this.balance, 'passive income:', this.passiveIncome);
         },
 
         resetToDefault() {
@@ -586,7 +674,7 @@ export const useGameStore = defineStore('game', {
             return Math.floor(num).toString()
         },
 
-        // Метод обработки пассивного дохода
+        // Обновленный метод обработки пассивного дохода
         processPassiveIncome() {
             if (this.passiveIncome > 0) {
                 const monthInSeconds = 30 * 24 * 60 * 60;
@@ -611,61 +699,77 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        // Метод запуска таймера пассивного дохода
+        // Обновленный метод запуска таймера пассивного дохода
         startPassiveIncomeTimer() {
+            // Очищаем предыдущие таймеры, если они были
+            if (this._passiveIncomeTimerId) clearInterval(this._passiveIncomeTimerId);
+            if (this._updateLevelTimerId) clearInterval(this._updateLevelTimerId);
+            if (this._autoSaveTimerId) clearInterval(this._autoSaveTimerId);
+
             // Сразу вызываем updateLevel при запуске таймера
             this.updateLevel();
 
-            // Запускаем обработку пассивного дохода 10 раз в секунду
-            setInterval(() => {
+            // Запускаем обработку пассивного дохода и сохраняем ID
+            this._passiveIncomeTimerId = setInterval(() => {
                 this.processPassiveIncome();
             }, 100);
 
-            // Дополнительно принудительно обновляем уровень каждые 10 секунд
-            // для гарантии актуальности данных
-            setInterval(() => {
+            // Обновляем уровень каждые 10 секунд
+            this._updateLevelTimerId = setInterval(() => {
                 this.updateLevel();
             }, 10000);
 
-            // Добавляем автосохранение каждые 30 секунд
-            setInterval(() => {
+            // Автосохранение каждые 30 секунд
+            this._autoSaveTimerId = setInterval(() => {
                 this.saveState();
             }, 30000);
+
+            console.log('Запущены таймеры пассивного дохода');
         },
 
-        // Метод обработки тапа (не меняем, так как работает корректно)
-        handleTap() {
-            if (this.canTap) {
-                this.energy.current -= 1;
-                const reward = this.effectiveTapValue;
-
-                // Явно обновляем баланс
-                this.balance += reward;
-                console.log('Баланс после тапа:', this.balance);
-
-                this.stats.totalClicks++;
-                this.stats.totalEarned += reward;
-
-                // Сохраняем состояние
-                this.saveState();
-
-                return reward;
+        // Метод остановки таймеров
+        stopPassiveIncomeTimer() {
+            if (this._passiveIncomeTimerId) {
+                clearInterval(this._passiveIncomeTimerId);
+                this._passiveIncomeTimerId = null;
             }
-            return 0;
+
+            if (this._updateLevelTimerId) {
+                clearInterval(this._updateLevelTimerId);
+                this._updateLevelTimerId = null;
+            }
+
+            if (this._autoSaveTimerId) {
+                clearInterval(this._autoSaveTimerId);
+                this._autoSaveTimerId = null;
+            }
+
+            console.log('Остановлены таймеры пассивного дохода');
         },
 
-        // Метод регенерации энергии (не меняем, так как работает корректно)
+        // Обновленный метод regenerateEnergy
         regenerateEnergy() {
-            const now = Date.now()
-            const deltaTime = (now - this.energy.lastRegenTime) / 1000
+            const now = Date.now();
+            const deltaTime = (now - this.energy.lastRegenTime) / 1000;
 
             if (this.energy.current < this.energy.max) {
+                const oldEnergy = this.energy.current;
                 this.energy.current = Math.min(
                     this.energy.max,
                     this.energy.current + (this.energy.regenRate * deltaTime)
-                )
-                this.energy.lastRegenTime = now
-                this.saveState()
+                );
+                this.energy.lastRegenTime = now;
+
+                // Ограничиваем сохранение - вызываем сохранение только если:
+                // 1. Прошло более 10 секунд с последнего сохранения энергии
+                // 2. ИЛИ энергия изменилась более чем на 5 единиц
+                if (!this._lastEnergyUpdateSave) this._lastEnergyUpdateSave = 0;
+
+                const energyChange = this.energy.current - oldEnergy;
+                if (Math.abs(energyChange) > 5 || now - this._lastEnergyUpdateSave > 10000) {
+                    this._lastEnergyUpdateSave = now;
+                    this.saveState();
+                }
             }
         },
 
@@ -977,9 +1081,13 @@ export const useGameStore = defineStore('game', {
             console.log('Запуск полного сброса прогресса...');
 
             try {
+                // Остановка всех таймеров перед сбросом
+                this.stopPassiveIncomeTimer();
+
                 // 1. Сначала очищаем все данные в localStorage
                 StorageService.clearState?.();
                 localStorage.removeItem('gameState'); // Теперь используем правильный ключ
+                localStorage.removeItem('gameStateFallback'); // Удаляем также резервную копию
                 localStorage.removeItem('preloadedGameSettings');
 
                 // 2. Сбрасываем состояние хранилища
