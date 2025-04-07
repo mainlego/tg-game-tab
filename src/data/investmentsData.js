@@ -1,51 +1,444 @@
+// src/data/investmentsData.js
 export const investmentsData = {
-    "finances": {
-        "title": "Финансы",
-        "type": "linear",
-        "items": [
-            { "id": "money_loan", "name": "Деньги в долг", "image": "../../images/growth/1.png", "cost": 1000, "baseIncome": 1500, "level": 1, "multiplier": 1.3, "required_level": 1 },
-            { "id": "bank_deposit", "name": "Банковский вклад", "image": "../../images/growth/2.png", "cost": 5000, "baseIncome": 5000, "level": 1, "multiplier": 1.3, "required_level": 1 },
-            { "id": "russian_stocks", "name": "Акции российских компаний", "image": "../../images/growth/3.png", "cost": 10000, "baseIncome": 10000, "level": 1, "multiplier": 1.3, "required_level": 2 },
-            { "id": "international_stocks", "name": "Акции международных компаний", "image": "../../images/growth/4.png", "cost": 50000, "baseIncome": 40000, "level": 1, "multiplier": 1.3, "required_level": 2 },
-            { "id": "ipo", "name": "IPO", "image": "../../images/growth/5.png", "cost": 100000, "baseIncome": 70000, "level": 1, "multiplier": 1.3, "required_level": 3 },
-            { "id": "bonds", "name": "Облигации", "image": "../../images/growth/6.png", "cost": 200000, "baseIncome": 120000, "level": 1, "multiplier": 1.3, "required_level": 3 },
-            { "id": "mutual_funds", "name": "Паевые фонды", "image": "../../images/growth/7.png", "cost": 500000, "baseIncome": 200000, "level": 1, "multiplier": 1.3, "required_level": 4 },
-            { "id": "trust_management", "name": "Доверительное управление", "image": "../../images/growth/8.png", "cost": 1000000, "baseIncome": 500000, "level": 1, "multiplier": 1.3, "required_level": 4 },
-            { "id": "stock_fund", "name": "Биржевой фонд", "image": "../../images/growth/9.png", "cost": 2000000, "baseIncome": 900000, "level": 1, "multiplier": 1.3, "required_level": 5 },
-            { "id": "swiss_deposit", "name": "Швейцарский вклад", "image": "../../images/growth/10.png", "cost": 5000000, "baseIncome": 2000000, "level": 1, "multiplier": 1.3, "required_level": 5 }
+    // Категория "Финансы"
+    finances: {
+        title: 'Финансы',
+        type: 'linear',
+        items: [
+            {
+                id: 'debt',
+                name: 'Деньги в долг',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.2,
+                costMultiplier: 1.5,
+                image: '/assets/images/growth/1.png'
+            },
+            {
+                id: 'bank',
+                name: 'Банковский вклад',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.2,
+                costMultiplier: 1.5,
+                image: '/assets/images/growth/2.png'
+            },
+            {
+                id: 'russian_stocks',
+                name: 'Акции российских компаний',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.25,
+                costMultiplier: 1.5,
+                image: '/assets/images/growth/3.png'
+            },
+            {
+                id: 'global_stocks',
+                name: 'Акции международных компаний',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.25,
+                costMultiplier: 1.5,
+                image: '/assets/images/growth/4.png'
+            },
+            {
+                id: 'ipo',
+                name: 'IPO',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.3,
+                costMultiplier: 1.6,
+                image: '/assets/images/growth/5.png'
+            },
+            {
+                id: 'bonds',
+                name: 'Облигации',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.15,
+                costMultiplier: 1.4,
+                image: '/assets/images/growth/6.png'
+            },
+            {
+                id: 'mutual_funds',
+                name: 'Паевые фонды',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.2,
+                costMultiplier: 1.5,
+                image: '/assets/images/growth/7.png'
+            },
+            {
+                id: 'trust_management',
+                name: 'Доверительное управление',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.25,
+                costMultiplier: 1.5,
+                image: '/assets/images/growth/8.png'
+            },
+            {
+                id: 'exchange_fund',
+                name: 'Биржевой фонд',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.22,
+                costMultiplier: 1.5,
+                image: '/assets/images/growth/9.png'
+            },
+            {
+                id: 'swiss_deposit',
+                name: 'Швейцарский вклад',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.28,
+                costMultiplier: 1.6,
+                image: '/assets/images/growth/10.png'
+            }
         ]
     },
-    "technology": {
-        "title": "Технологии",
-        "type": "parabolic",
-        "items": [
-            { "id": "blog", "name": "Блог", "image": "../../images/growth/11.png", "cost": 1200, "baseIncome": 2000, "level": 1, "multiplier": 1.5, "bonus_percent": 0.01, "required_level": 1 },
-            { "id": "telegram_channel", "name": "Телеграм канал", "image": "../../images/growth/12.png", "cost": 5000, "baseIncome": 5000, "level": 1, "multiplier": 1.5, "bonus_percent": 0.01, "required_level": 1 },
-            { "id": "youtube_channel", "name": "YouTube канал", "image": "../../images/growth/13.png", "cost": 10000, "baseIncome": 12000, "level": 1, "multiplier": 1.5, "bonus_percent": 0.01, "required_level": 2 },
-            { "id": "online_course", "name": "Онлайн курс", "image": "../../images/growth/14.png", "cost": 50000, "baseIncome": 60000, "level": 1, "multiplier": 1.5, "bonus_percent": 0.02, "required_level": 2 },
-            { "id": "advertising_sites", "name": "Рекламные места", "image": "../../images/growth/15.png", "cost": 200000, "baseIncome": 200000, "level": 1, "multiplier": 1.5, "bonus_percent": 0.02, "required_level": 3 }
+
+    // Категория "Технологии"
+    technology: {
+        title: 'Технологии',
+        type: 'exponential',
+        items: [
+            {
+                id: 'blog',
+                name: 'Блог',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.25,
+                costMultiplier: 1.5,
+                image: '/assets/images/growth/11.png'
+            },
+            {
+                id: 'telegram_channel',
+                name: 'Telegram-канал',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.3,
+                costMultiplier: 1.55,
+                image: '/assets/images/growth/12.png'
+            },
+            {
+                id: 'youtube_channel',
+                name: 'YouTube-каналы',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.35,
+                costMultiplier: 1.6,
+                image: '/assets/images/growth/13.png'
+            },
+            {
+                id: 'online_course',
+                name: 'Онлайн-курс',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.4,
+                costMultiplier: 1.65,
+                image: '/assets/images/growth/14.png'
+            },
+            {
+                id: 'ad_spots',
+                name: 'Рекламные места',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.3,
+                costMultiplier: 1.55,
+                image: '/assets/images/growth/15.png'
+            },
+            {
+                id: 'revenue_sites',
+                name: 'Доходные сайты',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.32,
+                costMultiplier: 1.58,
+                image: '/assets/images/growth/16.png'
+            },
+            {
+                id: 'crypto_miner',
+                name: 'Майнинг криптовалют',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.45,
+                costMultiplier: 1.7,
+                image: '/assets/images/growth/17.png'
+            },
+            {
+                id: 'algo_trading',
+                name: 'Алгоритмический трейдинг',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.4,
+                costMultiplier: 1.6,
+                image: '/assets/images/growth/18.png'
+            },
+            {
+                id: 'crypto_arbitrage',
+                name: 'Арбитраж крипты',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.38,
+                costMultiplier: 1.65,
+                image: '/assets/images/growth/19.png'
+            },
+            {
+                id: 'software_sales',
+                name: 'Продажа софта',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.36,
+                costMultiplier: 1.62,
+                image: '/assets/images/growth/20.png'
+            }
         ]
     },
-    "business": {
-        "title": "Бизнес",
-        "type": "exponential",
-        "items": [
-            { "id": "vending_machine", "name": "Вендинговый аппарат", "image": "../../images/growth/20.png", "cost": 7000, "baseIncome": 3000, "level": 1, "multiplier": 1.5, "required_level": 1 },
-            { "id": "coffee_shop", "name": "Кофейня", "image": "../../images/growth/21.png", "cost": 30000, "baseIncome": 8000, "level": 1, "multiplier": 1.5, "required_level": 1 },
-            { "id": "grocery_store", "name": "Продуктовый магазин", "image": "../../images/growth/22.png", "cost": 130000, "baseIncome": 25000, "level": 1, "multiplier": 1.5, "required_level": 2 },
-            { "id": "restaurant", "name": "Ресторан", "image": "../../images/growth/23.png", "cost": 300000, "baseIncome": 50000, "level": 1, "multiplier": 1.5, "required_level": 2 },
-            { "id": "car_dealership", "name": "Автосалон", "image": "../../images/growth/24.png", "cost": 500000, "baseIncome": 90000, "level": 1, "multiplier": 1.5, "required_level": 3 }
+
+    // Категория "Бизнес"
+    business: {
+        title: 'Бизнес',
+        type: 'parabolic',
+        items: [
+            {
+                id: 'vending_machine',
+                name: 'Вендинговый аппарат',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.2,
+                bonus_percent: 0.05,
+                costMultiplier: 1.5,
+                image: '/assets/images/growth/21.png'
+            },
+            {
+                id: 'car_rental',
+                name: 'Авто в аренду',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.25,
+                bonus_percent: 0.06,
+                costMultiplier: 1.55,
+                image: '/assets/images/growth/22.png'
+            },
+            {
+                id: 'coffee_shop',
+                name: 'Кофейня',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.3,
+                bonus_percent: 0.07,
+                costMultiplier: 1.6,
+                image: '/assets/images/growth/23.png'
+            },
+            {
+                id: 'meat_shop',
+                name: 'Мясной магазин',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.27,
+                bonus_percent: 0.065,
+                costMultiplier: 1.57,
+                image: '/assets/images/growth/24.png'
+            },
+            {
+                id: 'restaurant',
+                name: 'Ресторан',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.35,
+                bonus_percent: 0.08,
+                costMultiplier: 1.65,
+                image: '/assets/images/growth/25.png'
+            },
+            {
+                id: 'car_dealership',
+                name: 'Автосалон',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.4,
+                bonus_percent: 0.09,
+                costMultiplier: 1.7,
+                image: '/assets/images/growth/26.png'
+            },
+            {
+                id: 'hypermarket',
+                name: 'Гипермаркет',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.45,
+                bonus_percent: 0.1,
+                costMultiplier: 1.75,
+                image: '/assets/images/growth/27.png'
+            },
+            {
+                id: 'stadium',
+                name: 'Стадион',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.5,
+                bonus_percent: 0.12,
+                costMultiplier: 1.8,
+                image: '/assets/images/growth/28.png'
+            },
+            {
+                id: 'airport',
+                name: 'Аэропорт',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.6,
+                bonus_percent: 0.15,
+                costMultiplier: 2.0,
+                image: '/assets/images/growth/29.png'
+            },
+            {
+                id: 'seaport',
+                name: 'Порт',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.55,
+                bonus_percent: 0.14,
+                costMultiplier: 1.9,
+                image: '/assets/images/growth/30.png'
+            }
         ]
     },
-    "realestate": {
-        "title": "Недвижимость",
-        "type": "inverse_parabolic",
-        "items": [
-            { "id": "garage", "name": "Гараж", "image": "../../images/growth/29.png", "cost": 12000, "baseIncome": 8000, "level": 1, "multiplier": 1.3, "required_level": 1 },
-            { "id": "parking", "name": "Парковка", "image": "../../images/growth/30.png", "cost": 50000, "baseIncome": 15000, "level": 1, "multiplier": 1.3, "required_level": 1 },
-            { "id": "apartment", "name": "Квартира", "image": "../../images/growth/31.png", "cost": 70000, "baseIncome": 30000, "level": 1, "multiplier": 1.3, "required_level": 2 },
-            { "id": "house", "name": "Дом", "image": "../../images/growth/32.png", "cost": 250000, "baseIncome": 60000, "level": 1, "multiplier": 1.3, "required_level": 2 },
-            { "id": "dubai_house", "name": "Дом в Дубае", "image": "../../images/growth/33.png", "cost": 700000, "baseIncome": 150000, "level": 1, "multiplier": 1.3, "required_level": 3 }
+
+    // Категория "Недвижимость"
+    realestate: {
+        title: 'Недвижимость',
+        type: 'inverse_parabolic',
+        items: [
+            {
+                id: 'garage',
+                name: 'Гараж',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.15,
+                costMultiplier: 1.4,
+                image: '/assets/images/growth/31.png'
+            },
+            {
+                id: 'basement',
+                name: 'Подвал',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.12,
+                costMultiplier: 1.35,
+                image: '/assets/images/growth/32.png'
+            },
+            {
+                id: 'parking_spot',
+                name: 'Машино-место',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.13,
+                costMultiplier: 1.38,
+                image: '/assets/images/growth/33.png'
+            },
+            {
+                id: 'studio',
+                name: 'Студия',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.18,
+                costMultiplier: 1.45,
+                image: '/assets/images/growth/34.png'
+            },
+            {
+                id: 'apartment',
+                name: 'Девушка',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.2,
+                costMultiplier: 1.5,
+                image: '/assets/images/growth/35.png'
+            },
+            {
+                id: 'hostel',
+                name: 'Хостел в Москве',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.25,
+                costMultiplier: 1.55,
+                image: '/assets/images/growth/36.png'
+            },
+            {
+                id: 'elite_house',
+                name: 'Элитный загородный дом',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.35,
+                costMultiplier: 1.65,
+                image: '/assets/images/growth/37.png'
+            },
+            {
+                id: 'dubai_hotel',
+                name: 'Отель в Дубае',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.4,
+                costMultiplier: 1.7,
+                image: '/assets/images/growth/38.png'
+            },
+            {
+                id: 'dubai_mall',
+                name: 'Торговый центр в Дубае',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.45,
+                costMultiplier: 1.75,
+                image: '/assets/images/growth/39.png'
+            },
+            {
+                id: 'maldives_island',
+                name: 'Курортный остров на Мальдивах',
+                baseIncome: 1610,
+                level: 1,
+                cost: 2000,
+                multiplier: 1.5,
+                costMultiplier: 1.8,
+                image: '/assets/images/growth/40.png'
+            }
         ]
     }
-}
+};
