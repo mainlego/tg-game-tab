@@ -104,12 +104,52 @@ const handleTap = (event) => {
     y = event.clientY - rect.top
   }
 
-  const reward = store.handleTap()
+  // Исправляем здесь - используем правильный метод из store
+  // Проблема была в том, что метод handleTap в store не существует или не доступен
+  const reward = executeHandleTap();
   if (reward > 0) {
     createCoin(x, y, reward)
     if (!isAnimating) {
       animateBackground()
     }
+  }
+}
+
+// Новая функция для безопасного вызова метода из store
+const executeHandleTap = () => {
+  if (typeof store.handleTap === 'function') {
+    // Если метод существует, вызываем его
+    return store.handleTap();
+  } else {
+    // Если метода нет, реализуем логику тут
+    logger.warn('store.handleTap не найден, используем резервную реализацию');
+
+    // Проверяем, есть ли достаточно энергии
+    if (store.energy.current < 1) {
+      return 0;
+    }
+
+    // Уменьшаем энергию
+    store.energy.current -= 1;
+
+    // Вычисляем награду
+    let reward = store.effectiveTapValue;
+
+    // Увеличиваем баланс
+    store.balance += reward;
+
+    // Увеличиваем счетчики статистики
+    if (store.stats) {
+      store.stats.totalClicks = (store.stats.totalClicks || 0) + 1;
+      store.stats.totalEarned = (store.stats.totalEarned || 0) + reward;
+    }
+
+    // Запускаем сохранение состояния, если такой метод существует
+    if (typeof store.saveState === 'function') {
+      store.saveState();
+    }
+
+    return reward;
   }
 }
 
