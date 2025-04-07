@@ -25,11 +25,6 @@
           </div>
         </div>
 
-        <!-- Для активированных продуктов показываем сообщение об активации -->
-        <div class="product-activated" v-if="product.claimed">
-          <span>✓ Активировано</span>
-        </div>
-
         <!-- Замочек только для заблокированных продуктов -->
         <div class="product-status locked" v-if="!product.claimed && !isProductAvailable(product)" title="Заблокировано">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -74,7 +69,7 @@
               :disabled="!isProductAvailable(selectedProduct) || selectedProduct.claimed"
               @click="activateProduct"
           >
-            <span v-if="selectedProduct.claimed">Активировано</span>
+            <span v-if="selectedProduct.claimed">✓</span>
             <span v-else-if="isProductAvailable(selectedProduct)">Активировать</span>
             <span v-else>Недоступно</span>
           </button>
@@ -399,15 +394,6 @@ const formatMoney = (num) => {
 .passive__income_cart {
   width: 16px;
   height: 16px;
-}
-
-/* Стиль для сообщения об активации */
-.product-activated {
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 14px;
-  color: #4CAF50;
-  font-weight: 500;
 }
 
 .product-status {
