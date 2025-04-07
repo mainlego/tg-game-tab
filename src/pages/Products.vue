@@ -335,6 +335,7 @@ const formatMoney = (num) => {
   transition: all 0.3s ease;
   /* Выравнивание текста по центру для всей карточки */
   text-align: center;
+  min-height: 210px;
 }
 
 .product-card.product-available {
