@@ -250,6 +250,8 @@ html, body {
   background-size: cover;
 }
 
+
+
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;

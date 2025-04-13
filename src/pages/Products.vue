@@ -307,7 +307,7 @@ const formatMoney = (num) => {
 <style scoped>
 .products-page {
   min-height: 100vh;
-  padding: 78px 0  80px 0;
+  padding: 150px 0  80px 0;
   /* Используем тот же фон что и на главной странице */
   background: url('@/assets/images/bg.jpg') center top no-repeat;
   background-attachment: fixed;
