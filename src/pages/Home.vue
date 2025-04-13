@@ -21,7 +21,7 @@ import Navigation from '@/components/layout/Navigation.vue'
 <style scoped>
 .home {
   min-height: 100vh;
-  padding: 150px 0 0 0;
+  padding: 100px 0  80px 0;
   display: flex;
   flex-direction: column;
 }
